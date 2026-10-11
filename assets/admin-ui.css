@@ -1,0 +1,147 @@
+/* Sam's Class Manager - admin UI (menu groups, Team access, Guided tours, tour overlay) */
+
+/* ---------- Sam's School menu: group headings ---------- */
+#adminmenu .sdsc-menu-h {
+	margin: 8px 0 2px; padding: 6px 12px 2px; font-size: 10.5px; font-weight: 700; line-height: 1.3;
+	letter-spacing: .09em; text-transform: uppercase; color: rgba(240, 246, 252, .45); pointer-events: none;
+}
+#adminmenu .wp-submenu .sdsc-menu-h:first-child { margin-top: 0; }
+#adminmenu .wp-has-current-submenu .sdsc-menu-h { color: rgba(240, 246, 252, .5); }
+#adminmenu .opensub .wp-submenu .sdsc-menu-h, #adminmenu .wp-not-current-submenu .wp-submenu .sdsc-menu-h { color: #8c96a0; }
+#wpadminbar #wp-admin-bar-sdsc-help .ab-icon::before { content: "\f468"; top: 2px; }
+
+/* ---------- shared page bits ---------- */
+.sdsc-lead { max-width: 760px; font-size: 14px; line-height: 1.6; color: #3c434a; }
+.sdsc-role-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e7f5ec; color: #00703c; }
+.sdsc-role-chip--admin { background: #1d2327; color: #fff; }
+.sdsc-role-chip--manager { background: #e8f0fe; color: #1d4ed8; }
+.sdsc-role-chip--frontdesk { background: #fff4d6; color: #8a5a00; }
+
+/* ---------- Team access ---------- */
+.sdsc-team-roles { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+.sdsc-team-role { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px #dcdcde; }
+.sdsc-team-role span:not(.sdsc-team-dot) { color: #646970; }
+.sdsc-team-role a { margin-left: 4px; text-decoration: none; }
+.sdsc-team-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d2327; }
+.sdsc-team-role--instructor .sdsc-team-dot { background: #00703c; }
+.sdsc-team-role--frontdesk .sdsc-team-dot { background: #dba617; }
+.sdsc-team-role--manager .sdsc-team-dot { background: #1d4ed8; }
+.sdsc-team-table { max-width: 980px; border-radius: 10px; overflow: hidden; }
+.sdsc-team-table th, .sdsc-team-table td { vertical-align: middle; padding: 12px 14px; }
+.sdsc-team-table thead th { font-weight: 600; text-align: center; }
+.sdsc-team-table thead th:first-child, .sdsc-team-table td:first-child { text-align: left; }
+.sdsc-team-table td { text-align: center; }
+.sdsc-team-group th { background: #f6f7f7; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .08em; text-transform: uppercase; color: #50575e; padding: 8px 14px !important; }
+.sdsc-team-yes { color: #00703c; font-size: 18px; font-weight: 700; }
+.sdsc-team-lock { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #f0f0f1; color: #646970; font-size: 12px; }
+.sdsc-switch { position: relative; display: inline-block; width: 40px; height: 22px; cursor: pointer; }
+.sdsc-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.sdsc-switch span { position: absolute; inset: 0; border-radius: 999px; background: #c3c4c7; transition: background .2s; }
+.sdsc-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
+.sdsc-switch input:checked + span { background: #00703c; }
+.sdsc-switch input:checked + span::after { transform: translateX(18px); }
+.sdsc-switch input:focus-visible + span { outline: 2px solid #2271b1; outline-offset: 2px; }
+
+/* ---------- Guided tours page ---------- */
+.sdsc-tour-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; max-width: 1100px; margin-top: 18px; }
+.sdsc-tour-card {
+	display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 14px; border-radius: 12px; background: #fff; color: #1d2327;
+	text-decoration: none; box-shadow: 0 0 0 1px #dcdcde; transition: box-shadow .2s, transform .2s;
+}
+.sdsc-tour-card:hover, .sdsc-tour-card:focus { color: #1d2327; box-shadow: 0 0 0 2px #00703c, 0 10px 24px -14px rgba(0,0,0,.35); transform: translateY(-2px); outline: none; }
+.sdsc-tour-card.is-start { background: linear-gradient(135deg, #00703c, #0b5a2f); color: #fff; box-shadow: none; }
+.sdsc-tour-card.is-start:hover, .sdsc-tour-card.is-start:focus { color: #fff; box-shadow: 0 0 0 2px #ffc20e, 0 10px 24px -14px rgba(0,0,0,.45); }
+.sdsc-tour-card-t { font-size: 15px; font-weight: 600; }
+.sdsc-tour-card-d { font-size: 13px; line-height: 1.5; color: #646970; flex: 1; }
+.is-start .sdsc-tour-card-d { color: rgba(255,255,255,.85); }
+.sdsc-tour-card-f { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: #646970; }
+.is-start .sdsc-tour-card-f { color: rgba(255,255,255,.8); }
+.sdsc-tour-card-f b { margin-left: auto; color: #00703c; }
+.is-start .sdsc-tour-card-f b { color: #ffc20e; }
+.sdsc-tour-done { color: #00703c; }
+.sdsc-tour-new { padding: 1px 7px; border-radius: 999px; background: #ffc20e; color: #1d2327; font-weight: 600; }
+
+/* ---------- "Take the tour" button ---------- */
+.sdt-launch {
+	position: fixed; right: 22px; bottom: 22px; z-index: 9990; display: inline-flex; align-items: center; gap: 8px;
+	padding: 10px 16px 10px 12px; border: 0; border-radius: 999px; background: #1d2327; color: #fff; font-size: 13px; font-weight: 600;
+	cursor: pointer; box-shadow: 0 10px 28px -10px rgba(0,0,0,.55); transition: transform .2s, background .2s;
+}
+.sdt-launch:hover, .sdt-launch:focus-visible { background: #00703c; transform: translateY(-2px); outline: none; }
+.sdt-launch svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.sdt-launch.is-new::after { content: ""; position: absolute; top: 2px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #ffc20e; box-shadow: 0 0 0 0 rgba(255,194,14,.7); animation: sdt-ping 1.8s infinite; }
+@keyframes sdt-ping { 70% { box-shadow: 0 0 0 10px rgba(255,194,14,0); } 100% { box-shadow: 0 0 0 0 rgba(255,194,14,0); } }
+@media (max-width: 782px) { .sdt-launch { right: 12px; bottom: 12px; padding: 10px; } .sdt-launch span { display: none; } }
+
+/* ---------- tour overlay ---------- */
+.sdt { position: fixed; inset: 0; z-index: 100000; opacity: 0; transition: opacity .2s ease; }
+.sdt.is-on { opacity: 1; }
+.sdt-shade { position: absolute; inset: 0; }
+.sdt.is-center .sdt-shade { background: rgba(17, 17, 20, .48); }
+.sdt-spot {
+	position: absolute; pointer-events: none; border-radius: 12px;
+	box-shadow: 0 0 0 9999px rgba(17, 17, 20, .48), 0 0 0 2px rgba(255,255,255,.9), 0 0 0 5px rgba(255,194,14,.55);
+	transition: top .42s cubic-bezier(.22,1,.36,1), left .42s cubic-bezier(.22,1,.36,1), width .42s cubic-bezier(.22,1,.36,1), height .42s cubic-bezier(.22,1,.36,1), opacity .2s;
+}
+.sdt.is-center .sdt-spot { box-shadow: none; }
+.sdt-card {
+	position: absolute; width: 340px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 16px 16px 14px; border-radius: 16px;
+	background: #fff; color: #1d2327; box-shadow: 0 24px 60px -18px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.06);
+	transition: left .42s cubic-bezier(.22,1,.36,1), top .42s cubic-bezier(.22,1,.36,1), transform .2s;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.sdt.is-on .sdt-card { animation: sdt-in .26s cubic-bezier(.22,1,.36,1); }
+@keyframes sdt-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.sdt-card.sdt-nudge { transform: scale(1.02); }
+.sdt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sdt-title { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; color: #1d2327; }
+.sdt-x { margin: -4px -6px 0 0; padding: 4px; border: 0; border-radius: 6px; background: none; color: #8c8f94; cursor: pointer; }
+.sdt-x:hover { background: #f0f0f1; color: #1d2327; }
+.sdt-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; display: block; }
+.sdt-body { margin-top: 6px; font-size: 13.5px; line-height: 1.6; color: #50575e; }
+.sdt-body b { color: #1d2327; }
+.sdt-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; }
+.sdt-dots { display: flex; align-items: center; gap: 5px; }
+.sdt-dots span { width: 6px; height: 6px; border-radius: 999px; background: #dcdcde; transition: width .3s, background .3s; }
+.sdt-dots span.is-on { width: 16px; background: #00703c; }
+.sdt-count { font-size: 11.5px; color: #8c8f94; font-variant-numeric: tabular-nums; }
+.sdt-btns { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.sdt-btns button { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sdt-btns svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sdt-back { background: none; color: #646970; }
+.sdt-back:hover { background: #f0f0f1; color: #1d2327; }
+.sdt-next { background: #00703c; color: #fff; }
+.sdt-next:hover { background: #0b5a2f; }
+.sdt-next:focus-visible, .sdt-back:focus-visible, .sdt-x:focus-visible { outline: 2px solid #ffc20e; outline-offset: 2px; }
+.sdt--still, .sdt--still * { transition: none !important; animation: none !important; }
+
+/* v0.8.6: hidden parts of the tour card stay hidden */
+.sdt [hidden] { display: none !important; }
+
+/* ---------- What's new ---------- */
+.sdsc-upd-notice { border-left-color: #00703c !important; }
+.sdsc-upd-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #d63638; vertical-align: middle; }
+.sdsc-upd-new { max-width: 860px; margin: 16px 0 22px; padding: 14px 18px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px #dcdcde; }
+.sdsc-upd-new summary { cursor: pointer; font-weight: 600; color: #00703c; }
+.sdsc-upd-new[open] summary { margin-bottom: 12px; }
+.sdsc-upd-list { max-width: 860px; }
+.sdsc-upd-item { position: relative; margin: 0 0 16px; padding: 18px 22px; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px #dcdcde; }
+.sdsc-upd-item.is-new { box-shadow: 0 0 0 2px #00703c, 0 10px 24px -16px rgba(0,0,0,.35); }
+.sdsc-upd-item h2 { margin: 0 0 4px; font-size: 17px; }
+.sdsc-upd-meta { margin: 0 0 10px; color: #646970; font-size: 12px; }
+.sdsc-upd-new-tag { float: right; padding: 2px 9px; border-radius: 999px; background: #ffc20e; color: #1d2327; font-size: 11px; font-weight: 700; }
+.sdsc-upd-body { font-size: 14px; line-height: 1.65; color: #2c3338; }
+.sdsc-upd-body ul { list-style: disc; padding-left: 20px; }
+.sdsc-upd-actions { margin: 10px 0 0; font-size: 12px; }
+.sdsc-upd-actions .sdsc-del { color: #b32d2e; }
+.sdsc-upd-mini { margin: 0; }
+.sdsc-upd-mini li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f1; }
+.sdsc-upd-mini span { color: #8c8f94; white-space: nowrap; }
+
+/* ---------- Email ---------- */
+.sdsc-mail .widefat, .sdsc-mail .form-table { max-width: 980px; }
+.sdsc-mail h2 { margin-top: 28px; }
+.sdsc-ok { color: #00703c; font-weight: 700; }
+.sdsc-bad { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #d63638; color: #fff; font-weight: 700; font-size: 12px; }
+.sdsc-mail-prev { display: block; width: 100%; max-width: 680px; height: 640px; border: 0; border-radius: 12px; box-shadow: 0 0 0 1px #dcdcde; background: #f6f4ee; }
+.sdsc-tours-h2 { margin: 34px 0 4px; font-size: 18px; }

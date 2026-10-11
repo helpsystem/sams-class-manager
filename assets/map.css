@@ -1,0 +1,141 @@
+/* Sam's Class Manager — "Find us" map block + directions chooser */
+.sdmap {
+	--sdm-green: #00703c; --sdm-green-d: #04502a; --sdm-ink: #15191d; --sdm-yel: #ffc20e; --sdm-paper: #f6f4ee;
+	display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: clamp(16px, 2.4vw, 28px);
+	align-items: stretch; max-width: 1180px; margin: clamp(20px, 4vw, 48px) auto; padding: 0 16px;
+	font-family: Overpass, system-ui, -apple-system, "Segoe UI", sans-serif; box-sizing: border-box;
+}
+.sdmap *, .sdmap *::before, .sdmap *::after { box-sizing: border-box; }
+.sdmap svg { width: 1em; height: 1em; flex: none; }
+
+/* Info card drawn as a green highway guide sign */
+.sdmap-sign {
+	position: relative; border-radius: 18px; padding: 7px;
+	background: linear-gradient(160deg, #0b8a4c, var(--sdm-green) 45%, var(--sdm-green-d));
+	box-shadow: 0 24px 50px -24px rgba(4, 50, 26, .7), inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+.sdmap-sign-in {
+	height: 100%; border: 2.5px solid rgba(255, 255, 255, .92); border-radius: 13px;
+	padding: clamp(18px, 2.4vw, 26px); color: #fff; display: flex; flex-direction: column; gap: 12px;
+}
+.sdmap-kicker {
+	margin: 0 !important; display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+	padding: 4px 10px 3px; border-radius: 6px; background: var(--sdm-yel); color: #1b1b1b !important;
+	font-size: .72rem !important; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+}
+.sdmap-name { margin: 2px 0 0 !important; color: #fff !important; font-size: clamp(1.5rem, 2.6vw, 1.95rem) !important; font-weight: 900 !important; line-height: 1.1 !important; letter-spacing: .01em; }
+.sdmap-addr { margin: 0; font-style: normal; font-size: 1.08rem; font-weight: 700; line-height: 1.45; color: rgba(255, 255, 255, .95); }
+
+.sdmap-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.sdmap-open, .sdmap-rate {
+	display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 4px; border-radius: 999px;
+	background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
+	color: #fff !important; font-size: .86rem; font-weight: 700; text-decoration: none !important;
+}
+.sdmap-open[hidden] { display: none; }
+.sdmap-open::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ff5a4f; box-shadow: 0 0 8px #ff5a4f; }
+.sdmap-open.is-open::before { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+.sdmap-open svg { display: none; }
+.sdmap-rate svg { color: var(--sdm-yel); }
+.sdmap-rate:hover { background: rgba(0, 0, 0, .34); }
+
+.sdmap-go-l { margin: 6px 0 -4px !important; font-size: .75rem !important; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .78) !important; }
+.sdmap-go { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sdmap-app {
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 64px;
+	padding: 10px 6px; border-radius: 11px; background: #fff; color: var(--sdm-ink) !important;
+	font-size: .84rem; font-weight: 800; line-height: 1.1; text-align: center; text-decoration: none !important;
+	box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .55); transition: transform .2s, box-shadow .2s, background .2s;
+}
+.sdmap-app svg { width: 22px; height: 22px; color: var(--sdm-green); }
+.sdmap-app:hover, .sdmap-app:focus-visible { transform: translateY(-2px); box-shadow: 0 12px 22px -10px rgba(0, 0, 0, .6); outline: none; }
+.sdmap-app:focus-visible { box-shadow: 0 0 0 3px var(--sdm-yel); }
+.sdmap-app.is-first { background: var(--sdm-yel); }
+.sdmap-app.is-first svg { color: #1b1b1b; }
+
+.sdmap-sub { display: flex; flex-wrap: wrap; gap: 8px; }
+.sdmap-copy, .sdmap-call {
+	flex: 1 1 140px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
+	padding: 8px 12px; border-radius: 10px; border: 0; cursor: pointer; font: inherit; font-size: .9rem; font-weight: 800;
+	background: rgba(0, 0, 0, .22); color: #fff !important; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .5);
+	text-decoration: none !important; transition: background .2s;
+}
+.sdmap-copy:hover, .sdmap-call:hover { background: rgba(0, 0, 0, .36); }
+.sdmap-copy:focus-visible, .sdmap-call:focus-visible { outline: 3px solid var(--sdm-yel); outline-offset: 2px; }
+.sdmap-copy.is-done { background: #fff; color: var(--sdm-green) !important; }
+
+.sdmap-hours { margin-top: 2px; border-top: 1px solid rgba(255, 255, 255, .25); padding-top: 10px; }
+.sdmap-hours summary { cursor: pointer; font-weight: 800; font-size: .9rem; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.sdmap-hours summary::-webkit-details-marker { display: none; }
+.sdmap-hours summary::after { content: "+"; font-size: 1.2rem; line-height: 1; }
+.sdmap-hours[open] summary::after { content: "–"; }
+.sdmap-hours table { width: 100%; margin: 8px 0 0 !important; border-collapse: collapse; border: 0 !important; font-size: .88rem; }
+.sdmap-hours th, .sdmap-hours td { padding: 4px 0 !important; border: 0 !important; background: none !important; color: rgba(255, 255, 255, .9) !important; text-align: left; font-weight: 600; }
+.sdmap-hours td { text-align: right; }
+.sdmap-hours tr.is-today th, .sdmap-hours tr.is-today td { color: var(--sdm-yel) !important; font-weight: 900; }
+
+/* Map frame */
+.sdmap-frame {
+	position: relative; min-height: 440px; border-radius: 18px; overflow: hidden; background: #dfe5dc;
+	box-shadow: 0 24px 50px -26px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(0, 0, 0, .08);
+}
+.sdmap-frame::before { /* road edge stripe */
+	content: ""; position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 6px; pointer-events: none;
+	background: repeating-linear-gradient(90deg, var(--sdm-yel) 0 28px, #1b1b1b 28px 44px);
+}
+.sdmap-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.sdmap-big {
+	position: absolute; z-index: 2; right: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px;
+	padding: 9px 14px 8px; border-radius: 999px; background: #fff; color: var(--sdm-ink) !important;
+	font-size: .85rem; font-weight: 800; text-decoration: none !important; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .5);
+}
+.sdmap-big:hover { background: var(--sdm-yel); }
+
+@media (max-width: 860px) {
+	.sdmap { grid-template-columns: 1fr; }
+	.sdmap-frame { min-height: 0; height: 340px; order: -1; }
+}
+@media (max-width: 380px) {
+	.sdmap-app { font-size: .76rem; min-height: 58px; }
+}
+
+/* ---------- Directions chooser (address links site-wide) ---------- */
+.sdnav { position: fixed; inset: 0; z-index: 100000; display: grid; align-items: end; justify-items: center; font-family: Overpass, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.sdnav *, .sdnav *::before, .sdnav *::after { box-sizing: border-box; }
+.sdnav[hidden] { display: none; }
+.sdnav-bg { position: absolute; inset: 0; background: rgba(6, 12, 20, .55); backdrop-filter: blur(2px); animation: sdnav-fade .2s ease; }
+.sdnav-box {
+	position: relative; width: min(440px, 100%); margin: 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+	border-radius: 20px 20px 0 0; background: #fff; color: #15191d; box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, .5);
+	animation: sdnav-up .26s cubic-bezier(.2, .8, .2, 1);
+}
+.sdnav-box h2 { margin: 0 0 2px !important; font-size: 1.15rem !important; font-weight: 900 !important; color: #15191d !important; }
+.sdnav-box p { margin: 0 0 14px !important; color: #57616b !important; font-size: .92rem !important; }
+.sdnav-list { display: grid; gap: 8px; }
+.sdnav-list a, .sdnav-list button {
+	display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 10px 14px; border: 0; border-radius: 12px;
+	background: #f2f4f1; color: #15191d !important; font: inherit; font-size: 1rem; font-weight: 800; text-align: left; cursor: pointer; text-decoration: none !important;
+}
+.sdnav-list a:hover, .sdnav-list button:hover, .sdnav-list a:focus-visible, .sdnav-list button:focus-visible { background: #e3f1e8; outline: none; box-shadow: inset 0 0 0 2px #00703c; }
+.sdnav-list svg { width: 22px; height: 22px; color: #00703c; flex: none; }
+.sdnav-list .is-first { background: #fff4cc; }
+.sdnav-x { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f2f4f1; color: #15191d; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+@media (min-width: 640px) {
+	.sdnav { align-items: center; }
+	.sdnav-box { border-radius: 20px; padding-bottom: 18px; }
+}
+@keyframes sdnav-up { from { transform: translateY(24px); opacity: 0; } }
+@keyframes sdnav-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+	.sdnav-box, .sdnav-bg { animation: none; }
+	.sdmap-app { transition: none; }
+}
+.sdmap-copy, .sdmap-call { white-space: nowrap; }
+@media (max-width: 420px) { .sdmap-copy, .sdmap-call { font-size: .82rem; padding: 8px 8px; gap: 5px; } }
+/* Adapt to the column it sits in (e.g. a narrow Elementor column), not just the screen */
+.sdmap-wrap { container-type: inline-size; width: 100%; }
+.sdmap-wrap .sdmap { padding: 0; margin: 0 auto; }
+@container (max-width: 760px) {
+	.sdmap { grid-template-columns: 1fr !important; }
+	.sdmap-frame { order: -1; min-height: 0 !important; height: 320px; }
+}

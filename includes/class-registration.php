@@ -1,0 +1,765 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+/**
+ * Native student registration form (replaces the Forminator "Registration Forms" form).
+ *
+ * - Public shortcode: [sdsc_registration_form] (optional attr: course="C-68").
+ *   The course can also be preselected with ?course=C-68 in the page URL.
+ * - Data is stored in {prefix}sdsc_registrations. Signatures are stored as PNG
+ *   blobs in the database (never as public files) and are only served to
+ *   administrators through an authenticated endpoint.
+ * - Each registration also creates/updates an sdsc_registrant for the chosen
+ *   class, marked "form done", so the existing class dashboard keeps working.
+ * - WP-CLI: `wp sdsc import-forminator --form=526 [--dry-run]` imports old entries.
+ */
+class SDSC_Registration {
+	const DB_VERSION   = '1';
+	const DB_OPTION    = 'sdsc_registration_db_version';
+	const REPORT_SOURCE = -1; // pseudo "form id" used by the reports portal
+	const MAX_SIG_BYTES = 400000;
+
+	public static function table() {
+		global $wpdb;
+		return $wpdb->prefix . 'sdsc_registrations';
+	}
+
+	public static function init() {
+		add_action( 'plugins_loaded', array( __CLASS__, 'maybe_install' ), 20 );
+		add_shortcode( 'sdsc_registration_form', array( __CLASS__, 'shortcode' ) );
+		add_action( 'admin_post_nopriv_sdsc_register', array( __CLASS__, 'handle_submit' ) );
+		add_action( 'admin_post_sdsc_register', array( __CLASS__, 'handle_submit' ) );
+		add_action( 'admin_post_sdsc_sig', array( __CLASS__, 'serve_signature' ) );
+		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 30 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'register_assets' ) );
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			WP_CLI::add_command( 'sdsc import-forminator', array( __CLASS__, 'cli_import' ) );
+		}
+	}
+
+	/* ============================= Install ============================= */
+
+	public static function maybe_install() {
+		if ( get_option( self::DB_OPTION ) !== self::DB_VERSION ) {
+			self::install();
+		}
+	}
+
+	public static function install() {
+		global $wpdb;
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$t       = self::table();
+		$charset = $wpdb->get_charset_collate();
+		dbDelta( "CREATE TABLE $t (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			created_at datetime NOT NULL,
+			source varchar(20) NOT NULL DEFAULT 'native',
+			source_entry_id bigint(20) unsigned DEFAULT NULL,
+			class_id bigint(20) unsigned DEFAULT NULL,
+			registrant_id bigint(20) unsigned DEFAULT NULL,
+			first_name varchar(100) NOT NULL DEFAULT '',
+			middle_name varchar(100) NOT NULL DEFAULT '',
+			last_name varchar(100) NOT NULL DEFAULT '',
+			dob date DEFAULT NULL,
+			age smallint(5) unsigned DEFAULT NULL,
+			gender varchar(20) NOT NULL DEFAULT '',
+			email varchar(190) NOT NULL DEFAULT '',
+			phone varchar(40) NOT NULL DEFAULT '',
+			parent_name varchar(200) NOT NULL DEFAULT '',
+			parent_phone varchar(40) NOT NULL DEFAULT '',
+			street varchar(200) NOT NULL DEFAULT '',
+			apt varchar(100) NOT NULL DEFAULT '',
+			city varchar(100) NOT NULL DEFAULT '',
+			state varchar(50) NOT NULL DEFAULT '',
+			zip varchar(20) NOT NULL DEFAULT '',
+			consent tinyint(1) NOT NULL DEFAULT 0,
+			signed_date date DEFAULT NULL,
+			notes text NULL,
+			ip varchar(64) NOT NULL DEFAULT '',
+			student_sig mediumblob NULL,
+			parent_sig mediumblob NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY source_entry (source,source_entry_id),
+			KEY email (email),
+			KEY class_id (class_id)
+		) $charset;" );
+		update_option( self::DB_OPTION, self::DB_VERSION, false );
+	}
+
+	/* ============================= Public form ============================= */
+
+	public static function register_assets() {
+		wp_register_style( 'sdsc-registration', SDSC_URL . 'assets/registration.css', array( 'sdsc-brand' ), SDSC_VERSION );
+		wp_register_script( 'sdsc-datepicker', SDSC_URL . 'assets/datepicker.js', array(), SDSC_VERSION, true );
+		wp_register_script( 'sdsc-registration', SDSC_URL . 'assets/registration.js', array( 'sdsc-datepicker' ), SDSC_VERSION, true );
+	}
+
+	/** Classes that are open for registration (upcoming or active, not ended). */
+	public static function open_classes() {
+		$posts = get_posts( array(
+			'post_type'      => SDSC_CPT_Classes::CPT,
+			'post_status'    => 'publish',
+			'posts_per_page' => 50,
+			'meta_key'       => '_sdsc_start',
+			'orderby'        => 'meta_value',
+			'order'          => 'ASC',
+		) );
+		$now = current_time( 'Y-m-d\TH:i' );
+		$out = array();
+		foreach ( $posts as $p ) {
+			$status = get_post_meta( $p->ID, '_sdsc_status', true ) ?: 'upcoming';
+			$end    = get_post_meta( $p->ID, '_sdsc_end', true );
+			if ( ! in_array( $status, array( 'upcoming', 'active' ), true ) ) { continue; }
+			if ( $end && $end < $now ) { continue; }
+			$out[] = $p;
+		}
+		return $out;
+	}
+
+	public static function class_label( $class_id ) {
+		$code  = get_post_meta( $class_id, '_sdsc_course_code', true );
+		$start = get_post_meta( $class_id, '_sdsc_start', true );
+		$when  = $start ? date_i18n( 'M j, Y', strtotime( $start ) ) : '';
+		$label = get_the_title( $class_id );
+		return trim( $label . ( $when ? ' — starts ' . $when : '' ) . ( $code ? ' (' . $code . ')' : '' ) );
+	}
+
+	public static function find_class_by_code( $code ) {
+		if ( ! $code ) { return 0; }
+		$p = get_posts( array(
+			'post_type'      => SDSC_CPT_Classes::CPT,
+			'post_status'    => 'publish',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'meta_query'     => array( array( 'key' => '_sdsc_course_code', 'value' => $code ) ),
+		) );
+		return $p ? (int) $p[0] : 0;
+	}
+
+	const LOGO_URL = '/wp-content/uploads/2025/10/cropped-logo-1-e1760971082483.png';
+
+	/** Inline SVG of the school car (side view), used in the progress road and success screen. */
+	public static function car_svg() {
+		return '<svg class="sdsc-car-svg" viewBox="0 0 120 48" aria-hidden="true" focusable="false">'
+			. '<path d="M8 34c0-6 3-9 9-10l14-2 13-10c3-2 6-3 10-3h22c4 0 7 1 10 4l9 9 11 2c5 1 7 4 7 8v4c0 2-1 3-3 3H11c-2 0-3-1-3-3z" fill="#5b6470"/>'
+			. '<path d="M48 13c2-2 4-2 7-2h20c3 0 5 1 7 3l7 8H38z" fill="#cfe6f5"/>'
+			. '<path d="M64 11h2v11h-2z" fill="#5b6470"/>'
+			. '<path d="M14 30h96" stroke="#2fae4f" stroke-width="3" stroke-linecap="round"/>'
+			. '<rect x="70" y="25" width="16" height="3" rx="1.5" fill="#ffd700"/>'
+			. '<circle cx="104" cy="31" r="2" fill="#ffd700"/>'
+			. '<g class="sdsc-wheel"><circle cx="32" cy="38" r="8" fill="#1f2933"/><circle cx="32" cy="38" r="3.5" fill="#cbd2d9"/><path d="M32 31v14M25 38h14" stroke="#1f2933" stroke-width="1.2"/></g>'
+			. '<g class="sdsc-wheel"><circle cx="94" cy="38" r="8" fill="#1f2933"/><circle cx="94" cy="38" r="3.5" fill="#cbd2d9"/><path d="M94 31v14M87 38h14" stroke="#1f2933" stroke-width="1.2"/></g>'
+			. '</svg>';
+	}
+
+	protected static function field( $name, $label, $type = 'text', $req = false, $extra = '' ) {
+		return '<label class="sdsc-field"><input type="' . esc_attr( $type ) . '" name="' . esc_attr( $name ) . '" placeholder=" " ' . ( $req ? 'required ' : '' ) . $extra . ' />'
+			. '<span>' . esc_html( $label ) . ( $req ? ' <b>*</b>' : '' ) . '</span></label>';
+	}
+
+	public static function shortcode( $atts ) {
+		$atts = shortcode_atts( array( 'course' => '' ), $atts, 'sdsc_registration_form' );
+		wp_enqueue_style( 'sdsc-registration' );
+		wp_enqueue_script( 'sdsc-registration' );
+
+		$result = isset( $_GET['sdsc_reg'] ) ? sanitize_key( $_GET['sdsc_reg'] ) : '';
+		if ( 'done' === $result ) {
+			$class_id = isset( $_GET['sdsc_class'] ) ? absint( $_GET['sdsc_class'] ) : 0;
+			return self::render_success( $class_id );
+		}
+
+		$classes  = self::open_classes();
+		$want     = $atts['course'] ? $atts['course'] : ( isset( $_GET['course'] ) ? sanitize_text_field( wp_unslash( $_GET['course'] ) ) : '' );
+		$selected = self::find_class_by_code( $want );
+		$error    = 'error' === $result && isset( $_GET['sdsc_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_msg'] ) ) : '';
+		$steps    = array( 'Course', 'Student', 'Parent', 'Address', 'Sign' );
+
+		ob_start();
+		?>
+		<div class="sdsc-reg" id="sdsc">
+			<div class="sdsc-reg-card">
+				<header class="sdsc-reg-head">
+					<?php echo SDSC_Brand::logo( 'wide', 'sdsc-reg-logo', 46 ); // phpcs:ignore -- escaped in helper ?>
+					<div>
+						<h2 class="sdsc-reg-title">Student Registration</h2>
+						<p class="sdsc-reg-sub">Takes about 3 minutes. Your information is kept private.</p>
+					</div>
+				</header>
+
+				<div class="sdsc-road" aria-hidden="true">
+					<div class="sdsc-road-track"><span class="sdsc-road-fill"></span></div>
+					<div class="sdsc-road-car"><?php echo SDSC_Brand::car( 'right' ); // phpcs:ignore ?></div>
+					<span class="sdsc-road-flag">🏁</span>
+				</div>
+				<ol class="sdsc-steps-nav">
+					<?php foreach ( $steps as $i => $s ) : ?>
+						<li data-step="<?php echo (int) $i; ?>" class="<?php echo 0 === $i ? 'is-active' : ''; ?>"><span><?php echo (int) $i + 1; ?></span><?php echo esc_html( $s ); ?></li>
+					<?php endforeach; ?>
+				</ol>
+
+				<?php if ( $error ) : ?>
+					<div class="sdsc-reg-alert" role="alert"><?php echo esc_html( $error ); ?></div>
+				<?php endif; ?>
+
+				<form class="sdsc-reg-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" novalidate>
+					<input type="hidden" name="action" value="sdsc_register" />
+					<input type="hidden" name="sdsc_return" value="<?php echo esc_url( get_permalink() ); ?>" />
+					<input type="hidden" name="sdsc_js" value="" class="sdsc-js-check" />
+					<div class="sdsc-hp" aria-hidden="true"><label>Leave this empty <input type="text" name="sdsc_website" tabindex="-1" autocomplete="off" /></label></div>
+
+					<section class="sdsc-step is-active" data-step="0">
+						<h3>Choose your course</h3>
+						<?php if ( $classes ) : ?>
+							<div class="sdsc-courses" role="radiogroup" aria-label="Course">
+								<?php foreach ( $classes as $c ) :
+									$start = get_post_meta( $c->ID, '_sdsc_start', true );
+									$end   = get_post_meta( $c->ID, '_sdsc_end', true );
+									$days  = get_post_meta( $c->ID, '_sdsc_days_time', true );
+									$price = get_post_meta( $c->ID, '_sdsc_price', true );
+									$code  = get_post_meta( $c->ID, '_sdsc_course_code', true );
+									?>
+									<label class="sdsc-course">
+										<input type="radio" name="class_id" value="<?php echo esc_attr( $c->ID ); ?>" required <?php checked( $selected, $c->ID ); ?> />
+										<span class="sdsc-course-body">
+											<span class="sdsc-course-name"><?php echo esc_html( get_the_title( $c ) ); ?></span>
+											<span class="sdsc-course-meta">
+												<?php if ( $start ) : ?><span>📅 <?php echo esc_html( date_i18n( 'D, M j', strtotime( $start ) ) . ( $end ? ' – ' . date_i18n( 'M j, Y', strtotime( $end ) ) : '' ) ); ?></span><?php endif; ?>
+												<?php if ( $days ) : ?><span>🕘 <?php echo esc_html( $days ); ?></span><?php endif; ?>
+												<?php if ( $code ) : ?><span class="sdsc-code"><?php echo esc_html( $code ); ?></span><?php endif; ?>
+											</span>
+										</span>
+										<?php if ( '' !== $price ) : ?><span class="sdsc-course-price">$<?php echo esc_html( number_format_i18n( (float) $price, ( floor( (float) $price ) == (float) $price ) ? 0 : 2 ) ); ?></span><?php endif; ?>
+									</label>
+								<?php endforeach; ?>
+							</div>
+						<?php else : ?>
+							<p class="sdsc-note">There are no open courses right now. Please call us at <a href="tel:+13017263030">(301) 726-3030</a> and we'll help you find the next class.</p>
+						<?php endif; ?>
+					</section>
+
+					<section class="sdsc-step" data-step="1">
+						<h3>Student information</h3>
+						<div class="sdsc-grid">
+							<?php
+							echo self::field( 'first_name', 'First name', 'text', true, 'maxlength="100" autocomplete="given-name"' );
+							echo self::field( 'middle_name', 'Middle name', 'text', false, 'maxlength="100" autocomplete="additional-name"' );
+							echo self::field( 'last_name', 'Last name', 'text', true, 'maxlength="100" autocomplete="family-name"' );
+							echo self::field( 'dob', 'Date of birth', 'date', true, 'class="sdsc-dob sdsc-datepicker" min="1920-01-01" max="' . esc_attr( current_time( 'Y-m-d' ) ) . '"' );
+							?>
+							<label class="sdsc-field sdsc-select"><select name="gender"><option value="">Prefer not to say</option><option>Male</option><option>Female</option></select><span>Gender</span></label>
+							<?php
+							echo self::field( 'email', 'Email', 'email', true, 'maxlength="190" autocomplete="email"' );
+							echo self::field( 'phone', 'Phone', 'tel', true, 'maxlength="40" autocomplete="tel"' );
+							?>
+						</div>
+					</section>
+
+					<section class="sdsc-step" data-step="2">
+						<h3>Parent / guardian</h3>
+						<p class="sdsc-note sdsc-minor-note">Because the student is under 18, a parent or guardian needs to sign.</p>
+						<p class="sdsc-note sdsc-adult-note">The student is 18 or older, so this step is optional.</p>
+						<div class="sdsc-grid">
+							<?php
+							echo self::field( 'parent_name', 'Parent / guardian full name', 'text', false, 'maxlength="200" data-minor-required="1"' );
+							echo self::field( 'parent_phone', 'Parent / guardian phone', 'tel', false, 'maxlength="40" data-minor-required="1"' );
+							?>
+						</div>
+						<div class="sdsc-sig" data-name="parent_sig" data-minor-required="1">
+							<span class="sdsc-sig-label">Parent / guardian signature</span>
+							<div class="sdsc-sig-paper"><canvas class="sdsc-sig-pad" height="170"></canvas><span class="sdsc-sig-hint">Sign here with your finger or mouse</span></div>
+							<button type="button" class="sdsc-sig-clear">Clear</button>
+							<input type="hidden" name="parent_sig" />
+						</div>
+					</section>
+
+					<section class="sdsc-step" data-step="3">
+						<h3>Home address</h3>
+						<div class="sdsc-grid">
+							<?php
+							echo self::field( 'street', 'Street address', 'text', true, 'maxlength="200" autocomplete="address-line1"' );
+							echo self::field( 'apt', 'Apartment, suite, etc.', 'text', false, 'maxlength="100" autocomplete="address-line2"' );
+							echo self::field( 'city', 'City', 'text', true, 'maxlength="100" autocomplete="address-level2"' );
+							echo self::field( 'state', 'State', 'text', false, 'maxlength="50" value="MD" autocomplete="address-level1"' );
+							echo self::field( 'zip', 'ZIP code', 'text', true, 'maxlength="20" inputmode="numeric" autocomplete="postal-code"' );
+							?>
+						</div>
+					</section>
+
+					<section class="sdsc-step" data-step="4">
+						<h3>Review &amp; sign</h3>
+						<div class="sdsc-sig" data-name="student_sig" data-required="1">
+							<span class="sdsc-sig-label">Student signature <b>*</b></span>
+							<div class="sdsc-sig-paper"><canvas class="sdsc-sig-pad" height="170"></canvas><span class="sdsc-sig-hint">Sign here with your finger or mouse</span></div>
+							<button type="button" class="sdsc-sig-clear">Clear</button>
+							<input type="hidden" name="student_sig" />
+						</div>
+						<label class="sdsc-consent">
+							<input type="checkbox" name="consent" value="1" required />
+							<span>I confirm that I have read and fully understood the forms, <a href="<?php echo esc_url( home_url( '/policy/' ) ); ?>" target="_blank" rel="noopener">policies, and terms and conditions</a>, and I agree to all the stipulated terms. <b>*</b></span>
+						</label>
+						<label class="sdsc-consent sdsc-consent--optional">
+							<input type="checkbox" name="offers" value="1" />
+							<span>Yes, send me birthday wishes, new class dates and special offers by e-mail and text message. <em>Optional — you can stop at any time.</em></span>
+						</label>
+					</section>
+
+					<div class="sdsc-reg-error" role="alert" hidden></div>
+					<div class="sdsc-nav">
+						<button type="button" class="sdsc-btn sdsc-btn-ghost sdsc-prev" hidden>&larr; Back</button>
+						<button type="button" class="sdsc-btn sdsc-next">Continue &rarr;</button>
+						<button type="submit" class="sdsc-btn sdsc-submit" hidden>Submit registration</button>
+					</div>
+				</form>
+			</div>
+			<p class="sdsc-reg-foot">🔒 Secure form · Questions? Call <a href="tel:+13017263030">(301) 726-3030</a></p>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
+	protected static function render_success( $class_id ) {
+		$pay  = $class_id ? get_post_meta( $class_id, '_sdsc_payment_link', true ) : '';
+		$name = $class_id ? self::class_label( $class_id ) : '';
+		ob_start();
+		?>
+		<div class="sdsc-reg" id="sdsc">
+			<div class="sdsc-reg-card sdsc-reg-done">
+				<div class="sdsc-done-scene" aria-hidden="true">
+					<div class="sdsc-done-road"></div>
+					<div class="sdsc-done-car"><?php echo SDSC_Brand::car( 'left' ); // phpcs:ignore ?></div>
+					<span class="sdsc-done-flag">🏁</span>
+				</div>
+				<?php echo SDSC_Brand::logo( 'stacked', 'sdsc-reg-logo sdsc-reg-logo--stacked', 110 ); // phpcs:ignore ?>
+				<h2 class="sdsc-reg-title">You're registered!</h2>
+				<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
+				<?php if ( $pay ) : ?>
+					<p>One last step: complete your payment to confirm your seat.</p>
+					<p><a class="sdsc-btn" href="<?php echo esc_url( $pay ); ?>">Continue to payment &rarr;</a></p>
+				<?php else : ?>
+					<p>We've received your registration and will contact you shortly with payment and class details.</p>
+					<p><a class="sdsc-btn" href="tel:+13017263030">Call (301) 726-3030</a></p>
+				<?php endif; ?>
+			</div>
+		</div>
+		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});</script>
+		<?php
+		return ob_get_clean();
+	}
+
+	/* ============================= Submit ============================= */
+
+	protected static function fail( $return, $msg ) {
+		$url = add_query_arg( array( 'sdsc_reg' => 'error', 'sdsc_msg' => rawurlencode( $msg ) ), $return );
+		wp_safe_redirect( $url . '#sdsc' );
+		exit;
+	}
+
+	protected static function client_ip() {
+		$ip = '';
+		if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$parts = array_map( 'trim', explode( ',', wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) );
+			$ip    = $parts[0];
+		}
+		if ( ! filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+			$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '';
+		}
+		return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	/** Decode a canvas data URL into PNG bytes, or '' if invalid/empty. */
+	public static function decode_png( $data_url ) {
+		if ( ! is_string( $data_url ) || 0 !== strpos( $data_url, 'data:image/png;base64,' ) ) { return ''; }
+		$bin = base64_decode( substr( $data_url, 22 ), true );
+		if ( ! $bin || strlen( $bin ) > self::MAX_SIG_BYTES || 0 !== strpos( $bin, "\x89PNG\r\n\x1a\n" ) ) { return ''; }
+		return $bin;
+	}
+
+	/**
+	 * Old Forminator signatures are very large PNGs (often 1+ MB). Scale them down to
+	 * at most 600px wide, keeping transparency, so the table stays small and pages load fast.
+	 */
+	public static function shrink_png( $bin, $max_w = 600 ) {
+		if ( ! function_exists( 'imagecreatefromstring' ) ) { return $bin; }
+		$src = @imagecreatefromstring( $bin );
+		if ( ! $src ) { return $bin; }
+		$w = imagesx( $src ); $h = imagesy( $src );
+		$nw = min( $w, $max_w ); $nh = max( 1, (int) round( $h * $nw / $w ) );
+		$dst = imagecreatetruecolor( $nw, $nh );
+		imagealphablending( $dst, false ); imagesavealpha( $dst, true );
+		imagefill( $dst, 0, 0, imagecolorallocatealpha( $dst, 255, 255, 255, 127 ) );
+		imagecopyresampled( $dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h );
+		ob_start(); imagepng( $dst, null, 9 ); $out = ob_get_clean();
+		imagedestroy( $src ); imagedestroy( $dst );
+		return ( $out && strlen( $out ) < strlen( $bin ) ) ? $out : $bin;
+	}
+
+	public static function age_from_dob( $dob ) {
+		$d = DateTime::createFromFormat( 'Y-m-d', $dob, wp_timezone() );
+		if ( ! $d ) { return null; }
+		return (int) $d->diff( new DateTime( 'now', wp_timezone() ) )->y;
+	}
+
+	public static function handle_submit() {
+		$return = isset( $_POST['sdsc_return'] ) ? esc_url_raw( wp_unslash( $_POST['sdsc_return'] ) ) : home_url( '/' );
+		if ( 0 !== strpos( $return, home_url() ) ) { $return = home_url( '/' ); }
+		$return = remove_query_arg( array( 'sdsc_reg', 'sdsc_msg', 'sdsc_class' ), $return );
+
+		// Bot checks: honeypot + JS marker.
+		if ( ! empty( $_POST['sdsc_website'] ) || ( $_POST['sdsc_js'] ?? '' ) !== 'ok' ) {
+			self::fail( $return, 'Your submission could not be verified. Please make sure JavaScript is enabled and try again.' );
+		}
+
+		// Rate limit: 5 submissions per IP per hour.
+		$ip  = self::client_ip();
+		$key = 'sdsc_reg_rl_' . md5( $ip );
+		$n   = (int) get_transient( $key );
+		if ( $n >= 5 ) {
+			self::fail( $return, 'Too many submissions from your network. Please try again later or call us.' );
+		}
+		set_transient( $key, $n + 1, HOUR_IN_SECONDS );
+
+		$p = function( $k, $max = 200 ) {
+			return isset( $_POST[ $k ] ) ? mb_substr( sanitize_text_field( wp_unslash( $_POST[ $k ] ) ), 0, $max ) : '';
+		};
+
+		$class_id = absint( $_POST['class_id'] ?? 0 );
+		$open_ids = wp_list_pluck( self::open_classes(), 'ID' );
+		if ( ! $class_id || ! in_array( $class_id, array_map( 'intval', $open_ids ), true ) ) {
+			self::fail( $return, 'Please choose a course.' );
+		}
+
+		$d = array(
+			'first_name'   => $p( 'first_name', 100 ),
+			'middle_name'  => $p( 'middle_name', 100 ),
+			'last_name'    => $p( 'last_name', 100 ),
+			'dob'          => $p( 'dob', 10 ),
+			'gender'       => in_array( $p( 'gender', 10 ), array( 'Male', 'Female' ), true ) ? $p( 'gender', 10 ) : '',
+			'email'        => sanitize_email( wp_unslash( $_POST['email'] ?? '' ) ),
+			'phone'        => $p( 'phone', 40 ),
+			'parent_name'  => $p( 'parent_name', 200 ),
+			'parent_phone' => $p( 'parent_phone', 40 ),
+			'street'       => $p( 'street', 200 ),
+			'apt'          => $p( 'apt', 100 ),
+			'city'         => $p( 'city', 100 ),
+			'state'        => $p( 'state', 50 ),
+			'zip'          => $p( 'zip', 20 ),
+		);
+
+		if ( ! $d['first_name'] || ! $d['last_name'] ) { self::fail( $return, 'Please enter the student\'s first and last name.' ); }
+		$age = self::age_from_dob( $d['dob'] );
+		if ( null === $age || $age < 14 || $age > 100 ) { self::fail( $return, 'Please enter a valid date of birth.' ); }
+		if ( ! is_email( $d['email'] ) ) { self::fail( $return, 'Please enter a valid email address.' ); }
+		if ( strlen( preg_replace( '/\D/', '', $d['phone'] ) ) < 10 ) { self::fail( $return, 'Please enter a valid phone number.' ); }
+		if ( ! $d['street'] || ! $d['city'] || ! $d['zip'] ) { self::fail( $return, 'Please complete the address.' ); }
+		if ( empty( $_POST['consent'] ) ) { self::fail( $return, 'Please accept the terms to continue.' ); }
+
+		$student_sig = self::decode_png( wp_unslash( $_POST['student_sig'] ?? '' ) );
+		$parent_sig  = self::decode_png( wp_unslash( $_POST['parent_sig'] ?? '' ) );
+		if ( ! $student_sig ) { self::fail( $return, 'Please add the student signature.' ); }
+		if ( $age < 18 && ( ! $d['parent_name'] || strlen( preg_replace( '/\D/', '', $d['parent_phone'] ) ) < 10 || ! $parent_sig ) ) {
+			self::fail( $return, 'For students under 18, the parent/guardian name, phone and signature are required.' );
+		}
+
+		global $wpdb;
+		$row = array_merge( $d, array(
+			'created_at'  => current_time( 'mysql' ),
+			'source'      => 'native',
+			'class_id'    => $class_id,
+			'age'         => $age,
+			'consent'     => 1,
+			'signed_date' => current_time( 'Y-m-d' ),
+			'ip'          => $ip,
+			'student_sig' => $student_sig,
+			'parent_sig'  => $parent_sig ? $parent_sig : null,
+		) );
+		$ok = $wpdb->insert( self::table(), $row );
+		if ( ! $ok ) {
+			self::fail( $return, 'Sorry, something went wrong saving your registration. Please call us at (301) 726-3030.' );
+		}
+		$reg_id = (int) $wpdb->insert_id;
+
+		$registrant_id = self::link_registrant( $class_id, $d );
+		if ( $registrant_id ) {
+			$wpdb->update( self::table(), array( 'registrant_id' => $registrant_id ), array( 'id' => $reg_id ) );
+		}
+
+		self::notify_admin( $reg_id, $class_id, $d );
+		do_action( 'sdsc_registered', $reg_id, $d, ! empty( $_POST['offers'] ) );
+
+		wp_safe_redirect( add_query_arg( array( 'sdsc_reg' => 'done', 'sdsc_class' => $class_id ), $return ) . '#sdsc' );
+		exit;
+	}
+
+	/** Reuse an existing registrant (same class + email) or create one; mark the form as done. */
+	protected static function link_registrant( $class_id, $d ) {
+		$existing = get_posts( array(
+			'post_type'      => SDSC_CPT_Registrants::CPT,
+			'post_status'    => 'any',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'meta_query'     => array(
+				array( 'key' => '_sdsc_class_id', 'value' => $class_id ),
+				array( 'key' => '_sdsc_email', 'value' => $d['email'] ),
+			),
+		) );
+		$name = trim( $d['first_name'] . ' ' . $d['last_name'] );
+		if ( $existing ) {
+			$id = (int) $existing[0];
+		} else {
+			$no   = SDSC_CPT_Registrants::next_student_number( $class_id );
+			$code = get_post_meta( $class_id, '_sdsc_course_code', true );
+			$id   = wp_insert_post( array(
+				'post_type'   => SDSC_CPT_Registrants::CPT,
+				'post_title'  => $name . ' — ' . $code . '-' . $no,
+				'post_status' => 'publish',
+			) );
+			if ( ! $id || is_wp_error( $id ) ) { return 0; }
+			update_post_meta( $id, '_sdsc_class_id', $class_id );
+			update_post_meta( $id, '_sdsc_student_no', $no );
+			update_post_meta( $id, '_sdsc_name', $name );
+			update_post_meta( $id, '_sdsc_email', $d['email'] );
+			update_post_meta( $id, '_sdsc_paid', '' );
+			update_post_meta( $id, '_sdsc_registered_at', current_time( 'mysql' ) );
+		}
+		update_post_meta( $id, '_sdsc_phone', $d['phone'] );
+		update_post_meta( $id, '_sdsc_form_done', current_time( 'mysql' ) );
+		return $id;
+	}
+
+	protected static function notify_admin( $reg_id, $class_id, $d ) {
+		$to   = get_option( 'admin_email' );
+		$code = get_post_meta( $class_id, '_sdsc_course_code', true );
+		$link = admin_url( 'admin.php?page=sdsc-registrations&view=' . $reg_id );
+		$msg  = "New registration received.\n\nStudent: {$d['first_name']} {$d['last_name']}\nCourse: " . get_the_title( $class_id ) . ( $code ? " ($code)" : '' ) . "\n\nView it in WordPress (login required):\n$link\n";
+		wp_mail( $to, 'New student registration' . ( $code ? " — $code" : '' ), $msg );
+	}
+
+	/* ============================= Admin ============================= */
+
+	public static function menu() {
+		add_submenu_page( 'sdsc-dashboard', 'Registrations', 'Registrations', 'sdsc_access_registrations', 'sdsc-registrations', array( __CLASS__, 'render_admin' ) );
+	}
+
+	public static function sig_url( $id, $who ) {
+		return wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_sig&id=' . (int) $id . '&who=' . $who ), 'sdsc_sig_' . (int) $id );
+	}
+
+	public static function serve_signature() {
+		$id  = absint( $_GET['id'] ?? 0 );
+		$who = ( $_GET['who'] ?? '' ) === 'parent' ? 'parent_sig' : 'student_sig';
+		if ( ! SDSC_Access::can( 'registrations' ) || ! wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'sdsc_sig_' . $id ) ) {
+			status_header( 403 );
+			exit;
+		}
+		global $wpdb;
+		$bin = $wpdb->get_var( $wpdb->prepare( "SELECT $who FROM " . self::table() . ' WHERE id = %d', $id ) );
+		if ( ! $bin ) { status_header( 404 ); exit; }
+		nocache_headers();
+		header( 'Content-Type: image/png' );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Content-Length: ' . strlen( $bin ) );
+		echo $bin; // phpcs:ignore -- binary PNG
+		exit;
+	}
+
+	public static function render_admin() {
+		if ( ! SDSC_Access::can( 'registrations' ) ) { wp_die( 'You do not have permission to access this page.' ); }
+		global $wpdb;
+		$t    = self::table();
+		$view = absint( $_GET['view'] ?? 0 );
+		echo '<div class="wrap" dir="ltr" style="text-align:left">';
+		if ( $view ) {
+			$r = $wpdb->get_row( $wpdb->prepare( "SELECT id, created_at, source, source_entry_id, class_id, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, street, apt, city, state, zip, consent, signed_date, notes, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM $t WHERE id = %d", $view ) );
+			echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations' ) ) . '">&larr; All registrations</a></p>';
+			if ( ! $r ) { echo '<p>Not found.</p></div>'; return; }
+			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1><table class="widefat striped" style="max-width:800px">';
+			$rows = array(
+				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
+				'Course'          => $r->class_id ? self::class_label( $r->class_id ) : '—',
+				'Date of birth'   => $r->dob . ( $r->age ? " (age $r->age)" : '' ),
+				'Gender'          => $r->gender,
+				'Email'           => $r->email,
+				'Phone'           => $r->phone,
+				'Parent/guardian' => trim( $r->parent_name . ' ' . $r->parent_phone ),
+				'Address'         => trim( "$r->street $r->apt, $r->city $r->state $r->zip", ' ,' ),
+				'Consent'         => $r->consent ? 'Yes — signed ' . $r->signed_date : 'No',
+				'Notes'           => $r->notes,
+			);
+			foreach ( $rows as $k => $v ) {
+				echo '<tr><th style="width:180px">' . esc_html( $k ) . '</th><td>' . esc_html( (string) $v ) . '</td></tr>';
+			}
+			echo '</table><h2>Signatures</h2><div style="display:flex;gap:24px;flex-wrap:wrap">';
+			if ( $r->has_s ) { echo '<figure><img src="' . esc_url( self::sig_url( $r->id, 'student' ) ) . '" style="max-width:360px;border:1px solid #ccd0d4;background:#fff" alt="Student signature"/><figcaption>Student</figcaption></figure>'; }
+			if ( $r->has_p ) { echo '<figure><img src="' . esc_url( self::sig_url( $r->id, 'parent' ) ) . '" style="max-width:360px;border:1px solid #ccd0d4;background:#fff" alt="Parent signature"/><figcaption>Parent / guardian</figcaption></figure>'; }
+			echo '</div></div>';
+			return;
+		}
+
+		$s     = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+		$paged = max( 1, absint( $_GET['paged'] ?? 1 ) );
+		$per   = 50;
+		$where = '1=1';
+		$args  = array();
+		if ( $s ) {
+			$like  = '%' . $wpdb->esc_like( $s ) . '%';
+			$where = '(first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR phone LIKE %s)';
+			$args  = array( $like, $like, $like, $like );
+		}
+		$total = (int) $wpdb->get_var( $args ? $wpdb->prepare( "SELECT COUNT(*) FROM $t WHERE $where", $args ) : "SELECT COUNT(*) FROM $t" );
+		$sql   = "SELECT id, created_at, source, class_id, first_name, last_name, email, phone, age FROM $t WHERE $where ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d";
+		$rows  = $wpdb->get_results( $wpdb->prepare( $sql, array_merge( $args, array( $per, ( $paged - 1 ) * $per ) ) ) );
+
+		echo '<h1>Registrations <span class="count">(' . (int) $total . ')</span></h1>';
+		echo '<p>Use the shortcode <code>[sdsc_registration_form]</code> on any page. To preselect a course, add <code>?course=C-68</code> to the page link.</p>';
+		echo '<form method="get"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email or phone"/> <button class="button">Search</button></p></form>';
+		echo '<table class="widefat striped"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th></tr></thead><tbody>';
+		if ( ! $rows ) { echo '<tr><td colspan="7">No registrations yet.</td></tr>'; }
+		foreach ( $rows as $r ) {
+			$url  = admin_url( 'admin.php?page=sdsc-registrations&view=' . $r->id );
+			$code = $r->class_id ? get_post_meta( $r->class_id, '_sdsc_course_code', true ) : '';
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( $r->source ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
+		$pages = (int) ceil( $total / $per );
+		if ( $pages > 1 ) {
+			echo '<p>' . paginate_links( array( 'base' => add_query_arg( 'paged', '%#%' ), 'format' => '', 'current' => $paged, 'total' => $pages ) ) . '</p>';
+		}
+		echo '</div>';
+	}
+
+	/* ============================= Reports portal integration ============================= */
+
+	/**
+	 * Native registrations shaped like the Forminator rows the reports portal expects,
+	 * keyed by lowercase email (latest registration wins).
+	 */
+	public static function report_rows_by_email() {
+		global $wpdb;
+		$rows = $wpdb->get_results( 'SELECT id, created_at, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, street, apt, city, state, zip, signed_date, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM ' . self::table() . ' ORDER BY created_at ASC, id ASC' );
+		$out  = array();
+		foreach ( $rows as $r ) {
+			$email = strtolower( trim( $r->email ) );
+			if ( ! $email ) { continue; }
+			$out[ $email ] = array(
+				'date_created'        => $r->created_at,
+				'forminator_entry_id' => 'R' . $r->id,
+				'name-1-first-name'   => $r->first_name,
+				'name-1-middle-name'  => $r->middle_name,
+				'name-1-last-name'    => $r->last_name,
+				'date-1'              => $r->dob ? date( 'm/d/Y', strtotime( $r->dob ) ) : '',
+				'number-1'            => (string) $r->age,
+				'select-2'            => $r->gender,
+				'email-1'             => $r->email,
+				'phone-1'             => $r->phone,
+				'name-2'              => $r->parent_name,
+				'phone-2'             => $r->parent_phone,
+				'address-1-street_address' => $r->street,
+				'address-1-address_line'   => $r->apt,
+				'address-1-city'      => $r->city,
+				'address-1-state'     => $r->state,
+				'address-1-zip'       => $r->zip,
+				'date-2'              => $r->signed_date ? date( 'm/d/Y', strtotime( $r->signed_date ) ) : '',
+				'signature-1'         => $r->has_s ? self::sig_url( $r->id, 'student' ) : '',
+				'signature-2'         => $r->has_p ? self::sig_url( $r->id, 'parent' ) : '',
+			);
+		}
+		return $out;
+	}
+
+	/* ============================= WP-CLI import ============================= */
+
+	/**
+	 * Import Forminator registration entries.
+	 *
+	 * ## OPTIONS
+	 * --form=<id>
+	 * : Forminator form ID.
+	 * [--dry-run]
+	 * : Only count, do not write.
+	 */
+	public static function cli_import( $args, $assoc ) {
+		global $wpdb;
+		self::install();
+		$form_id = absint( $assoc['form'] ?? 0 );
+		$dry     = ! empty( $assoc['dry-run'] );
+		if ( ! $form_id ) { WP_CLI::error( 'Missing --form' ); }
+		$p       = $wpdb->prefix;
+		$entries = $wpdb->get_results( $wpdb->prepare( "SELECT entry_id, date_created FROM {$p}frmt_form_entry WHERE form_id = %d ORDER BY entry_id ASC", $form_id ) );
+		$uploads = wp_get_upload_dir();
+		$stats   = array( 'total' => count( $entries ), 'imported' => 0, 'skipped_existing' => 0, 'sig_student' => 0, 'sig_parent' => 0, 'sig_missing' => 0 );
+
+		$read_sig = function( $v ) use ( $uploads, &$stats ) {
+			$v = maybe_unserialize( $v );
+			$path = '';
+			if ( is_array( $v ) && isset( $v['file'] ) ) {
+				$path = $v['file']['file_path'] ?? '';
+				if ( ( ! $path || ! is_readable( $path ) ) && ! empty( $v['file']['file_url'] ) ) {
+					$rel  = preg_replace( '#^https?://[^/]+/wp-content/uploads/#', '', $v['file']['file_url'] );
+					$path = trailingslashit( $uploads['basedir'] ) . $rel;
+				}
+			}
+			if ( ! $path ) { return null; }
+			$real = realpath( $path );
+			if ( ! $real || 0 !== strpos( $real, realpath( $uploads['basedir'] ) ) || ! is_readable( $real ) ) { $stats['sig_missing']++; return null; }
+			$bin = file_get_contents( $real );
+			if ( ! $bin || 0 !== strpos( $bin, "\x89PNG" ) || strlen( $bin ) > 2000000 ) { $stats['sig_missing']++; return null; }
+			return self::shrink_png( $bin );
+		};
+
+		foreach ( $entries as $e ) {
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::table() . " WHERE source = 'forminator' AND source_entry_id = %d", $e->entry_id ) );
+			if ( $exists ) { $stats['skipped_existing']++; continue; }
+			$meta = array();
+			foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT meta_key, meta_value FROM {$p}frmt_form_entry_meta WHERE entry_id = %d", $e->entry_id ) ) as $m ) {
+				$meta[ $m->meta_key ] = $m->meta_value;
+			}
+			$name = maybe_unserialize( $meta['name-1'] ?? '' );
+			$addr = maybe_unserialize( $meta['address-1'] ?? '' );
+			$dob  = DateTime::createFromFormat( 'm/d/Y', trim( (string) ( $meta['date-1'] ?? '' ) ) );
+			$sd   = DateTime::createFromFormat( 'm/d/Y', trim( (string) ( $meta['date-2'] ?? '' ) ) );
+			$gen  = trim( (string) ( $meta['select-2'] ?? '' ) );
+			$gen  = 'Fmale' === $gen ? 'Female' : ( in_array( $gen, array( 'Male', 'Female' ), true ) ? $gen : '' );
+			$pn   = maybe_unserialize( $meta['name-2'] ?? '' );
+			if ( is_array( $pn ) ) { $pn = trim( implode( ' ', array_filter( array( $pn['prefix'] ?? '', $pn['first-name'] ?? '', $pn['middle-name'] ?? '', $pn['last-name'] ?? '' ) ) ) ); }
+			$s_sig = isset( $meta['signature-1'] ) ? $read_sig( $meta['signature-1'] ) : null;
+			$p_sig = isset( $meta['signature-2'] ) ? $read_sig( $meta['signature-2'] ) : null;
+			if ( $s_sig ) { $stats['sig_student']++; }
+			if ( $p_sig ) { $stats['sig_parent']++; }
+			$notes = isset( $meta['select-1'] ) ? 'Course date (old form): ' . wp_strip_all_tags( (string) maybe_unserialize( $meta['select-1'] ) ) : '';
+			$row = array(
+				'created_at'      => $e->date_created,
+				'source'          => 'forminator',
+				'source_entry_id' => (int) $e->entry_id,
+				'first_name'      => is_array( $name ) ? (string) ( $name['first-name'] ?? '' ) : (string) $name,
+				'middle_name'     => is_array( $name ) ? (string) ( $name['middle-name'] ?? '' ) : '',
+				'last_name'       => is_array( $name ) ? (string) ( $name['last-name'] ?? '' ) : '',
+				'dob'             => $dob ? $dob->format( 'Y-m-d' ) : null,
+				'age'             => is_numeric( $meta['number-1'] ?? '' ) ? (int) $meta['number-1'] : null,
+				'gender'          => $gen,
+				'email'           => sanitize_email( (string) ( $meta['email-1'] ?? '' ) ),
+				'phone'           => mb_substr( (string) ( $meta['phone-1'] ?? '' ), 0, 40 ),
+				'parent_name'     => mb_substr( (string) $pn, 0, 200 ),
+				'parent_phone'    => mb_substr( (string) ( $meta['phone-2'] ?? '' ), 0, 40 ),
+				'street'          => is_array( $addr ) ? (string) ( $addr['street_address'] ?? '' ) : '',
+				'apt'             => is_array( $addr ) ? (string) ( $addr['address_line'] ?? '' ) : '',
+				'city'            => is_array( $addr ) ? (string) ( $addr['city'] ?? '' ) : '',
+				'state'           => is_array( $addr ) ? (string) ( $addr['state'] ?? '' ) : '',
+				'zip'             => is_array( $addr ) ? (string) ( $addr['zip'] ?? '' ) : '',
+				'consent'         => ! empty( $meta['consent-1'] ) ? 1 : 0,
+				'signed_date'     => $sd ? $sd->format( 'Y-m-d' ) : null,
+				'notes'           => $notes,
+				'ip'              => mb_substr( (string) ( $meta['_forminator_user_ip'] ?? '' ), 0, 64 ),
+				'student_sig'     => $s_sig,
+				'parent_sig'      => $p_sig,
+			);
+			if ( ! $dry ) {
+				if ( false === $wpdb->insert( self::table(), $row ) ) {
+					WP_CLI::warning( 'Insert failed for entry ' . $e->entry_id . ': ' . $wpdb->last_error );
+					continue;
+				}
+			}
+			$stats['imported']++;
+		}
+		foreach ( $stats as $k => $v ) { WP_CLI::line( str_pad( $k, 18 ) . $v ); }
+		WP_CLI::success( $dry ? 'Dry run complete (nothing written).' : 'Import complete.' );
+	}
+}

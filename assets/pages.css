@@ -1,0 +1,136 @@
+/* Sam's Class Manager — brings the remaining theme pages in line with the new design */
+.sdp {
+	--sdp-green: #00703c;
+	--sdp-green-d: #0b5a2f;
+	--sdp-ink: #15191d;
+	--sdp-mut: #57616b;
+	--sdp-line: #e6e3d9;
+	--sdp-paper: #f6f4ee;
+	--sdp-yellow: #ffc20e;
+	--sdp-night: #0b1730;
+}
+
+/* ---------- Inner-page title: Maryland night-road banner ---------- */
+.sdp.page:not(.home) .site-main { overflow-x: clip; }
+.sdp.page:not(.home) .site-main > .container:has(> article > .entry-header) { padding-top: 0 !important; }
+.sdp.page:not(.home) .site-main > .container > article > .entry-header {
+	position: relative; isolation: isolate; overflow: hidden;
+	width: 100vw; margin: 0 calc(50% - 50vw) 44px !important; padding: 64px 16px 78px;
+	background:
+		radial-gradient(60% 120% at 82% 0%, rgba(255, 210, 122, .16), transparent 60%),
+		linear-gradient(180deg, #0b1730 0%, #13284f 62%, #1b2f55 100%);
+	color: #fff; text-align: center;
+}
+/* skyline with the State House dome */
+.sdp.page:not(.home) .site-main > .container > article > .entry-header::before {
+	content: ""; position: absolute; left: 0; right: 0; bottom: 34px; height: 120px; z-index: -1; opacity: .9;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='120' viewBox='0 0 800 120'%3E%3Cg fill='%2318284a'%3E%3Crect x='10' y='50' width='40' height='70'/%3E%3Crect x='58' y='20' width='34' height='100'/%3E%3Crect x='100' y='64' width='46' height='56'/%3E%3Crect x='154' y='34' width='30' height='86'/%3E%3Crect x='192' y='72' width='44' height='48'/%3E%3Crect x='540' y='44' width='38' height='76'/%3E%3Crect x='586' y='16' width='32' height='104'/%3E%3Crect x='626' y='60' width='50' height='60'/%3E%3Crect x='684' y='30' width='34' height='90'/%3E%3Crect x='726' y='66' width='44' height='54'/%3E%3C/g%3E%3Cg fill='%231f3159'%3E%3Crect x='330' y='88' width='140' height='32'/%3E%3Cpolygon points='378,88 400,76 422,88'/%3E%3Crect x='384' y='60' width='32' height='20'/%3E%3Cpath d='M386 62 Q400 36 414 62Z'/%3E%3Crect x='396' y='26' width='8' height='14'/%3E%3Crect x='399' y='10' width='2' height='16'/%3E%3C/g%3E%3Cg fill='%23ffd27a' opacity='.5'%3E%3Crect x='64' y='30' width='4' height='6'/%3E%3Crect x='76' y='46' width='4' height='6'/%3E%3Crect x='160' y='44' width='4' height='6'/%3E%3Crect x='592' y='28' width='4' height='6'/%3E%3Crect x='606' y='52' width='4' height='6'/%3E%3Crect x='690' y='42' width='4' height='6'/%3E%3C/g%3E%3C/svg%3E") center bottom / 800px 120px repeat-x;
+}
+/* road with a dashed centre line */
+.sdp.page:not(.home) .site-main > .container > article > .entry-header::after {
+	content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; z-index: -1;
+	background:
+		linear-gradient(90deg, #ffc20e 0 46px, transparent 46px 92px) 0 17px / 92px 3px repeat-x,
+		linear-gradient(180deg, #d9dde2 0 2px, #2d3238 2px calc(100% - 2px), #d9dde2 calc(100% - 2px));
+	animation: sdp-road 2.4s linear infinite;
+}
+@keyframes sdp-road { to { background-position: -92px 17px, 0 0; } }
+.sdp.page:not(.home) .entry-header .entry-title {
+	position: relative; margin: 0 auto !important; max-width: 900px;
+	font-family: "Overpass", "Lato", system-ui, sans-serif !important; font-weight: 900 !important;
+	font-size: clamp(1.9rem, 4.4vw, 3rem) !important; line-height: 1.08 !important; letter-spacing: -.02em;
+	color: #fff !important; text-shadow: 0 2px 18px rgba(0,0,0,.35);
+}
+.sdp.page:not(.home) .entry-header .entry-title::before {
+	content: "Sam\2019s Driving School \00B7  Rockville, MD"; display: table; margin: 0 auto 14px;
+	padding: 6px 12px 4px; border-radius: 5px; background: var(--sdp-green);
+	box-shadow: inset 0 0 0 2px var(--sdp-green), inset 0 0 0 3.5px rgba(255,255,255,.85), 0 8px 18px -8px rgba(0,0,0,.6);
+	font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; text-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) { .sdp.page:not(.home) .site-main > .container > article > .entry-header::after { animation: none; } }
+@media (max-width: 600px) { .sdp.page:not(.home) .site-main > .container > article > .entry-header { padding: 46px 16px 64px; } }
+
+/* ---------- Plain Elementor content on inner pages ---------- */
+.sdp.page:not(.home) article .elementor-widget-heading .elementor-heading-title {
+	font-family: "Overpass", "Lato", system-ui, sans-serif !important; font-weight: 900 !important;
+	color: var(--sdp-ink) !important; letter-spacing: -.01em; line-height: 1.15 !important;
+}
+.sdp.page:not(.home) article .elementor-widget-heading h2.elementor-heading-title,
+.sdp.page:not(.home) article .elementor-widget-heading h3.elementor-heading-title { position: relative; padding-left: 16px; font-size: clamp(1.35rem, 2.4vw, 1.75rem) !important; }
+.sdp.page:not(.home) article .elementor-widget-heading h2.elementor-heading-title::before,
+.sdp.page:not(.home) article .elementor-widget-heading h3.elementor-heading-title::before {
+	content: ""; position: absolute; left: 0; top: .12em; bottom: .12em; width: 6px; border-radius: 3px;
+	background: linear-gradient(180deg, var(--sdp-green), #19a35a);
+}
+.sdp.page:not(.home) article .elementor-widget-text-editor {
+	background: #fff; border: 1px solid var(--sdp-line); border-radius: 16px; padding: 22px 24px;
+	box-shadow: 0 24px 48px -36px rgba(0,0,0,.45); color: var(--sdp-mut); line-height: 1.75; font-size: 1rem;
+}
+.sdp.page:not(.home) article .elementor-widget-text-editor p { margin: 0 0 10px; }
+.sdp.page:not(.home) article .elementor-widget-text-editor p:last-child { margin-bottom: 0; }
+.sdp.page:not(.home) article .elementor-widget-text-editor em, .sdp.page:not(.home) article .elementor-widget-text-editor i { font-style: normal; }
+.sdp.page:not(.home) article .elementor-widget-text-editor strong { color: var(--sdp-ink); }
+.sdp.page:not(.home) article .elementor-widget-text-editor a { color: var(--sdp-green); font-weight: 700; }
+.sdp.page:not(.home) article .elementor-widget-text-editor + .elementor-widget-heading { margin-top: 22px; }
+
+/* image box (e.g. Car Rentals intro) */
+.sdp.page:not(.home) article .elementor-widget-image-box .elementor-image-box-wrapper {
+	background: #fff; border: 1px solid var(--sdp-line); border-radius: 20px; padding: 26px;
+	box-shadow: 0 30px 60px -42px rgba(0,0,0,.5);
+}
+.sdp.page:not(.home) article .elementor-widget-image-box .elementor-image-box-img img { border-radius: 14px; background: var(--sdp-paper); }
+.sdp.page:not(.home) article .elementor-image-box-title { font-family: "Overpass", "Lato", system-ui, sans-serif !important; font-weight: 900 !important; color: var(--sdp-ink) !important; letter-spacing: -.01em; text-transform: none !important; font-size: clamp(1.3rem, 2.4vw, 1.7rem) !important; }
+.sdp.page:not(.home) article .elementor-image-box-description { color: var(--sdp-mut) !important; line-height: 1.7; }
+
+/* icon boxes (e.g. Contact) → road-sign cards */
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon-box-wrapper {
+	display: flex; align-items: center; gap: 16px; text-align: left !important;
+	background: #fff; border: 1px solid var(--sdp-line); border-radius: 16px; padding: 16px 18px; margin-bottom: 4px;
+	box-shadow: 0 22px 44px -34px rgba(0,0,0,.5); transition: transform .2s ease, box-shadow .2s ease;
+}
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon-box-wrapper:hover { transform: translateY(-2px); box-shadow: 0 28px 52px -32px rgba(0,0,0,.55); }
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon-box-icon { margin: 0 !important; flex: none; }
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon {
+	display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; font-size: 22px !important;
+	background: var(--sdp-green) !important; color: #fff !important; fill: #fff !important;
+	box-shadow: inset 0 0 0 2px var(--sdp-green), inset 0 0 0 3.5px rgba(255,255,255,.85), 0 8px 16px -8px rgba(0,0,0,.5);
+}
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon svg { width: 24px; height: 24px; fill: #fff !important; }
+.sdp.page:not(.home) article .elementor-widget-icon-box .elementor-icon i { color: #fff !important; }
+.sdp.page:not(.home) article .elementor-icon-box-title, .sdp.page:not(.home) article .elementor-icon-box-title a {
+	margin: 0 0 2px !important; font-family: "Overpass", "Lato", system-ui, sans-serif !important; font-weight: 900 !important;
+	font-size: 1.05rem !important; color: var(--sdp-ink) !important;
+}
+.sdp.page:not(.home) article .elementor-icon-box-description { margin: 0 !important; color: var(--sdp-mut) !important; font-size: .95rem !important; word-break: break-word; }
+.sdp.page:not(.home) article .elementor-widget-google_maps iframe { border-radius: 20px; box-shadow: 0 30px 60px -40px rgba(0,0,0,.55); border: 1px solid var(--sdp-line) !important; }
+
+/* ---------- Homepage: Latest News redrawn as cards ---------- */
+.sdp-blog-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.sdp-blog-grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.sdp-post { display: flex; flex-direction: column; background: #fff; border: 1px solid #e6e3d9; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 60px -44px rgba(0,0,0,.55); transition: transform .25s ease, box-shadow .25s ease; }
+.sdp-post:hover { transform: translateY(-4px); box-shadow: 0 36px 64px -40px rgba(0,0,0,.6); }
+.sdp-post-img { position: relative; display: block; aspect-ratio: 16 / 10; background: #0b1730; overflow: hidden; }
+.sdp-post-img img { width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover; display: block; transition: transform .5s ease; }
+.sdp-post:hover .sdp-post-img img { transform: scale(1.04); }
+.sdp-post-ph { position: absolute; inset: 0; background: linear-gradient(180deg, #13284f, #0b1730); }
+.sdp-post-date { position: absolute; left: 12px; bottom: 12px; padding: 5px 9px 3px; border-radius: 4px; background: #ffc20e; color: #15191d; font-size: .74rem; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; box-shadow: inset 0 0 0 1.5px #15191d; }
+.sdp-post-body { display: flex; flex-direction: column; gap: 8px; padding: 18px 18px 20px; flex: 1; }
+.sdp-post-body h3 { margin: 0 !important; font-size: 1.12rem !important; font-weight: 900 !important; line-height: 1.25 !important; }
+.sdp-post-body h3 a { color: #15191d !important; text-decoration: none; }
+.sdp-post-body h3 a:hover { color: #00703c !important; }
+.sdp-post-body p { margin: 0; color: #57616b; font-size: .95rem; line-height: 1.6; flex: 1; }
+.sdp-more { align-self: flex-start; color: #00703c !important; font-weight: 800; text-decoration: none; }
+.sdp-more:hover { text-decoration: underline; }
+.sdp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 999px; font-weight: 800; text-decoration: none !important; }
+.sdp-btn--ghost { border: 2px solid #00703c; color: #00703c !important; background: #fff; }
+.sdp-btn--ghost:hover { background: #00703c; color: #fff !important; }
+@media (max-width: 900px) { .sdp-blog-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .sdp-blog-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Google reviews block ---------- */
+.sdp-reviews-box { background: #fff; border: 1px solid #e6e3d9; border-radius: 20px; padding: 18px 12px; box-shadow: 0 30px 60px -44px rgba(0,0,0,.5); }
+/* v0.6.7: blog cards show the whole photo (portrait plaques were cut in half); a blurred copy fills the frame */
+.sdp-post-img { aspect-ratio: 4 / 3; }
+.sdp-post-img::before { content: ""; position: absolute; inset: -24px; background: var(--sdp-bg, none) center / cover no-repeat; filter: blur(18px) brightness(.55) saturate(1.15); transform: scale(1.1); }
+.sdp-post-img img { position: relative; z-index: 1; object-fit: contain !important; }
+.sdp-post-date { z-index: 2; }

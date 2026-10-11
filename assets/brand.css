@@ -1,0 +1,10 @@
+/* Sam's Class Manager — shared brand pieces (logo + school car with spinning wheels) */
+.sams-logo { display: block; height: auto; max-width: 100%; }
+.sams-car { position: relative; display: inline-block; line-height: 0; vertical-align: bottom; }
+.sams-car-body { display: block; width: 100%; height: auto; }
+.sams-car .sams-wheel { position: absolute; height: auto; transform: rotate(var(--spin, 0deg)); will-change: transform; }
+@keyframes sams-roll-right { to { transform: rotate(1080deg); } }
+@keyframes sams-roll-left { to { transform: rotate(-1080deg); } }
+@media (prefers-reduced-motion: reduce) {
+	.sams-car .sams-wheel { transform: none !important; animation: none !important; transition: none !important; }
+}

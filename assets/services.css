@@ -1,0 +1,133 @@
+/* Sam's Class Manager — road-sign services showcase */
+.sds-road {
+	--hw-green: #00703c;      /* highway guide-sign green */
+	--sign-yellow: #ffc20e;
+	--school-green: #c6e01f;  /* fluorescent yellow-green school sign */
+	--stop-red: #c8102e;
+	--info-blue: #0b5cab;
+	--asphalt: #2d3238;
+	--lane: #f3f1e8;
+	--ink: #15191d;
+	--muted: #59636d;
+	font-family: "Overpass", "Lato", system-ui, sans-serif;
+	color: var(--ink);
+	max-width: 1180px;
+	margin: 40px auto;
+	padding: 0 16px;
+	direction: ltr;
+	text-align: left;
+}
+.sds-road *, .sds-road *::before, .sds-road *::after { box-sizing: border-box; }
+.sds-road-head { max-width: 640px; margin: 0 0 28px; }
+.sds-road-head h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); font-weight: 900; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 8px; color: var(--ink); }
+.sds-road-head p { margin: 0; color: var(--muted); font-size: 1.05rem; }
+
+.sds-signs {
+	list-style: none; margin: 0; padding: 0;
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 0; row-gap: 28px;
+}
+.sds-sign-slot { margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+/* The sign on its post, standing on a strip of road */
+.sds-sign-stand {
+	position: relative; height: 270px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+	perspective: 900px; perspective-origin: 50% 0%;
+	background: linear-gradient(to top, var(--asphalt) 0 26px, transparent 26px);
+}
+.sds-sign-stand::after { /* dashed lane line along the row */
+	content: ""; position: absolute; left: 0; right: 0; bottom: 12px; height: 3px;
+	background: repeating-linear-gradient(90deg, var(--lane) 0 22px, transparent 22px 40px);
+}
+.sds-sign, .sds-sign-post { transform-origin: 50% 100%; }
+.sds-sign-stand > .sds-sign, .sds-sign-stand > .sds-sign-post { position: relative; z-index: 1; }
+.sds-sign-post { width: 8px; height: 74px; margin-bottom: 18px; background: linear-gradient(90deg, #8d959c, #d7dbde 45%, #7c848b); border-radius: 2px; }
+
+/* Domino rise: the whole sign + post tilts back flat, then stands up in sequence (JS sets --t, 0..1) */
+.sds-road.is-live .sds-sign-stand > .sds-sign,
+.sds-road.is-live .sds-sign-stand > .sds-sign-post { will-change: transform; }
+.sds-road.is-live .sds-sign-slot .sds-sign { transform: translateY(calc((1 - var(--t, 1)) * 74px)) rotateX(calc((1 - var(--t, 1)) * 88deg)); transform-origin: 50% calc(100% + 74px); }
+.sds-road.is-live .sds-sign-slot .sds-sign-post { transform: rotateX(calc((1 - var(--t, 1)) * 88deg)); }
+.sds-road.is-live .sds-sign-slot .sds-sign-card { opacity: calc(.15 + var(--t, 1) * .85); }
+
+/* ---- Sign faces ---- */
+.sds-sign { position: relative; width: 168px; height: 168px; display: grid; place-items: center; filter: drop-shadow(0 10px 10px rgba(0, 0, 0, .25)); }
+.sds-sign-face { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; line-height: 1; gap: 2px; }
+.sds-sign-l1, .sds-sign-l2 { font-weight: 800; font-size: 1.02rem; letter-spacing: .01em; }
+.sds-sign-big { font-weight: 900; font-size: 3.1rem; letter-spacing: -.02em; line-height: .95; }
+.sds-sign-icon { width: 58px; height: auto; color: currentColor; margin: 4px 0; }
+
+/* Guide sign: highway green with white border and an exit tab */
+.sds-sign--guide { width: 196px; height: 150px; background: var(--hw-green); border-radius: 12px; box-shadow: inset 0 0 0 4px var(--hw-green), inset 0 0 0 7px #fff; color: #fff; }
+.sds-sign-tab { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--hw-green); color: #fff; font-weight: 800; font-size: .74rem; padding: 6px 12px 8px; border-radius: 8px 8px 0 0; box-shadow: inset 0 0 0 3px var(--hw-green), inset 0 0 0 5px #fff; }
+
+/* Regulatory: speed-limit style */
+.sds-sign--limit { width: 138px; height: 176px; background: #fff; border-radius: 10px; box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 8px var(--ink); color: var(--ink); }
+.sds-sign--limit .sds-sign-l1 { text-transform: none; }
+
+/* Clip-path shapes: border = element, fill = ::before */
+.sds-sign--diamond, .sds-sign--school, .sds-sign--stop, .sds-sign--yield, .sds-sign--info { background: var(--ink); }
+.sds-sign--diamond::before, .sds-sign--school::before, .sds-sign--stop::before, .sds-sign--yield::before, .sds-sign--info::before { content: ""; position: absolute; inset: 6px; }
+.sds-sign--diamond, .sds-sign--diamond::before { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.sds-sign--diamond { width: 176px; height: 176px; }
+.sds-sign--diamond::before { background: var(--sign-yellow); inset: 9px; }
+.sds-sign--diamond .sds-sign-face { color: var(--ink); }
+.sds-sign--diamond .sds-sign-l1, .sds-sign--diamond .sds-sign-l2 { font-size: .9rem; }
+
+.sds-sign--school, .sds-sign--school::before { clip-path: polygon(50% 0, 100% 38%, 100% 100%, 0 100%, 0 38%); }
+.sds-sign--school { width: 150px; height: 172px; }
+.sds-sign--school::before { background: var(--school-green); }
+.sds-sign--school .sds-sign-face { color: var(--ink); padding-top: 34px; }
+
+.sds-sign--stop, .sds-sign--stop::before { clip-path: polygon(29.3% 0, 70.7% 0, 100% 29.3%, 100% 70.7%, 70.7% 100%, 29.3% 100%, 0 70.7%, 0 29.3%); }
+.sds-sign--stop { background: #fff; }
+.sds-sign--stop::before { background: var(--stop-red); }
+.sds-sign--stop .sds-sign-face { color: #fff; }
+
+.sds-sign--yield { background: var(--stop-red); width: 186px; height: 164px; }
+.sds-sign--yield, .sds-sign--yield::before { clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.sds-sign--yield::before { background: #fff; inset: 20px 30px 30px; }
+.sds-sign--yield .sds-sign-face { color: var(--stop-red); padding-bottom: 46px; }
+.sds-sign--yield .sds-sign-big { font-size: 2.6rem; }
+.sds-sign--yield .sds-sign-l1, .sds-sign--yield .sds-sign-l2 { font-size: .78rem; }
+
+.sds-sign--info { background: #fff; border-radius: 12px; width: 156px; height: 156px; }
+.sds-sign--info::before { background: var(--info-blue); border-radius: 8px; }
+.sds-sign--info .sds-sign-face { color: #fff; }
+
+/* ---- Caption under each sign ---- */
+.sds-sign-card { flex: 1; display: flex; flex-direction: column; padding: 18px 20px 4px; transition: opacity .2s linear; }
+.sds-sign-card h3 { font-size: 1.15rem; font-weight: 800; margin: 0 0 6px; color: var(--ink); line-height: 1.2; }
+.sds-sign-card p { margin: 0 0 8px; color: var(--muted); font-size: .95rem; line-height: 1.5; max-width: 34ch; }
+.sds-sign-card .sds-sign-note { color: var(--hw-green); font-weight: 700; }
+.sds-sign-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; }
+.sds-sign-price { font-weight: 900; font-size: 1.3rem; color: var(--ink); }
+.sds-sign-price.is-text { font-size: .95rem; font-weight: 700; color: var(--muted); }
+.sds-sign-cta { white-space: nowrap; }
+.sds-sign-cta {
+	display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 8px;
+	background: var(--hw-green); color: #fff !important; font-weight: 800; font-size: .92rem; text-decoration: none !important;
+	box-shadow: inset 0 0 0 2px var(--hw-green), inset 0 0 0 4px rgba(255, 255, 255, .85);
+}
+.sds-sign-cta:hover { filter: brightness(1.12); }
+.sds-sign-cta:focus-visible { outline: 3px solid var(--sign-yellow); outline-offset: 3px; }
+
+/* ---- The road the car drives on ---- */
+.sds-asphalt { position: relative; height: 70px; margin-top: 36px; background: var(--asphalt); border-radius: 6px; overflow: hidden; }
+.sds-lane { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: repeating-linear-gradient(90deg, var(--sign-yellow) 0 34px, transparent 34px 60px); }
+.sds-road-car { position: absolute; bottom: 6px; left: 100%; width: 170px; height: auto; transform: translateX(calc(var(--car, 0) * -1 * (100% + 100vw))); filter: drop-shadow(0 6px 5px rgba(0, 0, 0, .45)); }
+.sds-road:not(.is-live) .sds-road-car { left: auto; right: 24px; transform: none; }
+
+@media (max-width: 640px) {
+	.sds-signs { grid-template-columns: 1fr; }
+	.sds-sign-stand { height: 250px; }
+	.sds-road-car { width: 130px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.sds-road.is-live .sds-sign-slot .sds-sign, .sds-road.is-live .sds-sign-slot .sds-sign-post { transform: none; }
+	.sds-road.is-live .sds-sign-slot .sds-sign-card { opacity: 1; }
+	.sds-road-car { left: auto; right: 24px; transform: none !important; }
+}
+.sds-road h2, .sds-road h3, .sds-road p, .sds-road a, .sds-road span { font-family: inherit; }
+.sds-sign-price { white-space: nowrap; font-size: 1.15rem; }
+.sds-road .sds-road-car { left: calc((1 - var(--car, 0)) * (100% - 170px)); transform: none; position: absolute; bottom: 4px; width: 170px; }
+@media (max-width: 640px) { .sds-road .sds-road-car { left: calc((1 - var(--car, 0)) * (100% - 130px)); } }

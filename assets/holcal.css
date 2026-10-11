@@ -1,0 +1,39 @@
+/* Sam's Class Manager — public holiday calendar [sdsc_holidays] + date-picker holiday marks */
+.sdhc { max-width: 1180px; margin: clamp(24px, 4vw, 52px) auto; padding: 0 16px; font-family: Overpass, system-ui, -apple-system, "Segoe UI", sans-serif; color: #15191d; box-sizing: border-box; }
+.sdhc *, .sdhc *::before, .sdhc *::after { box-sizing: border-box; }
+.sdhc-head { text-align: center; margin-bottom: 18px; }
+.sdhc-kicker { display: inline-block; margin: 0 0 6px !important; padding: 4px 10px 3px; border-radius: 6px; background: #ffc20e; color: #1b1b1b !important; font-size: .72rem !important; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.sdhc-head h2 { margin: 0 0 6px !important; font-size: clamp(1.5rem, 2.6vw, 2rem) !important; font-weight: 900 !important; color: #15191d !important; }
+.sdhc-head p { margin: 0 auto !important; max-width: 640px; color: #57616b !important; }
+.sdhc-grid { display: grid; grid-template-columns: minmax(280px, 400px) 1fr; gap: 20px; align-items: start; }
+.sdhc-cal { border-radius: 16px; background: #fff; box-shadow: 0 18px 40px -26px rgba(0, 0, 0, .45), inset 0 0 0 1px #e6e3d9; padding: 14px; }
+.sdhc-cal-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.sdhc-cal-h b { font-size: 1.05rem; font-weight: 900; }
+.sdhc-cal-h button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: #f2f4f1; color: #15191d; font-size: 18px; cursor: pointer; }
+.sdhc-cal-h button:hover, .sdhc-cal-h button:focus-visible { background: #e3f1e8; outline: none; }
+.sdhc-cal table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 0 !important; margin: 0 !important; }
+.sdhc-cal th { padding: 4px 0 !important; font-size: .72rem; font-weight: 800; color: #57616b; text-align: center; border: 0 !important; background: none !important; }
+.sdhc-cal td { padding: 2px !important; text-align: center; border: 0 !important; background: none !important; }
+.sdhc-cal td span { display: grid; place-items: center; height: 38px; border-radius: 9px; font-size: .9rem; font-weight: 600; position: relative; }
+.sdhc-cal td.is-today span { box-shadow: inset 0 0 0 2px #00703c; }
+.sdhc-cal td.is-hol span { background: #fff4cc; font-weight: 900; cursor: help; }
+.sdhc-cal td.is-state span { background: #ffe1e1; color: #8f1d1d; }
+.sdhc-cal td.is-closed span { background: #c8102e; color: #fff; }
+.sdhc-cal td.is-hol span::after { content: ""; position: absolute; bottom: 4px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .7; }
+.sdhc-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: .78rem; color: #57616b; }
+.sdhc-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.sdhc-note { min-height: 1.4em; margin: 8px 0 0 !important; font-size: .85rem !important; font-weight: 700; color: #15191d !important; }
+.sdhc-list { list-style: none; margin: 0 !important; padding: 0 !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.sdhc-list li { display: flex; gap: 12px; align-items: flex-start; margin: 0 !important; padding: 12px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px #e6e3d9; }
+.sdhc-list time { flex: none; width: 52px; padding: 4px 0 6px; border-radius: 8px; background: #00703c; color: #fff; text-align: center; font-size: 1.3rem; font-weight: 900; line-height: 1.05; }
+.sdhc-list time b { display: block; padding: 2px 0; margin-bottom: 3px; border-radius: 8px 8px 0 0; background: #04502a; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; }
+.sdhc-list strong { font-size: .98rem; }
+.sdhc-list small { color: #57616b; }
+.sdhc-es { color: #57616b; font-size: .85rem; }
+.sdhc-bs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.sdhc-b { display: inline-block; padding: 2px 7px 1px; border-radius: 999px; background: #eef1ee; font-size: .68rem; font-weight: 800; letter-spacing: .03em; color: #3b444d; }
+.sdhc-b--mva { background: #ffe1e1; color: #8f1d1d; }
+.sdhc-b--off { background: #c8102e; color: #fff; }
+@media (max-width: 820px) { .sdhc-grid { grid-template-columns: 1fr; } }
+
+

@@ -1,0 +1,60 @@
+/* Sam's Class Manager — living sky for the Maryland hero (see hero-sky.js).
+   Without JavaScript the original dusk scene stays exactly as before. */
+
+.mdh-wait .mdh-stage { opacity: 0; }
+.mdh-stage { transition: opacity .7s ease; }
+
+/* Painted sky replaces the CSS sun, stars and cloud strips. */
+.mdh.has-sky .mdh-sky { background: #0c1631; }
+.mdh.has-sky .mdh-sun, .mdh.has-sky .mdh-stars, .mdh.has-sky .mdh-cloud { display: none; }
+.mdh-cv-sky, .mdh-cv-stars { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mdh-cv-clouds { position: absolute; left: 0; top: 4%; width: 200%; height: 46%; animation: mdh-clouds 420s linear infinite; will-change: transform; }
+.mdh-cv-clouds canvas { width: 100%; height: 100%; display: block; image-rendering: auto; filter: blur(1.2px); }
+@keyframes mdh-clouds { to { transform: translateX(-50%); } }
+
+/* Skyline, State House, bridge and shore take the light of the moment. */
+.mdh.has-sky .mdh-far svg { filter: drop-shadow(0 -1px 0 var(--mdh-haze, transparent)); }
+.mdh.has-sky .mdh-far::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0%, var(--mdh-haze, transparent) 100%); }
+.mdh.has-sky .mdh-water { background:
+	repeating-linear-gradient(180deg, rgba(255,255,255,calc(.04 + var(--mdh-day, 0) * .05)) 0 2px, transparent 2px 9px),
+	linear-gradient(180deg, var(--mdh-w1, #4a4f86) 0%, var(--mdh-w2, #263a6e) 45%, var(--mdh-w3, #13254d) 100%); }
+.mdh.has-sky .mdh-glint { left: var(--mdh-glx, 63%); opacity: var(--mdh-glo, .7); background: repeating-linear-gradient(180deg, var(--mdh-glc, rgba(255,214,140,.75)) 0 2px, transparent 2px 7px); transition: opacity 2s, left 2s; }
+.mdh.has-sky .mdh-asphalt { background:
+	radial-gradient(120% 140% at 60% 0%, rgba(255,190,120,calc(.03 + var(--mdh-lights, 1) * .09)), transparent 60%),
+	repeating-linear-gradient(90deg, rgba(255,255,255,.015) 0 3px, transparent 3px 7px),
+	linear-gradient(180deg, var(--mdh-a1, #31363f), var(--mdh-a2, #1d2127)); }
+
+/* Lights: building windows, bridge lamps, lighthouse, billboard lamps and headlights switch on around sunset. */
+.mdh.has-sky .mdh-beam { opacity: var(--mdh-lights, 1); transition: opacity 2s; }
+.mdh.has-sky .mdh-lh-beam, .mdh.has-sky .mdh-lh-halo { opacity: var(--mdh-lights, 1); }
+.mdh.has-sky .mdh-bb-lamp { opacity: var(--mdh-lights, 1); }
+.mdh.has-sky .mdh-boats, .mdh.has-sky .mdh-props, .mdh.has-sky .mdh-crab, .mdh.has-sky .mdh-susans { filter: brightness(var(--mdh-scene, 1)); }
+.mdh.has-sky .mdh-car { filter: drop-shadow(0 4px 2px rgba(0,0,0,.4)) brightness(calc(.9 + var(--mdh-day, 0) * .14)); }
+
+/* Orioles are out in daylight; at night the sky belongs to the stars. */
+.mdh.has-sky .mdh-birds { opacity: calc(.15 + var(--mdh-day, 1) * .85); transition: opacity 3s; }
+
+/* Keep the headline easy to read on a bright daytime sky. */
+/* Keep the headline easy to read: a soft pool of shade behind the text only, so the sky stays open. */
+.mdh.has-sky::before { background:
+	radial-gradient(48% 75% at 22% 52%, rgba(4,10,28,calc(.78 - var(--mdh-day, 0) * .08)) 0%, rgba(4,10,28,calc(.55 - var(--mdh-day, 0) * .1)) 45%, rgba(4,10,28,0) 100%),
+	linear-gradient(90deg, rgba(4,10,28,.35) 0%, rgba(4,10,28,0) 45%); }
+@media (max-width: 860px) {
+	.mdh.has-sky::before { background: linear-gradient(180deg, rgba(4,10,28,.86) 0%, rgba(4,10,28,.68) 45%, rgba(4,10,28,.1) 70%, transparent 80%); }
+}
+
+@media (prefers-reduced-motion: reduce) { .mdh-cv-clouds { animation: none; } }
+
+/* Weather and seasons */
+.mdh-cv-fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+.mdh-fx-fog { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: var(--mdh-fog, 0); transition: opacity 3s;
+	background: linear-gradient(180deg, transparent 0%, var(--mdh-fogc, #d9dee5) 45%, var(--mdh-fogc, #d9dee5) 70%, transparent 100%);
+	-webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, rgba(0,0,0,.75)); mask-image: linear-gradient(90deg, rgba(0,0,0,.55), #000 40%, rgba(0,0,0,.75)); }
+.mdh-fx-flash { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; background: radial-gradient(80% 70% at 70% 10%, rgba(235,240,255,.85), rgba(200,210,255,.25) 60%, transparent); }
+.mdh-fx-flash.is-on { animation: mdh-bolt 900ms ease-out 1; }
+@keyframes mdh-bolt { 0% { opacity: 0; } 4% { opacity: .9; } 10% { opacity: .1; } 16% { opacity: .7; } 40% { opacity: .15; } 100% { opacity: 0; } }
+.mdh.has-sky .mdh-susans { opacity: var(--mdh-susan, 1); transition: opacity 2s; }
+.mdh.has-sky .mdh-asphalt::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: var(--mdh-wet, 0);
+	background: linear-gradient(180deg, rgba(160,180,210,.22), rgba(40,50,70,.05) 60%, rgba(160,180,210,.18)),
+		repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 23px); }
+@media (prefers-reduced-motion: reduce) { .mdh-fx-flash.is-on { animation: none; } }
