@@ -402,33 +402,33 @@ class SDSC_Reports {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title><?php echo esc_html( $title . ' — Sam’s Driving School' ); ?></title>
 <style>
-@page { size: letter <?php echo $land ? 'landscape' : 'portrait'; ?>; margin: 14mm 12mm 16mm;
-	@bottom-left { content: "Sam’s Driving School · <?php echo esc_html( str_replace( '"', '', $title ) ); ?>"; font: 9px Arial, sans-serif; color: #5b646d; }
-	@bottom-right { content: "Page " counter(page) " of " counter(pages); font: 9px Arial, sans-serif; color: #5b646d; } }
+@page { size: letter <?php echo $land ? 'landscape' : 'portrait'; ?>; margin: 0.6in 0.5in 0.7in;
+	@bottom-left { content: "Sam’s Driving School · <?php echo esc_html( str_replace( '"', '', $title ) ); ?>"; font: 9pt Arial, sans-serif; color: #5b646d; }
+	@bottom-right { content: "Page " counter(page) " of " counter(pages); font: 9pt Arial, sans-serif; color: #5b646d; } }
 * { box-sizing: border-box; }
-body { margin: 0; font: 11px/1.45 Arial, Helvetica, sans-serif; color: #15191d; background: #eef1f3; }
-.sheet { max-width: <?php echo $land ? '1060px' : '820px'; ?>; margin: 18px auto; padding: 22px 26px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.08); }
+body { margin: 0; font: 11pt/1.4 Arial, Helvetica, sans-serif; color: #15191d; background: #eef1f3; }
+.sheet { max-width: <?php echo $land ? '11in' : '8.5in'; ?>; margin: 18px auto; padding: 22px 26px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.08); }
 .bar { position: sticky; top: 0; display: flex; gap: 8px; justify-content: center; padding: 10px; background: #15191d; }
 .bar button, .bar a { padding: 9px 16px; border: 0; border-radius: 999px; background: #00703c; color: #fff; font: 700 13px Arial, sans-serif; text-decoration: none; cursor: pointer; }
 .bar a { background: #3c434a; }
 header.rh { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 10px; border-bottom: 3px solid #00703c; margin-bottom: 4px; }
-.rh .rp-logo { height: 40px; width: auto; }
-.rh .org { text-align: right; font-size: 9.5px; color: #5b646d; line-height: 1.4; }
+.rh .rp-logo { height: 0.5in; width: auto; }
+.rh .org { text-align: right; font-size: 9pt; color: #5b646d; line-height: 1.4; }
 .road { height: 4px; margin: 0 0 12px; background: repeating-linear-gradient(90deg, #ffc20e 0 22px, transparent 22px 38px); }
-h1 { margin: 0 0 2px; font-size: 18px; }
-.sub { margin: 0 0 4px; color: #5b646d; }
-.meta { margin: 0 0 12px; color: #8a929a; font-size: 9.5px; }
+h1 { margin: 0 0 2pt; font-size: 16pt; }
+.sub { margin: 0 0 3pt; font-size: 11pt; color: #5b646d; }
+.meta { margin: 0 0 10pt; color: #6b737b; font-size: 9pt; }
 table { width: 100%; border-collapse: collapse; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
-th { padding: 6px 6px; background: #e7f5ec; color: #0b3d24; text-align: left; font-size: 9.5px; letter-spacing: .4px; text-transform: uppercase; border-bottom: 1px solid #b8dcc6; white-space: pre-line; vertical-align: bottom; }
-td { padding: 5px 6px; border-bottom: 1px solid #e3e7ea; vertical-align: top; }
+th { padding: 5pt 5pt; background: #e7f5ec; color: #0b3d24; text-align: left; font-size: 9pt; letter-spacing: .4px; text-transform: uppercase; border-bottom: 1px solid #b8dcc6; white-space: pre-line; vertical-align: bottom; }
+td { padding: 4pt 5pt; border-bottom: 0.5pt solid #d5dbe0; vertical-align: top; font-size: 10pt; }
 tbody tr:nth-child(even) td { background: #fafbfb; }
-<?php if ( $land ) : ?>td:not(:first-child), th:not(:first-child) { text-align: center; }<?php endif; ?>
+<?php if ( $land ) : ?>td:not(:first-child), th:not(:first-child) { text-align: center; } td { font-size: 9.5pt; }<?php endif; ?>
 .totals { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; background: #f6f7f7; break-inside: avoid; }
-.totals b { font-size: 13px; }
+.totals { font-size: 10pt; } .totals b { font-size: 12pt; }
 .sign { display: flex; gap: 40px; margin-top: 34px; break-inside: avoid; }
-.sign div { flex: 1; border-top: 1px solid #15191d; padding-top: 4px; font-size: 9.5px; color: #5b646d; }
+.sign div { flex: 1; border-top: 0.75pt solid #15191d; padding-top: 3pt; font-size: 9pt; color: #5b646d; }
 .none { padding: 14px; text-align: center; color: #5b646d; }
 @media print { body { background: #fff; } .bar { display: none; } .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; } }
 </style></head><body>
