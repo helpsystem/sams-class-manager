@@ -126,6 +126,11 @@ class SDSC_Registration {
 
 	public static function find_class_by_code( $code ) {
 		if ( ! $code ) { return 0; }
+		// Classes without a course code yet are linked as ?course=id-123.
+		if ( preg_match( '/^id-(\d+)$/', (string) $code, $m ) ) {
+			$id = (int) $m[1];
+			return 'sdsc_class' === get_post_type( $id ) && 'publish' === get_post_status( $id ) ? $id : 0;
+		}
 		$p = get_posts( array(
 			'post_type'      => SDSC_CPT_Classes::CPT,
 			'post_status'    => 'publish',

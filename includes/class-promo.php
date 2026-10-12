@@ -33,6 +33,7 @@ class SDSC_Promo {
 		add_action( 'sdsc_paid', array( __CLASS__, 'on_paid' ), 5, 3 );
 		add_action( 'add_meta_boxes', array( __CLASS__, 'metabox' ) );
 		add_action( 'save_post_sdsc_class', array( __CLASS__, 'save_box' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'missing_codes' ) );
 	}
 
 	public static function install() {
@@ -72,6 +73,21 @@ class SDSC_Promo {
 	public static function save_box( $post_id ) {
 		if ( ! isset( $_POST['sdsc_vis_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sdsc_vis_nonce'] ) ), 'sdsc_vis' ) || ! current_user_can( 'edit_post', $post_id ) ) { return; }
 		if ( ! empty( $_POST['sdsc_hidden'] ) ) { update_post_meta( $post_id, self::HIDDEN, '1' ); } else { delete_post_meta( $post_id, self::HIDDEN ); }
+	}
+
+	/** Real course codes come from the school's own numbering — remind staff when a class has none. */
+	public static function missing_codes() {
+		$scr = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $scr || ( 'sdsc_class' !== $scr->post_type && false === strpos( (string) $scr->id, 'sdsc' ) ) || ! current_user_can( 'edit_posts' ) ) { return; }
+		$miss = array();
+		foreach ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'publish', 'numberposts' => 30, 'meta_key' => '_sdsc_start', 'orderby' => 'meta_value', 'order' => 'ASC' ) ) as $p ) { // phpcs:ignore
+			if ( '' === trim( (string) get_post_meta( $p->ID, '_sdsc_course_code', true ) ) && (string) get_post_meta( $p->ID, '_sdsc_end', true ) >= current_time( 'Y-m-d' ) ) {
+				$miss[] = '<a href="' . esc_url( get_edit_post_link( $p->ID ) ) . '">' . esc_html( html_entity_decode( get_the_title( $p ), ENT_QUOTES, 'UTF-8' ) . ' (' . get_post_meta( $p->ID, '_sdsc_start', true ) . ')' ) . '</a>';
+			}
+		}
+		if ( $miss ) {
+			echo '<div class="notice notice-warning"><p><strong>Course code missing:</strong> ' . implode( ', ', $miss ) . ' — enter the school’s real course code (the number used in the student folders) in each class. Until then the class is shown without a code.</p></div>'; // phpcs:ignore
+		}
 	}
 
 	/* ------------------------------------------------------------ codes */

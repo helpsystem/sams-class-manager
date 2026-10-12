@@ -89,7 +89,7 @@ class SDSC_Class_Feed {
 				'desc'  => wp_strip_all_tags( $desc ),
 				'price' => is_numeric( $price ) ? '$' . number_format_i18n( (float) $price, floor( (float) $price ) == (float) $price ? 0 : 2 ) : $price,
 				'raw'   => is_numeric( $price ) ? (float) $price : null,
-				'url'   => 0 === $left ? '' : add_query_arg( 'course', rawurlencode( $code ), $reg ) . '#sdsc',
+				'url'   => 0 === $left ? '' : add_query_arg( 'course', rawurlencode( '' !== $code ? $code : 'id-' . $id ), $reg ) . '#sdsc',
 				'cta'   => 'Enroll Now',
 				'left'  => $left,
 				'low'   => $left > 0 && $left <= (int) $o['low_seats'],
