@@ -1,40 +1,102 @@
-/* Sam's Class Manager — school look for the Tutor LMS sign-in / sign-up forms */
-.tutor-login-wrap, #tutor-registration-form {
-	--g: #00703c; --g-d: #005a30; --ink: #15191d; --mut: #5b646d; --line: #dfe4e8;
+/* Sam's Class Manager — sign in / sign up (Tutor LMS forms) in the school look: school panel + form. */
+.sdsc-auth, #tutor-registration-wrap, .tutor-login-wrap {
+	--g: #00703c; --g2: #0f9a44; --g-d: #005a30; --ink: #15191d; --mut: #5b646d; --line: #dfe4e8; --y: #ffc20e;
 }
-.tutor-login-wrap.tutor-card, .tutor-card:has(> #tutor-registration-form) {
-	position: relative; max-width: 470px !important; margin: 34px auto !important; padding-top: 104px !important;
-	border: 0 !important; border-radius: 22px !important; background: #fff !important;
-	box-shadow: 0 1px 0 #e7ebee, 0 18px 50px rgba(11, 61, 36, .12) !important; overflow: hidden;
+
+/* ---------- two-panel frame ---------- */
+.sdsc-auth, #tutor-registration-wrap:has(> .sdsc-auth-side) {
+	display: grid !important; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); align-items: stretch;
+	width: auto !important; max-width: 1060px !important; margin: 44px auto 64px !important; padding: 0 !important;
+	border: 0 !important; border-radius: 28px !important; background: #fff !important; overflow: hidden;
+	box-shadow: 0 1px 0 #e7ebee, 0 30px 80px -30px rgba(11, 61, 36, .35) !important; font-family: "Overpass", "Lato", system-ui, sans-serif;
 }
-.tutor-login-wrap.tutor-card::before, .tutor-card:has(> #tutor-registration-form)::before {
-	content: ""; position: absolute; left: 0; right: 0; top: 0; height: 84px;
-	background: var(--sdsc-form-logo, none) center 14px / auto 56px no-repeat, linear-gradient(180deg, #f3faf6, #fff);
-	border-bottom: 1px solid #edf1f3;
+.sdsc-auth-main { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 0; }
+.sdsc-auth .tutor-page-wrap { width: 100% !important; }
+.sdsc-auth .tutor-login-wrap, .sdsc-auth .tutor-login-wrap.tutor-card {
+	width: auto !important; max-width: none !important; margin: 0 !important; padding: 44px 48px 20px !important;
+	border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important;
 }
-.tutor-login-wrap.tutor-card::after, .tutor-card:has(> #tutor-registration-form)::after {
-	content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px;
-	background: linear-gradient(90deg, var(--g) 0 100%); box-shadow: 0 5px 0 -1px #ffc20e;
+.sdsc-auth .tutor-login-wrap::before, .sdsc-auth .tutor-login-wrap::after { content: none !important; display: none !important; }
+.sdsc-auth .tutor-login-form-wrapper { padding: 0 !important; }
+#tutor-registration-wrap:has(> .sdsc-auth-side) > form { padding: 44px 48px 36px !important; min-width: 0; }
+#tutor-registration-wrap:has(> .sdsc-auth-side)::before, #tutor-registration-wrap:has(> .sdsc-auth-side)::after { content: none !important; display: none !important; }
+
+/* ---------- school panel ---------- */
+.sdsc-auth-side {
+	position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 18px; padding: 44px 40px 36px; color: #e9f6ee; overflow: hidden;
+	background: radial-gradient(120% 90% at 0% 0%, #1a9b52 0%, rgba(26, 155, 82, 0) 55%), linear-gradient(160deg, #0b5d33 0%, #063d22 70%, #052e1a 100%);
 }
-.tutor-login-wrap h1, .tutor-login-wrap h2, .tutor-login-wrap h3, .tutor-login-wrap .tutor-fs-5 { color: var(--ink) !important; text-align: center; }
-.tutor-login-wrap input[type=text], .tutor-login-wrap input[type=email], .tutor-login-wrap input[type=password],
-#tutor-registration-form input[type=text], #tutor-registration-form input[type=email], #tutor-registration-form input[type=password] {
-	min-height: 46px; padding: 10px 14px !important; border: 1px solid var(--line) !important; border-radius: 12px !important;
-	background: #f9fbfc !important; font-size: 15px !important; color: var(--ink) !important; transition: border-color .15s, box-shadow .15s, background .15s;
+.sdsc-auth-road { position: absolute; right: -60px; bottom: -40px; z-index: -1; width: 220px; height: 140%; transform: rotate(18deg); background: #0a2f1d; box-shadow: inset 6px 0 0 rgba(255, 255, 255, .08), inset -6px 0 0 rgba(255, 255, 255, .08); opacity: .55; }
+.sdsc-auth-road::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 6px; margin-left: -3px; background: repeating-linear-gradient(180deg, var(--y) 0 34px, transparent 34px 62px); opacity: .8; animation: sdscRoad 3s linear infinite; }
+@keyframes sdscRoad { to { background-position: 0 62px; } }
+.sdsc-auth-logo { display: inline-grid; place-items: center; width: 92px; height: 92px; border-radius: 24px; background: #fff; box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .45); text-decoration: none !important; }
+.sdsc-auth-logo img { width: 78px; height: 78px; object-fit: contain; }
+.sdsc-auth-kicker { margin: 6px 0 0 !important; color: var(--y) !important; font-size: 12.5px !important; font-weight: 800 !important; letter-spacing: .14em; text-transform: uppercase; }
+.sdsc-auth-title { margin: 0 !important; color: #fff !important; font-size: clamp(28px, 3.4vw, 38px) !important; font-weight: 900 !important; line-height: 1.08 !important; letter-spacing: -.01em; }
+.sdsc-auth-lead { margin: 0 !important; color: #cfe9d9 !important; font-size: 16px !important; line-height: 1.55 !important; max-width: 36ch; }
+.sdsc-auth-points { list-style: none; margin: 6px 0 0 !important; padding: 0 !important; display: flex; flex-direction: column; gap: 14px; }
+.sdsc-auth-points li { display: flex; gap: 12px; align-items: flex-start; margin: 0 !important; color: #fff; }
+.sdsc-auth-points b { display: block; color: #fff; font-size: 15px; }
+.sdsc-auth-points small { display: block; color: #b9dcc8; font-size: 13.5px; line-height: 1.45; }
+.sdsc-auth-ic { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); color: #9ff0bf; }
+.sdsc-auth-ic svg { width: 21px; height: 21px; }
+.sdsc-auth-note { margin: 4px 0 0 !important; padding: 12px 14px; border-radius: 14px; background: rgba(255, 194, 14, .12); box-shadow: inset 0 0 0 1px rgba(255, 194, 14, .35); color: #fff3cc !important; font-size: 13.5px !important; line-height: 1.5 !important; }
+.sdsc-auth-note a { color: var(--y) !important; font-weight: 800; text-decoration: underline !important; }
+.sdsc-auth-help { margin-top: auto; display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; padding: 10px 18px 10px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); color: #fff !important; text-decoration: none !important; transition: background .2s; }
+.sdsc-auth-help:hover, .sdsc-auth-help:focus-visible { background: rgba(255, 255, 255, .16); color: #fff !important; }
+.sdsc-auth-help small { display: block; color: #b9dcc8; font-size: 12px; }
+.sdsc-auth-help b { display: block; font-size: 17px; color: #fff; }
+
+/* ---------- form side ---------- */
+.sdsc-auth .tutor-login-form-wrapper > div:first-child, #tutor-registration-wrap h2, #tutor-registration-wrap .tutor-fs-4 {
+	color: var(--ink) !important; font-size: 28px !important; font-weight: 900 !important; text-align: left !important; margin-bottom: 22px !important; letter-spacing: -.01em;
 }
-.tutor-login-wrap input:focus, #tutor-registration-form input:focus {
-	outline: none !important; border-color: var(--g) !important; background: #fff !important; box-shadow: 0 0 0 4px rgba(0, 112, 60, .14) !important;
+#tutor-registration-wrap:has(> .sdsc-auth-side) > form::before { content: "Create your account"; display: block; margin: 0 0 22px; color: var(--ink); font-size: 28px; font-weight: 900; letter-spacing: -.01em; }
+.tutor-login-wrap label, #tutor-registration-form label { color: var(--ink) !important; font-weight: 700 !important; font-size: 14px !important; }
+.tutor-login-wrap input[type=text], .tutor-login-wrap input[type=email], .tutor-login-wrap input[type=password], .tutor-login-wrap input[name=pwd],
+#tutor-registration-form input[type=text], #tutor-registration-form input[type=email], #tutor-registration-form input[type=password], #tutor-registration-form input[name=password] {
+	width: 100% !important; min-height: 50px; padding: 12px 16px !important; border: 1.5px solid var(--line) !important; border-radius: 14px !important;
+	background: #f7f9fa !important; font-size: 16px !important; color: var(--ink) !important; box-shadow: none !important; transition: border-color .15s, box-shadow .15s, background .15s;
 }
-#tutor-registration-form label, .tutor-login-wrap label { color: var(--ink) !important; font-weight: 600; }
+.tutor-login-wrap input::placeholder, #tutor-registration-form input::placeholder { color: #8a949c !important; }
+.tutor-login-wrap input:hover, #tutor-registration-form input:hover { border-color: #c5ced5 !important; }
+.tutor-login-wrap input:focus, #tutor-registration-form input:focus { outline: none !important; border-color: var(--g) !important; background: #fff !important; box-shadow: 0 0 0 4px rgba(0, 112, 60, .14) !important; }
 .tutor-login-wrap .tutor-btn-primary, #tutor-registration-form .tutor-btn-primary {
-	min-height: 48px; border: 0 !important; border-radius: 999px !important; background: var(--g) !important; color: #fff !important;
-	font-weight: 700 !important; font-size: 15px !important; letter-spacing: .2px; box-shadow: 0 8px 18px rgba(0, 112, 60, .22) !important;
+	width: 100%; min-height: 52px; border: 0 !important; border-radius: 999px !important; background: linear-gradient(180deg, #1fb457, var(--g)) !important; color: #fff !important;
+	font-weight: 800 !important; font-size: 16px !important; letter-spacing: .2px; box-shadow: 0 1px 0 rgba(255, 255, 255, .3) inset, 0 12px 24px -10px rgba(0, 112, 60, .6) !important; transition: transform .15s, filter .15s;
 }
-.tutor-login-wrap .tutor-btn-primary:hover, #tutor-registration-form .tutor-btn-primary:hover { background: var(--g-d) !important; }
-.tutor-login-wrap a, #tutor-registration-form a, .tutor-card:has(> #tutor-registration-form) a {
-	color: var(--g) !important; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; opacity: 1 !important; visibility: visible !important;
-}
+.tutor-login-wrap .tutor-btn-primary:hover, #tutor-registration-form .tutor-btn-primary:hover, .tutor-login-wrap .tutor-btn-primary:focus-visible, #tutor-registration-form .tutor-btn-primary:focus-visible { filter: brightness(1.06); transform: translateY(-1px); color: #fff !important; }
+.tutor-login-wrap a, #tutor-registration-form a, #tutor-registration-wrap a { color: var(--g) !important; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; opacity: 1 !important; visibility: visible !important; }
+.tutor-login-wrap a:hover, #tutor-registration-form a:hover { color: var(--g-d) !important; }
 .tutor-login-wrap input[type=checkbox], #tutor-registration-form input[type=checkbox] { accent-color: var(--g); width: 18px; height: 18px; }
-@media (max-width: 520px) {
-	.tutor-login-wrap.tutor-card, .tutor-card:has(> #tutor-registration-form) { margin: 16px !important; border-radius: 18px !important; }
+.tutor-login-error:not(:empty), #tutor-registration-form .tutor-alert { border-radius: 12px !important; }
+.sdsc-auth-alt { margin: 6px 48px 40px !important; padding-top: 18px; border-top: 1px solid #edf1f3; color: var(--mut); font-size: 14.5px; line-height: 1.7; text-align: center; }
+.sdsc-auth-alt a { color: var(--g) !important; font-weight: 800; text-decoration: underline !important; text-underline-offset: 3px; }
+
+/* ---------- card without the panel (fallback, e.g. other Tutor login screens) ---------- */
+.tutor-login-wrap.tutor-card:not(.sdsc-auth .tutor-login-wrap), .tutor-card:has(> #tutor-registration-form):not(:has(> .sdsc-auth-side)) {
+	position: relative; max-width: 470px !important; margin: 34px auto !important; padding-top: 104px !important;
+	border: 0 !important; border-radius: 22px !important; background: #fff !important; box-shadow: 0 1px 0 #e7ebee, 0 18px 50px rgba(11, 61, 36, .12) !important; overflow: hidden;
 }
+.tutor-login-wrap.tutor-card:not(.sdsc-auth .tutor-login-wrap)::before, .tutor-card:has(> #tutor-registration-form):not(:has(> .sdsc-auth-side))::before {
+	content: ""; position: absolute; left: 0; right: 0; top: 0; height: 84px; background: var(--sdsc-form-logo, none) center 14px / auto 56px no-repeat, linear-gradient(180deg, #f3faf6, #fff); border-bottom: 1px solid #edf1f3;
+}
+
+/* ---------- phones & tablets ---------- */
+@media (max-width: 900px) {
+	.sdsc-auth, #tutor-registration-wrap:has(> .sdsc-auth-side) { grid-template-columns: 1fr; margin: 18px 14px 40px !important; border-radius: 22px !important; }
+	.sdsc-auth-side { padding: 22px 22px 20px; gap: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; }
+	.sdsc-auth-logo { width: 58px; height: 58px; border-radius: 16px; } .sdsc-auth-logo img { width: 48px; height: 48px; }
+	.sdsc-auth-kicker { flex: 1 1 calc(100% - 80px); margin: 0 !important; }
+	.sdsc-auth-title { flex: 1 1 100%; font-size: 26px !important; }
+	.sdsc-auth-lead { flex: 1 1 100%; font-size: 15px !important; }
+	.sdsc-auth-points { display: none; }
+	.sdsc-auth-note { flex: 1 1 100%; }
+	.sdsc-auth-help { margin-top: 0; padding: 8px 14px 8px 8px; } .sdsc-auth-help .sdsc-auth-ic { width: 34px; height: 34px; } .sdsc-auth-help b { font-size: 15px; }
+	.sdsc-auth-road { width: 120px; right: -40px; opacity: .35; }
+	.sdsc-auth .tutor-login-wrap, .sdsc-auth .tutor-login-wrap.tutor-card { padding: 26px 22px 10px !important; }
+	#tutor-registration-wrap:has(> .sdsc-auth-side) > form { padding: 26px 22px 28px !important; }
+	.sdsc-auth-alt { margin: 4px 22px 28px !important; }
+	.sdsc-auth .tutor-login-form-wrapper > div:first-child, #tutor-registration-wrap:has(> .sdsc-auth-side) > form::before { font-size: 24px !important; }
+}
+@media (prefers-reduced-motion: reduce) { .sdsc-auth-road::after { animation: none; } }

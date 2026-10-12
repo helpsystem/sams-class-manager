@@ -121,6 +121,7 @@ class SDSC_Chrome {
 							'depth'          => 2,
 						) );
 						?>
+						<?php echo class_exists( 'SDSC_Look' ) ? SDSC_Look::account( 'drawer' ) : ''; // phpcs:ignore -- escaped in helper ?>
 						<div class="sdh-drawer-cta">
 							<a class="sdh-btn sdh-btn--go" href="<?php echo esc_url( $enroll ); ?>">See classes &amp; prices</a>
 							<?php foreach ( $phones as $p ) { echo self::phone_chip( $p, 'lg' ); } // phpcs:ignore -- escaped in helper ?>
@@ -132,7 +133,8 @@ class SDSC_Chrome {
 							<a class="sdh-call" href="<?php echo esc_attr( self::tel( $phones[0] ) ); ?>"><span class="sdh-call-ic"><?php echo self::icon( 'phone' ); // phpcs:ignore ?></span><span class="sdh-call-t"><small>Call us</small><?php echo esc_html( $phones[0] ); ?></span></a>
 							<?php if ( isset( $phones[1] ) ) : ?><span class="sdh-call-2"><?php echo self::phone_chip( $phones[1], 'sm' ); // phpcs:ignore ?></span><?php endif; ?>
 						<?php endif; ?>
-						<a class="sdh-btn sdh-btn--go" href="<?php echo esc_url( $enroll ); ?>">Enroll now</a>
+						<?php echo class_exists( 'SDSC_Look' ) ? SDSC_Look::account( 'bar' ) : ''; // phpcs:ignore -- escaped in helper ?>
+						<a class="sdh-btn sdh-btn--go sdh-enroll" href="<?php echo esc_url( $enroll ); ?>">Enroll now</a>
 					</div>
 					<button class="sdh-burger" type="button" aria-controls="sdh-nav" aria-expanded="false" aria-label="Open menu"><span></span><span></span><span></span></button>
 				</div>

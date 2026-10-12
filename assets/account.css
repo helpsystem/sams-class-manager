@@ -1,0 +1,63 @@
+/* Sam's Driving School — header account button / menu, sign-in button, mobile drawer account card. */
+.sdh-signin, .sdh-me-btn, .sdh-me-menu, .sdh-acct-card, .sdh-acct-out { --a-g: #0f9a44; --a-gd: #0a7a3b; --a-ink: #121a26; --a-mut: #5b6675; --a-line: #e3e9ee; font-family: inherit; }
+.sdh-signin svg, .sdh-me-btn svg, .sdh-me-menu svg, .sdh-acct-card svg, .sdh-acct-out svg { display: block; width: 18px; height: 18px; flex: none; }
+
+/* Sign in (visitors) */
+.sdh-signin { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 18px 0 14px; border-radius: 999px; background: #fff !important; color: var(--a-ink) !important; box-shadow: inset 0 0 0 2px #dfe6ee; font-weight: 800; font-size: 15px; white-space: nowrap; text-decoration: none !important; transition: box-shadow .2s, color .2s, background .2s; }
+.sdh-signin svg { color: var(--a-g); }
+.sdh-signin:hover, .sdh-signin:focus-visible { background: #f2fbf5 !important; color: var(--a-gd) !important; box-shadow: inset 0 0 0 2px #9ad9b0; outline: none; }
+
+/* Account button (signed in) */
+.sdh-me { position: relative; flex: none; }
+.sdh-me-btn { display: inline-flex; align-items: center; gap: 9px; min-height: 46px; margin: 0; padding: 4px 12px 4px 4px; border: 0; border-radius: 999px; background: #fff !important; color: var(--a-ink) !important; box-shadow: inset 0 0 0 2px #dfe6ee; font: 800 15px/1 inherit; cursor: pointer; transition: box-shadow .2s, background .2s; }
+.sdh-me-btn:hover, .sdh-me-btn:focus-visible, .sdh-me.is-open .sdh-me-btn { background: #f2fbf5 !important; color: var(--a-ink) !important; box-shadow: inset 0 0 0 2px #9ad9b0; outline: none; }
+.sdh-me-av { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(145deg, #24c45c, #0a7a3b); color: #fff; font-size: 14px; font-weight: 800; letter-spacing: .02em; }
+.sdh-me-av--lg { width: 46px; height: 46px; font-size: 16px; flex: none; }
+.sdh-me-dot { position: absolute; top: -1px; right: -1px; width: 12px; height: 12px; border-radius: 50%; background: #e5372b; border: 2px solid #fff; }
+.sdh-me-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sdh-me-chev { width: 16px !important; height: 16px !important; color: var(--a-mut); transition: transform .2s; }
+.sdh-me.is-open .sdh-me-chev { transform: rotate(180deg); }
+
+.sdh-me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 1100; width: 300px; padding: 8px; border-radius: 18px; background: #fff; color: var(--a-ink); box-shadow: 0 30px 60px -20px rgba(10, 25, 45, .35), 0 0 0 1px rgba(10, 25, 45, .07); transform-origin: top right; animation: sdhMeIn .18s ease; }
+.sdh-me-menu[hidden] { display: none; }
+@keyframes sdhMeIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.sdh-me-head { display: flex; align-items: center; gap: 12px; padding: 10px 10px 14px; margin: 0 0 6px; border-bottom: 1px solid var(--a-line); }
+.sdh-me-head > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.sdh-me-head b { font-size: 16px; color: var(--a-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sdh-me-head small { font-size: 12.5px; color: var(--a-mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sdh-me-links { display: flex; flex-direction: column; }
+.sdh-me-menu a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 10px; border-radius: 12px; color: var(--a-ink) !important; font-size: 15px; font-weight: 700; text-decoration: none !important; transition: background .15s, color .15s; }
+.sdh-me-menu a:hover, .sdh-me-menu a:focus-visible { background: #eef8f1; color: var(--a-gd) !important; outline: none; }
+.sdh-me-ic { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #f2f6f9; color: var(--a-gd); flex: none; }
+.sdh-me-menu a:hover .sdh-me-ic { background: #dff3e6; }
+.sdh-me-badge { margin-left: auto; min-width: 22px; padding: 2px 7px; border-radius: 999px; background: #e5372b; color: #fff; font-style: normal; font-size: 12px; font-weight: 800; text-align: center; }
+.sdh-me-sep { height: 1px; margin: 6px 4px; background: var(--a-line); }
+.sdh-me-menu a.sdh-me-out { color: #b42318 !important; }
+.sdh-me-menu a.sdh-me-out .sdh-me-ic { background: #fdecea; color: #b42318; }
+.sdh-me-menu a.sdh-me-out:hover, .sdh-me-menu a.sdh-me-out:focus-visible { background: #fdecea; color: #912018 !important; }
+
+/* Mobile drawer: full account card (hidden on desktop) */
+.sdh-acct-card, .sdh-acct-out { display: none; }
+.sdh-btn--out { color: #b42318 !important; background: #fff; box-shadow: inset 0 0 0 2px #f4c7c2; }
+.sdh-btn--out:hover, .sdh-btn--out:focus-visible { background: #fdecea; color: #912018 !important; }
+.sdh-btn svg { width: 18px; height: 18px; }
+@media (max-width: 1080px) {
+	.sdh-acct-card { display: block; margin: 0 0 18px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, #f2fbf5, #fff); box-shadow: inset 0 0 0 1px #dcefe3; }
+	.sdh-acct-card .sdh-me-head { border-bottom: 0; padding: 2px 2px 12px; margin: 0; }
+	.sdh-acct-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+	.sdh-acct-btns .sdh-btn { min-height: 46px; padding: 0 10px; font-size: 14.5px; }
+	.sdh-acct-out { display: block; margin: 0 0 16px; }
+	.sdh-acct-out .sdh-btn { width: 100%; }
+}
+@media (max-width: 760px) {
+	.sdh-me-name, .sdh-me-chev { display: none; }
+	.sdh-me-btn { padding: 4px; }
+	.sdh-signin span { display: none; }
+	.sdh-signin { padding: 0; width: 46px; justify-content: center; }
+	.sdh-me-menu { position: fixed; left: 12px; right: 12px; top: auto; width: auto; margin-top: 10px; }
+}
+@media (max-width: 600px) {
+	.sdh-me-btn { min-height: 40px; } .sdh-me-av { width: 32px; height: 32px; font-size: 12.5px; }
+	.sdh-signin { min-height: 40px; width: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .sdh-me-menu { animation: none; } }
