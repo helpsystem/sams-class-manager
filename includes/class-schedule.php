@@ -83,8 +83,9 @@ class SDSC_Schedule {
 	/** Session list: [ n, date (Y-m-d), start, end (local "Y-m-d H:i:s") ]. Empty until the timetable is filled in. */
 	public static function sessions( $class_id ) {
 		$s     = self::sched( $class_id );
-		$start = (string) get_post_meta( $class_id, '_sdsc_start', true );
-		$end   = (string) get_post_meta( $class_id, '_sdsc_end', true );
+		// The class form saves "Y-m-d\TH:i"; older classes have "Y-m-d". Only the date matters here.
+		$start = substr( (string) get_post_meta( $class_id, '_sdsc_start', true ), 0, 10 );
+		$end   = substr( (string) get_post_meta( $class_id, '_sdsc_end', true ), 0, 10 );
 		if ( ! $s['days'] || ! $s['from'] || ! $s['to'] || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start ) ) { return array(); }
 		$closed = array();
 		if ( class_exists( 'SDSC_Holidays' ) ) {
@@ -95,7 +96,7 @@ class SDSC_Schedule {
 		}
 		$out = array();
 		$d   = new DateTimeImmutable( $start, wp_timezone() );
-		$lim = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $end ) ? $end : $d->modify( '+8 months' )->format( 'Y-m-d' );
+		$lim = preg_match( '/^\d{4}-\d{2}-\d{2}/', $end ) ? substr( $end, 0, 10 ) : $d->modify( '+8 months' )->format( 'Y-m-d' );
 		for ( $i = 0; $i < 400 && count( $out ) < (int) $s['count']; $i++, $d = $d->modify( '+1 day' ) ) {
 			$ymd = $d->format( 'Y-m-d' );
 			if ( $ymd > $lim ) { break; }
@@ -113,6 +114,8 @@ class SDSC_Schedule {
 		$s    = self::sched( $post->ID );
 		$days = array( 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun' );
 		wp_nonce_field( 'sdsc_sched', 'sdsc_sched_nonce' );
+		// A start/end saved as a date only (no time) would show as empty in a date-and-time field and be erased on Update.
+		echo '<script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("input[type=datetime-local]").forEach(function(i){var v=i.getAttribute("value")||"";if(/^\\d{4}-\\d{2}-\\d{2}$/.test(v)&&!i.value){i.value=v+"T00:00";}});});</script>';
 		?>
 		<p style="margin-top:0">Fill this in once per class. The session dates go into every enrolled student&rsquo;s calendar (Apple, Google, Outlook) and drive the reminders and the attendance sheet. Days marked <em>School closed</em> on the holiday calendar are skipped.</p>
 		<p><b>Class days:</b>
@@ -640,7 +643,7 @@ class SDSC_Schedule {
 			<h1 class="sdo-title"><span class="sdo-title-ic" aria-hidden="true">🗓️</span> Class attendance</h1>
 			<?php if ( isset( $_GET['msg'] ) ) : // phpcs:ignore ?><div class="notice notice-success is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['msg'] ) ) ); // phpcs:ignore ?></p></div><?php endif; ?>
 			<form method="get" class="sdo-filter sdl-inline"><input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE ); ?>">
-				<select name="class" onchange="this.form.submit()"><?php foreach ( $classes as $c ) : ?><option value="<?php echo (int) $c->ID; ?>"<?php selected( $cid, $c->ID ); ?>><?php echo esc_html( self::class_name( $c->ID ) . ' · ' . get_post_meta( $c->ID, '_sdsc_start', true ) ); ?></option><?php endforeach; ?></select>
+				<select name="class" onchange="this.form.submit()"><?php foreach ( $classes as $c ) : ?><option value="<?php echo (int) $c->ID; ?>"<?php selected( $cid, $c->ID ); ?>><?php echo esc_html( self::class_name( $c->ID ) . ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ); ?></option><?php endforeach; ?></select>
 				<noscript><button class="sdo-btn sdo-btn--ghost">Show</button></noscript>
 			</form>
 			<?php

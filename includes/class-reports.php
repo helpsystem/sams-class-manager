@@ -141,7 +141,7 @@ class SDSC_Reports {
 			$cid    = $a['class'];
 			$name   = SDSC_Schedule::class_name( $cid );
 			$people = SDSC_Schedule::roster( $cid );
-			$sub    = trim( ( get_post_meta( $cid, '_sdsc_start', true ) ? 'Starts ' . self::d( get_post_meta( $cid, '_sdsc_start', true ) . ' 12:00:00' ) : '' ) . ( get_post_meta( $cid, '_sdsc_days_time', true ) ? ' · ' . get_post_meta( $cid, '_sdsc_days_time', true ) : '' ) . ' · ' . count( $people ) . ' students', ' ·' );
+			$sub    = trim( ( get_post_meta( $cid, '_sdsc_start', true ) ? 'Starts ' . self::d( substr( (string) get_post_meta( $cid, '_sdsc_start', true ), 0, 10 ) . ' 12:00:00' ) : '' ) . ( get_post_meta( $cid, '_sdsc_days_time', true ) ? ' · ' . get_post_meta( $cid, '_sdsc_days_time', true ) : '' ) . ' · ' . count( $people ) . ' students', ' ·' );
 			if ( 'roster' === $a['r'] ) {
 				$regs = array();
 				if ( class_exists( 'SDSC_Registration' ) ) {
@@ -291,7 +291,7 @@ class SDSC_Reports {
 			$h  .= '<form method="get" class="srp-filters" action="' . esc_url( self::url() ) . '"><input type="hidden" name="r" value="' . esc_attr( $a['r'] ) . '">';
 			if ( 'class' === $def[2] ) {
 				$h .= '<label>Class <select name="class" required><option value="">Choose a class…</option>';
-				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID ) . ( get_post_meta( $c->ID, '_sdsc_start', true ) ? ' · ' . get_post_meta( $c->ID, '_sdsc_start', true ) : '' ) ) . '</option>'; }
+				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID ) . ( substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ? ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) : '' ) ) . '</option>'; }
 				$h .= '</select></label>';
 			} else {
 				$h .= '<label>From <input type="date" name="from" value="' . esc_attr( $a['from'] ) . '"></label><label>To <input type="date" name="to" value="' . esc_attr( $a['to'] ) . '"></label>';

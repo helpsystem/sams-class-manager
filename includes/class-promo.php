@@ -198,7 +198,7 @@ class SDSC_Promo {
 	public static function amount_for( $reg_id, $class_id ) {
 		$base = class_exists( 'SDSC_Pay' ) ? SDSC_Pay::amount( $class_id ) : 0;
 		$r    = self::for_reg( $reg_id );
-		$start = (string) get_post_meta( $class_id, '_sdsc_start', true );
+		$start = substr( (string) get_post_meta( $class_id, '_sdsc_start', true ), 0, 10 );
 		if ( ! $r || ! $base || strtotime( $r['created'] ) < current_time( 'timestamp' ) - 30 * DAY_IN_SECONDS || ( $start && current_time( 'Y-m-d' ) >= $start ) ) { return $base; } // phpcs:ignore
 		return max( self::MIN, min( $base, (int) $r['cents'] ) );
 	}
@@ -255,7 +255,7 @@ class SDSC_Promo {
 	public static function earlybird( $class_id ) {
 		$o = self::eb_opts();
 		if ( empty( $o['on'] ) || (float) $o['value'] <= 0 || self::hidden( $class_id ) || get_post_meta( $class_id, '_sdsc_no_earlybird', true ) ) { return null; }
-		$start = (string) get_post_meta( $class_id, '_sdsc_start', true );
+		$start = substr( (string) get_post_meta( $class_id, '_sdsc_start', true ), 0, 10 ); // form saves "Y-m-d\TH:i"
 		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start ) ) { return null; }
 		$until = gmdate( 'Y-m-d', strtotime( $start . ' -' . max( 0, (int) $o['days'] ) . ' days' ) );
 		if ( current_time( 'Y-m-d' ) > $until ) { return null; }

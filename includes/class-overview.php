@@ -254,7 +254,7 @@ class SDSC_Overview {
 			foreach ( array_slice( SDSC_Registration::open_classes(), 0, 6 ) as $c ) {
 				$cap   = (int) get_post_meta( $c->ID, '_sdsc_capacity', true );
 				$taken = class_exists( 'SDSC_Class_Feed' ) ? (int) SDSC_Class_Feed::seats_taken( $c->ID ) : 0;
-				$st    = (string) get_post_meta( $c->ID, '_sdsc_start', true );
+				$st    = substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 );
 				$pct   = $cap > 0 ? min( 100, (int) round( $taken / $cap * 100 ) ) : 0;
 				$o    .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $c->ID ) ) . '</b><small>' . esc_html( ( $st ? 'Starts ' . wp_date( 'M j', strtotime( $st . ' 12:00' ) ) : 'No start date' ) . ' · ' . ( $cap ? $taken . ' of ' . $cap . ' seats' : $taken . ' registered' ) ) . '</small>' . ( $cap ? '<i class="sov-bar"><i style="width:' . $pct . '%"></i></i>' : '' ) . '</span>' . ( SDSC_Schedule::sessions( $c->ID ) ? '' : '<span class="sov-chip sov-chip--due" title="Fill in Timetable &amp; calendar on the class">No timetable</span>' ) . '</li>';
 			}

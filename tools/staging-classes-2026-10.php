@@ -17,9 +17,9 @@ $set  = function ( $code, $title, $start, $end, $days, $price, $excerpt, $sched,
 	return $id;
 };
 $weekdays = array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '18:00', 'to' => '21:15', 'count' => 10, 'remind' => 1 );
-$a = $set( 'C-68', "Driver's Education Program (PM Class) C-68", '2026-10-26', '2026-11-06', 'Mon–Fri, 6:00–9:15 PM', '378', $desc, $weekdays );
-$b = $set( 'C-69', "Driver's Education Program (PM Class) C-69", '2026-11-09', '2026-11-20', 'Mon–Fri, 6:00–9:15 PM', '378', $desc, $weekdays );
-$t = $set( 'TEST-1', 'Payment test — $1 (staff only) TEST-1', '2026-11-07', '2026-11-07', 'Sat, Nov 7 · payment test, no class meets', '1', 'Staff-only $1 class for testing real card payments. Not a real course.', null, array( '_sdsc_capacity' => '5', '_sdsc_hidden' => '1' ) );
+$a = $set( 'C-68', "Driver's Education Program (PM Class) C-68", '2026-10-26T18:00', '2026-11-06T21:15', 'Mon–Fri, 6:00–9:15 PM', '378', $desc, $weekdays );
+$b = $set( 'C-69', "Driver's Education Program (PM Class) C-69", '2026-11-09T18:00', '2026-11-20T21:15', 'Mon–Fri, 6:00–9:15 PM', '378', $desc, $weekdays );
+$t = $set( 'TEST-1', 'Payment test — $1 (staff only) TEST-1', '2026-11-07T00:00', '2026-11-07T23:59', 'Sat, Nov 7 · payment test, no class meets', '1', 'Staff-only $1 class for testing real card payments. Not a real course.', null, array( '_sdsc_capacity' => '5', '_sdsc_hidden' => '1' ) );
 $codes = get_option( 'sdsc_promo_codes', array() );
 $codes = is_array( $codes ) ? $codes : array();
 $codes['TEST5'] = array( 'type' => 'pct', 'value' => 5, 'classes' => array( $t ), 'starts' => '', 'ends' => '2026-11-07', 'max' => 3, 'active' => true, 'note' => '$1 real-payment test', 'created' => current_time( 'mysql' ), 'by' => 1, 'last_used' => '' );
