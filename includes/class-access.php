@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  */
 class SDSC_Access {
 
-	const VER       = 7;
+	const VER       = 8;
 	const MANAGER   = 'sdsc_manager';
 	const FRONTDESK = 'sdsc_front_desk';
 	const OWN_INSTR = 'sdsc_instructor';
@@ -53,6 +53,8 @@ class SDSC_Access {
 			'mva'           => array( 'MVA headlines', 'website', 'sdsc_access_mva', 'sdsc-mva', 'Daily MVA headlines; turn one into a draft article.', array( 'instructor', 'frontdesk' ), false ),
 			'prices'        => array( 'Prices', 'sales', 'sdsc_manage_prices', 'sdsc-prices', 'Course and service prices used at checkout.', array(), false ),
 			'discounts'     => array( 'Discounts', 'sales', 'sdsc_access_discounts', 'sdsc-discounts', 'Percentage discounts and their preview links.', array(), false ),
+			'promo'         => array( 'Discount codes', 'sales', 'sdsc_access_discounts', 'sdsc-promo', 'Codes students type at registration (percent or dollars off, per course, dates, number of uses).', array(), false ),
+			'tv'            => array( 'Lobby TV', 'website', 'sdsc_access_tv', 'sdsc-tv', 'The lobby TV: messages, ticker, view and remote reload.', array( 'frontdesk' ), false ),
 			'blocklist'     => array( 'Blocked sign-ups', 'security', 'sdsc_access_blocklist', 'sdsc-blocklist', 'Spam e-mails and domains that may not create accounts, plus the bot-trap log.', array(), false ),
 			'api'           => array( 'API connections', 'setup', 'sdsc_manage_api', 'sdsc-api', 'Stripe, Zoom and other keys.', array(), true ),
 			'settings'      => array( 'Settings', 'setup', 'manage_options', 'sdsc-settings', 'General plugin settings.', array(), true ),

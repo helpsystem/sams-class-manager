@@ -104,14 +104,14 @@ class SDSC_Chat {
 		switch ( $t['kind'] ) {
 			case 'school': return (int) $t['student_uid'] === $uid || self::is_staff_role( $role );
 			case 'office': return (int) $t['instructor_uid'] === $uid || in_array( $role, array( 'admin', 'manager' ), true );
-			case 'lesson': return (int) $t['student_uid'] === $uid || (int) $t['instructor_uid'] === $uid || in_array( $role, array( 'admin', 'manager' ), true );
+			case 'lesson': return ( self::lesson_on() && ( (int) $t['student_uid'] === $uid || (int) $t['instructor_uid'] === $uid ) ) || in_array( $role, array( 'admin', 'manager' ), true );
 		}
 		return false;
 	}
 
 	/** May $uid write in thread $t? (The office only reads student ↔ instructor talks.) */
 	public static function can_write( $t, $uid ) {
-		if ( 'lesson' === $t['kind'] ) { return (int) $t['student_uid'] === $uid || (int) $t['instructor_uid'] === $uid; }
+		if ( 'lesson' === $t['kind'] ) { return self::lesson_on() && ( (int) $t['student_uid'] === $uid || (int) $t['instructor_uid'] === $uid ); }
 		return self::can_see( $t, $uid );
 	}
 
@@ -171,7 +171,7 @@ class SDSC_Chat {
 			if ( self::is_staff_role( $role ) ) {
 				if ( 'instructor' === $trole ) { $kind = 'office'; $i = $to; }
 				elseif ( 'student' === $trole ) { $kind = 'school'; $s = $to; }
-			} elseif ( isset( self::partners( $uid )[ $to ] ) ) {
+			} elseif ( self::lesson_on() && isset( self::partners( $uid )[ $to ] ) ) {
 				$kind = 'lesson';
 				if ( 'instructor' === $role ) { $i = $uid; $s = $to; } else { $s = $uid; $i = $to; }
 			}
@@ -216,8 +216,13 @@ class SDSC_Chat {
 		$role = self::role( $uid );
 		if ( 'admin' === $role || 'manager' === $role ) { return '1=1'; }
 		if ( 'frontdesk' === $role ) { return $GLOBALS['wpdb']->prepare( "(kind = 'school' OR student_uid = %d OR instructor_uid = %d)", $uid, $uid ); }
-		return $GLOBALS['wpdb']->prepare( '(student_uid = %d OR instructor_uid = %d)', $uid, $uid );
+		return $GLOBALS['wpdb']->prepare( '(student_uid = %d OR instructor_uid = %d)', $uid, $uid ) . ( self::lesson_on() ? '' : " AND kind <> 'lesson'" );
 	}
+
+	/** Student ↔ instructor messages are off until Saghar (or the admin) turns them on. */
+	public static function lesson_on() { return '1' === (string) get_option( 'sdsc_chat_lesson', '0' ); }
+
+	public static function can_toggle() { return in_array( self::role( get_current_user_id() ), array( 'admin', 'manager' ), true ); }
 
 	public static function threads( $uid ) {
 		global $wpdb;
@@ -270,7 +275,7 @@ class SDSC_Chat {
 			}
 			return $out; // Students are found with search (there are many).
 		}
-		foreach ( self::partners( $uid ) as $id => $n ) {
+		foreach ( self::lesson_on() ? self::partners( $uid ) : array() as $id => $n ) {
 			$out[] = array( 'to' => $id, 'name' => $n, 'sub' => 'instructor' === $role ? 'Your student' : 'Your driving instructor' );
 		}
 		return $out;
@@ -280,7 +285,11 @@ class SDSC_Chat {
 
 	public static function rest() {
 		$auth = function () { return is_user_logged_in(); };
-		register_rest_route( 'sdsc/v1', '/chat/threads', array( 'methods' => 'GET', 'permission_callback' => $auth, 'callback' => function () { nocache_headers(); return rest_ensure_response( array( 'threads' => self::threads( get_current_user_id() ), 'contacts' => self::contacts( get_current_user_id() ), 'office' => self::is_staff_role( self::role( get_current_user_id() ) ) ? 1 : 0 ) ); } ) );
+		register_rest_route( 'sdsc/v1', '/chat/threads', array( 'methods' => 'GET', 'permission_callback' => $auth, 'callback' => function () { nocache_headers(); return rest_ensure_response( array( 'threads' => self::threads( get_current_user_id() ), 'contacts' => self::contacts( get_current_user_id() ), 'office' => self::is_staff_role( self::role( get_current_user_id() ) ) ? 1 : 0, 'lesson' => self::lesson_on() ? 1 : 0, 'toggle' => self::can_toggle() ? 1 : 0 ) ); } ) );
+		register_rest_route( 'sdsc/v1', '/chat/settings', array( 'methods' => 'POST', 'permission_callback' => function () { return is_user_logged_in() && self::can_toggle(); }, 'callback' => function ( $req ) {
+			update_option( 'sdsc_chat_lesson', empty( $req['lesson'] ) ? '0' : '1', false );
+			return rest_ensure_response( array( 'lesson' => self::lesson_on() ? 1 : 0 ) );
+		} ) );
 		register_rest_route( 'sdsc/v1', '/chat/find', array( 'methods' => 'GET', 'permission_callback' => function () { return is_user_logged_in() && SDSC_Notify::is_office(); }, 'callback' => array( __CLASS__, 'r_find' ) ) );
 		register_rest_route( 'sdsc/v1', '/chat/open', array( 'methods' => 'POST', 'permission_callback' => $auth, 'callback' => array( __CLASS__, 'r_open' ) ) );
 		register_rest_route( 'sdsc/v1', '/chat/thread/(?P<id>\d+)', array(

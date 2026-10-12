@@ -238,6 +238,7 @@ class SDSC_CarApp {
 			'today'     => current_time( 'Y-m-d' ),
 			'dashboard' => function_exists( 'tutor_utils' ) ? tutor_utils()->tutor_dashboard_url() : home_url( '/dashboard/' ),
 			'logout'    => wp_logout_url( home_url( '/' ) ),
+			'lessonChat' => class_exists( 'SDSC_Chat' ) && SDSC_Chat::lesson_on() ? 1 : 0,
 		);
 		$ver = defined( 'SDSC_VERSION' ) ? SDSC_VERSION : '1';
 		ob_start();

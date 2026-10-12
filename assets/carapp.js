@@ -109,7 +109,7 @@
       (tags.length ? '<div class="sca-tags">' + tags.join('') + '</div>' : '') +
       '<div class="sca-ca">' +
       (x.student.phone ? '<a class="sca-b sca-b--ghost sca-b--icon" href="tel:' + esc(tel(x.student.phone)) + '" aria-label="Call ' + esc(x.student.name) + '">📞<span>Call</span></a>' : '') +
-      (x.student.uid && window.SDSC_CHAT ? '<button type="button" class="sca-b sca-b--ghost sca-b--icon" data-act="msg" data-uid="' + x.student.uid + '" aria-label="Message ' + esc(x.student.name) + '">💬<span>Message</span></button>' : '') +
+      (x.student.uid && window.SDSC_CHAT && S.lessonChat ? '<button type="button" class="sca-b sca-b--ghost sca-b--icon" data-act="msg" data-uid="' + x.student.uid + '" aria-label="Message ' + esc(x.student.name) + '">💬<span>Message</span></button>' : '') +
       (open ? '<a class="sca-b sca-b--pri" href="#/lesson/' + x.id + '">' + (due ? 'Write report' : 'Start lesson') + ' →</a>' : '<span class="sca-done">✓ ' + esc(st[0]) + '</span>') +
       '</div></div></article>';
   }
@@ -244,7 +244,7 @@
       '<div class="sca-lh-top"><span class="sca-av3" aria-hidden="true">' + esc(initials(name)) + '</span><div class="sca-lh-t"><h1>' + esc(name) + '</h1>' +
       '<p>Lesson ' + num + (total ? ' of ' + total : '') + (x ? ' · ' + esc(x.day) + ' ' + esc(x.time) : ' · not on the schedule') + '</p>' +
       (s.permit ? '<p class="sca-permit">Permit ' + esc(s.permit) + '</p>' : '') + '</div>' +
-      '<div class="sca-lh-act">' + (phone ? '<a class="sca-b sca-b--ghost sca-b--icon" href="tel:' + esc(tel(phone)) + '">📞<span>Call</span></a>' : '') + (uid && window.SDSC_CHAT ? '<button type="button" class="sca-b sca-b--ghost sca-b--icon" data-act="msg" data-uid="' + uid + '">💬<span>Message</span></button>' : '') + '</div></div>' +
+      '<div class="sca-lh-act">' + (phone ? '<a class="sca-b sca-b--ghost sca-b--icon" href="tel:' + esc(tel(phone)) + '">📞<span>Call</span></a>' : '') + (uid && window.SDSC_CHAT && S.lessonChat ? '<button type="button" class="sca-b sca-b--ghost sca-b--icon" data-act="msg" data-uid="' + uid + '">💬<span>Message</span></button>' : '') + '</div></div>' +
       (total ? '<div class="sca-progress"><div class="sca-bar2"><i style="width:' + pct + '%"></i></div><span><b>' + done + '</b> of ' + total + ' lessons done · <b>' + Math.max(0, total - done) + '</b> left</span></div>' : '') +
       '<div class="sca-lh-tags">' + (x && x.plate ? plate(x.plate) : '') + (x && x.car ? '<span class="sca-tag">' + esc(x.car) + '</span>' : '') + (x && x.prev ? '<span class="sca-tag t-amber">↪ New to you — last lesson was with ' + esc(x.prev) + '</span>' : '') + '<button type="button" class="sca-timer' + (L.t0 ? ' is-on' : '') + '" data-act="timer" aria-live="off"><span class="sca-tdot"></span><span class="sca-tval">' + (L.t0 || L.acc ? fmtTimer(elapsed()) : 'Start lesson timer') + '</span></button></div>' +
       '</section>' +
@@ -465,7 +465,7 @@
     var name = L.x ? L.x.student.name : L.name, uid = (L.x && L.x.student.uid) || (L.s && L.s.uid);
     var nextOpen = (A.data ? A.data.today : []).filter(function (x) { return (x.status === 'upcoming' || x.status === 'active') && (!L.x || x.id !== L.x.id); })[0];
     main.innerHTML = '<div class="sca-ok"><span class="sca-okc" aria-hidden="true">✓</span><h1>Report saved</h1><p><b>' + esc(name) + '</b> · lesson ' + lessonNumber() + ' · ' + esc(L.result === 'Pass' ? 'Pass' : 'Needs more practice') + '</p><p class="sca-hint">The student gets their progress e-mail now. The office sees the report in the records' + (L.inc ? ' and has been alerted about the car problem' : '') + '.</p>' +
-      '<div class="sca-okb">' + (nextOpen ? '<a class="sca-b sca-b--pri" href="#/lesson/' + nextOpen.id + '">Next: ' + esc(nextOpen.student.name) + ' · ' + esc(nextOpen.time.split('–')[0]) + ' →</a>' : '') + '<a class="sca-b ' + (nextOpen ? 'sca-b--ghost' : 'sca-b--pri') + '" href="#/">Back to my lessons</a>' + (uid && window.SDSC_CHAT ? '<button type="button" class="sca-b sca-b--ghost" data-act="msg" data-uid="' + uid + '">💬 Message ' + esc(name.split(' ')[0]) + '</button>' : '') + '</div></div>';
+      '<div class="sca-okb">' + (nextOpen ? '<a class="sca-b sca-b--pri" href="#/lesson/' + nextOpen.id + '">Next: ' + esc(nextOpen.student.name) + ' · ' + esc(nextOpen.time.split('–')[0]) + ' →</a>' : '') + '<a class="sca-b ' + (nextOpen ? 'sca-b--ghost' : 'sca-b--pri') + '" href="#/">Back to my lessons</a>' + (uid && window.SDSC_CHAT && S.lessonChat ? '<button type="button" class="sca-b sca-b--ghost" data-act="msg" data-uid="' + uid + '">💬 Message ' + esc(name.split(' ')[0]) + '</button>' : '') + '</div></div>';
     L = null;
     window.scrollTo(0, 0);
   }

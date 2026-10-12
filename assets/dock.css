@@ -140,3 +140,13 @@ html.sdk-lock, html.sdk-lock body { overflow: hidden !important; }
 }
 @media (prefers-reduced-motion: reduce) { .sdk-drawer, .sdk-toast, .sdk-btn { transition: none; animation: none; } }
 .sdk-chat--page:not(.is-conv) .sdk-list { flex: 1 1 auto; width: auto; border-right: 0; }
+.sdk-tog { display: flex; align-items: center; gap: 12px; margin: 4px 4px 10px; padding: 10px 12px; border-radius: 12px; background: #f6f8f9; border: 1px solid var(--k-line); cursor: pointer; }
+.sdk-tog span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sdk-tog b { font-size: 14px; color: var(--k-ink); }
+.sdk-tog small { font-size: 12px; color: var(--k-mute); }
+.sdk-tog input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sdk-tog i { position: relative; flex: 0 0 44px; height: 26px; border-radius: 13px; background: #c4cdd4; transition: background .15s; }
+.sdk-tog i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.sdk-tog input:checked + i { background: var(--k-brand); }
+.sdk-tog input:checked + i::after { transform: translateX(18px); }
+.sdk-tog input:focus-visible + i { box-shadow: 0 0 0 3px var(--k-brand-s); }

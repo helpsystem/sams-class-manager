@@ -217,7 +217,10 @@
       });
       d.threads.forEach(function (t) { have[t.title] = 1; });
       var start = d.contacts.filter(function (c) { return !have[c.name]; }).map(contactRow);
-      box.innerHTML = (rows.length ? rows.join('') : '<p class="sdk-empty">No conversations yet.</p>') + (start.length ? '<p class="sdk-sec">Start a conversation</p>' + start.join('') : '');
+      var tog = d.toggle ? '<label class="sdk-tog"><span><b>Student ↔ instructor messages</b><small>' + (d.lesson ? 'On — students can message their own instructor' : 'Off — only the office talks with students') + '</small></span><input type="checkbox" class="sdk-tog-in"' + (d.lesson ? ' checked' : '') + '><i aria-hidden="true"></i></label>' : '';
+      box.innerHTML = tog + (rows.length ? rows.join('') : '<p class="sdk-empty">No conversations yet.</p>') + (start.length ? '<p class="sdk-sec">Start a conversation</p>' + start.join('') : '');
+      var ti = box.querySelector('.sdk-tog-in');
+      if (ti) { ti.addEventListener('change', function () { api('chat/settings', { method: 'POST', body: { lesson: ti.checked ? 1 : 0 } }).then(function (r) { toast({ icon: r.lesson ? '✓' : 'ℹ', title: r.lesson ? 'Student ↔ instructor messages are on' : 'Student ↔ instructor messages are off', tone: r.lesson ? 'good' : '' }); loadThreads(); }).catch(function (e) { ti.checked = !ti.checked; toast({ icon: '⚠', title: e.message, tone: 'bad' }); }); }); }
       return d;
     }).catch(function (e) { chatRoot.querySelector('.sdk-threads').innerHTML = '<p class="sdk-empty">' + esc(e.message) + '</p>'; });
   }

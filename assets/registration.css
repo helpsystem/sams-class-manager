@@ -266,3 +266,16 @@
 
 .sdsc-consent--optional { margin-top: 10px; background: #fff; border: 1.5px dashed #cfd6cf; }
 .sdsc-consent--optional em { color: #5b646d; font-style: normal; font-size: .85rem; }
+
+/* Discount code */
+.sdsc-promo { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; margin: 16px 0 0; }
+.sdsc-promo .sdsc-field { flex: 1 1 220px; margin: 0; }
+.sdsc-promo .sdsc-field input { text-transform: uppercase; letter-spacing: .06em; }
+.sdsc-promo-apply { min-height: 50px; padding: 0 20px; border-radius: 12px; border: 1.5px solid #00703c; background: #fff !important; color: #00703c !important; font-weight: 700; font-size: 15px; cursor: pointer; }
+.sdsc-promo-apply:hover, .sdsc-promo-apply:focus-visible { background: #e7f4ec !important; color: #005a30 !important; }
+.sdsc-promo-apply:disabled { opacity: .6; cursor: default; }
+.sdsc-promo-msg { flex: 1 1 100%; margin: 0; min-height: 1.2em; font-size: 14px; color: #5b646d; }
+.sdsc-promo-msg.is-ok { color: #00703c; font-weight: 600; }
+.sdsc-promo-msg.is-bad { color: #b42318; font-weight: 600; }
+.sdsc-due { font-size: 17px; }
+.sdsc-due-code { color: #00703c; font-size: 14px; }

@@ -121,7 +121,8 @@ class SDSC_Pay {
 		$back = self::return_url( $reg );
 		if ( self::paid_row( $reg_id ) ) { wp_safe_redirect( add_query_arg( array( 'sdsc_reg' => 'paid', 'sdsc_r' => $reg_id, 'sdsc_t' => $tok ), $back ) . '#sdsc' ); exit; }
 		$cid    = (int) $reg['class_id'];
-		$amount = self::amount( $cid );
+		$amount = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::amount_for( $reg_id, $cid ) : self::amount( $cid );
+		$promo  = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::for_reg( $reg_id ) : null;
 		if ( ! self::ready() || ! $amount ) { wp_die( 'Online payment is not available for this class yet. Please call the school at (301) 726-3030.', 'Payment' ); }
 
 		global $wpdb;
@@ -145,10 +146,10 @@ class SDSC_Pay {
 				'price_data' => array(
 					'currency'     => 'usd',
 					'unit_amount'  => $amount,
-					'product_data' => array( 'name' => mb_substr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ), 0, 200 ), 'description' => 'Student: ' . trim( $reg['first_name'] . ' ' . $reg['last_name'] ) ),
+					'product_data' => array( 'name' => mb_substr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ), 0, 200 ), 'description' => 'Student: ' . trim( $reg['first_name'] . ' ' . $reg['last_name'] ) . ( $promo && $amount < self::amount( $cid ) ? ' · Discount code ' . $promo['code'] . ' (' . $promo['label'] . ')' : '' ) ),
 				),
 			) ),
-			'metadata'            => array( 'sdsc_reg' => $reg_id, 'sdsc_class' => $cid, 'site' => wp_parse_url( home_url(), PHP_URL_HOST ) ),
+			'metadata'            => array( 'sdsc_reg' => $reg_id, 'sdsc_class' => $cid, 'site' => wp_parse_url( home_url(), PHP_URL_HOST ), 'promo' => $promo ? $promo['code'] : '' ),
 			'payment_intent_data' => array( 'metadata' => array( 'sdsc_reg' => $reg_id, 'sdsc_class' => $cid ), 'description' => mb_substr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ), 0, 200 ) ),
 			'success_url'         => $ok,
 			'cancel_url'          => add_query_arg( array( 'sdsc_reg' => 'done', 'sdsc_class' => $cid, 'sdsc_r' => $reg_id, 'sdsc_t' => $tok ), $back ) . '#sdsc',
@@ -241,6 +242,8 @@ class SDSC_Pay {
 		$zoom    = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
 		$list    = class_exists( 'SDSC_Schedule' ) ? SDSC_Schedule::sessions( $cid ) : array();
 		$listed  = (float) get_post_meta( $cid, '_sdsc_price', true ) * 100;
+		$pr        = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::for_reg( (int) $row['reg_id'] ) : null;
+		$promo_lbl = $pr ? 'Discount code ' . $pr['code'] . ' (' . $pr['label'] . ')' : 'Discount';
 		$paid    = (int) $row['amount'];
 		$no      = self::receipt_no( $row );
 		$date    = wp_date( 'F j, Y \a\t g:i A', strtotime( get_gmt_from_date( $row['paid_at'] ) . ' UTC' ) );
@@ -276,7 +279,7 @@ class SDSC_Pay {
 		$h .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 22px;border:1px solid #e3e7ea;border-radius:12px;border-collapse:separate">'
 			. '<tr><td style="' . $f . 'padding:14px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#5b646d;font-weight:700;border-bottom:1px solid #e3e7ea">Description</td><td align="right" style="' . $f . 'padding:14px 16px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#5b646d;font-weight:700;border-bottom:1px solid #e3e7ea">Amount</td></tr>'
 			. '<tr><td style="' . $f . 'padding:14px 16px;font-size:15px;color:#15191d"><b>' . esc_html( $title ) . '</b><br><span style="font-size:13px;color:#5b646d">' . esc_html( trim( ( $start ? 'Starts ' . date_i18n( 'M j, Y', strtotime( $start ) ) : '' ) . ( $days ? ' · ' . $days : '' ) ) ) . '</span></td><td align="right" style="' . $f . 'padding:14px 16px;font-size:15px;color:#15191d;white-space:nowrap">' . esc_html( self::money( $listed > $paid ? $listed : $paid ) ) . '</td></tr>'
-			. ( $listed > $paid ? '<tr><td style="' . $f . 'padding:0 16px 12px;font-size:14px;color:#00703c">Discount</td><td align="right" style="' . $f . 'padding:0 16px 12px;font-size:14px;color:#00703c">&minus;' . esc_html( self::money( $listed - $paid ) ) . '</td></tr>' : '' )
+			. ( $listed > $paid ? '<tr><td style="' . $f . 'padding:0 16px 12px;font-size:14px;color:#00703c">' . esc_html( $promo_lbl ) . '</td><td align="right" style="' . $f . 'padding:0 16px 12px;font-size:14px;color:#00703c">&minus;' . esc_html( self::money( $listed - $paid ) ) . '</td></tr>' : '' )
 			. '<tr><td style="' . $f . 'padding:14px 16px;font-size:16px;font-weight:800;color:#15191d;border-top:2px solid #15191d;background:#f7f9fa;border-radius:0 0 0 12px">Total paid</td><td align="right" style="' . $f . 'padding:14px 16px;font-size:16px;font-weight:800;color:#15191d;border-top:2px solid #15191d;background:#f7f9fa;border-radius:0 0 12px 0">' . esc_html( self::money( $paid ) ) . ' <span style="display:inline-block;margin-left:6px;padding:2px 9px;border-radius:999px;background:#00703c;color:#ffffff;font-size:11px;letter-spacing:1px;vertical-align:2px">PAID</span></td></tr>'
 			. '</table>';
 

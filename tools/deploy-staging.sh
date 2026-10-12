@@ -17,6 +17,8 @@ python3 $SRC/tools/driveflow-security-fixes.py $DF
 # In-car app: DriveFlow template hands the screen to SDSC_CarApp (classic form kept as fallback).
 cp $SRC/driveflow/instructor-form-classic.php $DF/templates/instructor-form-classic.php
 cp $SRC/driveflow/instructor-form.php $DF/templates/instructor-form.php
+cp $SRC/driveflow/tv-board-classic.php $DF/templates/tv-board-classic.php
+cp $SRC/driveflow/tv-board.php $DF/templates/tv-board.php
 # main file: fleet -> DriveFlow bridge, add Zoom roll call, version 0.9.4
 python3 - "$MAIN" "$(echo ${1:-$(date +%s)} | cut -c1-7)" <<'PY'
 import re,sys
@@ -70,7 +72,7 @@ if "class-onboard.php" not in s:
     s=s[:m.end()]+m.group(0).replace("class-pay.php","class-onboard.php")+s[m.end():]
 if "SDSC_Onboard::init();" not in s:
     s=s.replace("SDSC_ZoomRoll::init();","SDSC_ZoomRoll::init(); SDSC_Onboard::init();",1)
-for f,c in (("class-notify.php","SDSC_Notify"),("class-chat.php","SDSC_Chat"),("class-carapp.php","SDSC_CarApp")):
+for f,c in (("class-notify.php","SDSC_Notify"),("class-chat.php","SDSC_Chat"),("class-carapp.php","SDSC_CarApp"),("class-promo.php","SDSC_Promo"),("class-tv.php","SDSC_TV")):
     if f not in s:
         m=re.search(r"require_once[^\n]*includes/class-pay\.php[^\n]*\n",s)
         s=s[:m.end()]+m.group(0).replace("class-pay.php",f)+s[m.end():]
@@ -82,9 +84,9 @@ s=re.sub(r"(Version:\s*)0\.9\.\d+",r"\g<1>0.9.4",s); s=re.sub(r"('SDSC_VERSION',
 open(p,'w').write(s)
 PY
 grep -n "class-pay\|Pay::init\|dfbridge\|zoomroll\|DriveFlow::init\|ZoomRoll::init\|Version:\|SDSC_VERSION'" $MAIN
-for f in $MAIN $PL/includes/*.php $PL/templates/*.php $DF/driveflow-pro.php $DF/includes/class-credit-manager.php $DF/templates/instructor-form.php; do php -l $f >/dev/null || { echo "LINT FAIL $f"; exit 1; }; done; echo "lint ok"
+for f in $MAIN $PL/includes/*.php $PL/templates/*.php $DF/driveflow-pro.php $DF/includes/class-credit-manager.php $DF/templates/instructor-form.php $DF/templates/tv-board.php; do php -l $f >/dev/null || { echo "LINT FAIL $f"; exit 1; }; done; echo "lint ok"
 chown -R testsaman:testsaman $PL $DF
 sudo -u testsaman wp --path=$ST rewrite flush 2>&1 | grep -v SERVER_NAME || true
 curl -s -o /dev/null -w "purge %{http_code}\n" -X PURGE -H 'Host: testsaman.samsdrivingschool.org' http://127.0.0.1:6081/ || true
-sudo -u testsaman wp --path=$ST eval 'echo "classes: ", class_exists("SDSC_ZoomRoll")?"zoomroll ":"-", class_exists("SDSC_DriveFlow")?"dfbridge ":"-", class_exists("SDSC_Pay")?"pay ":"-", class_exists("SDSC_Preview")?"preview ":"-", class_exists("SDSC_Overview")?"overview ":"-", class_exists("SDSC_Short")?"short ":"-", class_exists("SDSC_Reports")?"reports ":"-", class_exists("SDSC_Policies")?"policies ":"-", class_exists("SDSC_Look")?"look ":"-", class_exists("SDSC_Workspace")?"workspace ":"-", class_exists("SDSC_Onboard")?"onboard ":"-", class_exists("SDSC_Notify")?"notify ":"-", class_exists("SDSC_Chat")?"chat ":"-", class_exists("SDSC_CarApp")?"carapp ":"-", "on=", (int)SDSC_DriveFlow::on(), " ver=", SDSC_VERSION, "\n"; global $wpdb; echo "staff_note col: ", $wpdb->get_var("SHOW COLUMNS FROM ".SDSC_Schedule::table()." LIKE \"staff_note\"") ?: "missing", "\n";' 2>&1 | grep -v SERVER_NAME
+sudo -u testsaman wp --path=$ST eval 'echo "classes: ", class_exists("SDSC_ZoomRoll")?"zoomroll ":"-", class_exists("SDSC_DriveFlow")?"dfbridge ":"-", class_exists("SDSC_Pay")?"pay ":"-", class_exists("SDSC_Preview")?"preview ":"-", class_exists("SDSC_Overview")?"overview ":"-", class_exists("SDSC_Short")?"short ":"-", class_exists("SDSC_Reports")?"reports ":"-", class_exists("SDSC_Policies")?"policies ":"-", class_exists("SDSC_Look")?"look ":"-", class_exists("SDSC_Workspace")?"workspace ":"-", class_exists("SDSC_Onboard")?"onboard ":"-", class_exists("SDSC_Notify")?"notify ":"-", class_exists("SDSC_Chat")?"chat ":"-", class_exists("SDSC_CarApp")?"carapp ":"-", class_exists("SDSC_Promo")?"promo ":"-", class_exists("SDSC_TV")?"tv ":"-", "on=", (int)SDSC_DriveFlow::on(), " ver=", SDSC_VERSION, "\n"; global $wpdb; echo "staff_note col: ", $wpdb->get_var("SHOW COLUMNS FROM ".SDSC_Schedule::table()." LIKE \"staff_note\"") ?: "missing", "\n";' 2>&1 | grep -v SERVER_NAME
 rm -rf $W; echo DONE

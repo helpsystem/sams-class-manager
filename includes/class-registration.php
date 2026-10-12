@@ -94,7 +94,7 @@ class SDSC_Registration {
 	}
 
 	/** Classes that are open for registration (upcoming or active, not ended). */
-	public static function open_classes() {
+	public static function open_classes( $with_hidden = false ) {
 		$posts = get_posts( array(
 			'post_type'      => SDSC_CPT_Classes::CPT,
 			'post_status'    => 'publish',
@@ -110,6 +110,7 @@ class SDSC_Registration {
 			$end    = get_post_meta( $p->ID, '_sdsc_end', true );
 			if ( ! in_array( $status, array( 'upcoming', 'active' ), true ) ) { continue; }
 			if ( $end && $end < $now ) { continue; }
+			if ( ! $with_hidden && class_exists( 'SDSC_Promo' ) && SDSC_Promo::hidden( $p->ID ) ) { continue; } // staff-only classes: direct link only
 			$out[] = $p;
 		}
 		return $out;
@@ -173,6 +174,9 @@ class SDSC_Registration {
 		$classes  = self::open_classes();
 		$want     = $atts['course'] ? $atts['course'] : ( isset( $_GET['course'] ) ? sanitize_text_field( wp_unslash( $_GET['course'] ) ) : '' );
 		$selected = self::find_class_by_code( $want );
+		if ( $selected && ! in_array( (int) $selected, array_map( 'intval', wp_list_pluck( $classes, 'ID' ) ), true ) && in_array( (int) $selected, array_map( 'intval', wp_list_pluck( self::open_classes( true ), 'ID' ) ), true ) ) {
+			array_unshift( $classes, get_post( $selected ) ); // a staff-only class opened through its direct link
+		}
 		$error    = 'error' === $result && isset( $_GET['sdsc_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_msg'] ) ) : '';
 		$steps    = array( 'Course', 'Student', 'Parent', 'Address', 'Sign' );
 
@@ -234,6 +238,22 @@ class SDSC_Registration {
 									</label>
 								<?php endforeach; ?>
 							</div>
+							<?php if ( class_exists( 'SDSC_Promo' ) ) : ?>
+							<div class="sdsc-promo" data-rest="<?php echo esc_url( rest_url( 'sdsc/v1/promo' ) ); ?>">
+								<label class="sdsc-field"><input type="text" name="promo" maxlength="30" placeholder=" " autocomplete="off" autocapitalize="characters" spellcheck="false" /><span>Discount code (optional)</span></label>
+								<button type="button" class="sdsc-promo-apply">Apply</button>
+								<p class="sdsc-promo-msg" aria-live="polite"></p>
+							</div>
+							<script>
+							(function(){var w=document.currentScript.previousElementSibling,i=w.querySelector('input'),b=w.querySelector('button'),m=w.querySelector('.sdsc-promo-msg'),f=w.closest('form');
+							function cid(){var r=f.querySelector('input[name=class_id]:checked');return r?r.value:'';}
+							function prices(reset,txt,cl){[].forEach.call(f.querySelectorAll('.sdsc-course'),function(l){var p=l.querySelector('.sdsc-course-price');if(!p)return;if(!p.dataset.o)p.dataset.o=p.innerHTML;p.innerHTML=p.dataset.o;});if(!reset&&cl){var lab=f.querySelector('input[name=class_id]:checked');lab=lab&&lab.closest('.sdsc-course');var p=lab&&lab.querySelector('.sdsc-course-price');if(p)p.innerHTML='<s style="opacity:.55;font-weight:500">'+cl+'</s> '+txt;}}
+							function go(){var c=i.value.trim();if(!c){m.textContent='';m.className='sdsc-promo-msg';prices(true);return;}if(!cid()){m.textContent='Choose a course first.';m.className='sdsc-promo-msg is-bad';return;}b.disabled=true;m.textContent='Checking…';m.className='sdsc-promo-msg';
+							fetch(w.dataset.rest+'?code='+encodeURIComponent(c)+'&class='+cid(),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){b.disabled=false;if(d&&d.ok){m.textContent='✓ '+d.msg+' You pay '+d.price+' (you save '+d.save+').';m.className='sdsc-promo-msg is-ok';prices(false,d.price,d.list);}else{m.textContent=(d&&(d.msg||d.message))||'This code is not valid.';m.className='sdsc-promo-msg is-bad';prices(true);}}).catch(function(){b.disabled=false;m.textContent='Could not check the code. You can still continue — we will check it when you submit.';m.className='sdsc-promo-msg';});}
+							b.addEventListener('click',go);i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go();}});
+							f.addEventListener('change',function(e){if(e.target.name==='class_id'&&i.value.trim())go();});})();
+							</script>
+							<?php endif; ?>
 						<?php else : ?>
 							<p class="sdsc-note">There are no open courses right now. Please call us at <a href="tel:+13017263030">(301) 726-3030</a> and we'll help you find the next class.</p>
 						<?php endif; ?>
@@ -370,6 +390,13 @@ class SDSC_Registration {
 				<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
 				<?php if ( $pay ) : ?>
 					<p>One last step: complete your payment to confirm your seat.</p>
+					<?php
+					if ( $rid && class_exists( 'SDSC_Promo' ) && SDSC_Pay::url( $rid, $class_id ) ) {
+						$due = SDSC_Promo::amount_for( $rid, $class_id );
+						$pr  = SDSC_Promo::for_reg( $rid );
+						echo '<p class="sdsc-due">Amount due: <b>$' . esc_html( number_format( $due / 100, 2 ) ) . '</b>' . ( $pr ? ' <span class="sdsc-due-code">(' . esc_html( $pr['label'] . ' with ' . $pr['code'] ) . ')</span>' : '' ) . '</p>';
+					}
+					?>
 					<p><a class="sdsc-btn" href="<?php echo esc_url( $pay ); ?>">Continue to payment &rarr;</a></p>
 				<?php else : ?>
 					<p>We've received your registration and will contact you shortly with payment and class details.</p>
@@ -459,7 +486,7 @@ class SDSC_Registration {
 		};
 
 		$class_id = absint( $_POST['class_id'] ?? 0 );
-		$open_ids = wp_list_pluck( self::open_classes(), 'ID' );
+		$open_ids = wp_list_pluck( self::open_classes( true ), 'ID' );
 		if ( ! $class_id || ! in_array( $class_id, array_map( 'intval', $open_ids ), true ) ) {
 			self::fail( $return, 'Please choose a course.' );
 		}
@@ -488,6 +515,11 @@ class SDSC_Registration {
 		if ( strlen( preg_replace( '/\D/', '', $d['phone'] ) ) < 10 ) { self::fail( $return, 'Please enter a valid phone number.' ); }
 		if ( ! $d['street'] || ! $d['city'] || ! $d['zip'] ) { self::fail( $return, 'Please complete the address.' ); }
 		if ( empty( $_POST['consent'] ) ) { self::fail( $return, 'Please accept the terms to continue.' ); }
+		$promo = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::clean( wp_unslash( $_POST['promo'] ?? '' ) ) : '';
+		if ( '' !== $promo ) {
+			$chk = SDSC_Promo::check( $promo, $class_id );
+			if ( ! $chk[0] ) { self::fail( $return, 'Discount code ' . $promo . ': ' . $chk[1] . ' Remove the code or try another one.' ); }
+		}
 
 		$student_sig = self::decode_png( wp_unslash( $_POST['student_sig'] ?? '' ) );
 		$parent_sig  = self::decode_png( wp_unslash( $_POST['parent_sig'] ?? '' ) );
@@ -513,6 +545,8 @@ class SDSC_Registration {
 			self::fail( $return, 'Sorry, something went wrong saving your registration. Please call us at (301) 726-3030.' );
 		}
 		$reg_id = (int) $wpdb->insert_id;
+
+		if ( '' !== $promo ) { SDSC_Promo::attach( $reg_id, $promo, $class_id ); }
 
 		$registrant_id = self::link_registrant( $class_id, $d );
 		if ( $registrant_id ) {
