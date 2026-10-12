@@ -25,6 +25,7 @@ class SDSC_ZoomRoll {
 
 	public static function init() {
 		add_filter( 'tutor_dashboard/nav_items', array( __CLASS__, 'tutor_nav' ) );
+		add_filter( 'tutor_instructor_dashboard_nav', array( __CLASS__, 'tutor_nav' ) );
 		add_filter( 'load_dashboard_template_part_from_other_location', array( __CLASS__, 'tutor_template' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_action( 'admin_post_sdsc_zr_save', array( __CLASS__, 'h_save' ) );
