@@ -88,13 +88,13 @@
     ['due', 'today', 'next'].forEach(function (k) { (b[k] || []).forEach(function (x) { if (!old[x.id]) { changed[x.id] = 'New'; } else if (sig(old[x.id]) !== sig(x)) { changed[x.id] = 'Updated'; } }); });
   }
 
-  function all() { var d = A.data || {}; return [].concat(d.due || [], d.today || [], d.next || []); }
+  function all() { var d = A.data || {}, seen = {}; return [].concat(d.due || [], d.today || [], d.next || []).filter(function (x) { if (seen[x.id]) { return false; } seen[x.id] = 1; return true; }); }
   function findLesson(id) { return all().filter(function (x) { return x.id === id; })[0] || null; }
 
   function card(x) {
     var st = STATUS[x.status] || [x.status, 'grey'];
     var open = x.status === 'upcoming' || x.status === 'active';
-    var due = A.data.due.indexOf(x) > -1;
+    var due = !!x.due;
     var ch = changed[x.id];
     var tags = [];
     if (x.plate) { tags.push(plate(x.plate, true) + (x.car ? '<span class="sca-tag">' + esc(x.car) + '</span>' : '')); }

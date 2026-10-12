@@ -129,8 +129,9 @@ class SDSC_CarApp {
 				'prev' => ( $lastI && strcasecmp( $lastI, $r['instructor_name'] ) ) ? $lastI : '', 'first' => ! $before,
 			);
 			$open = in_array( $st, array( 'upcoming', 'active' ), true );
-			if ( $open && $b < $now ) { $due[] = $item; }
-			elseif ( gmdate( 'Y-m-d', $a ) === $today ) { $day[] = $item; }
+			$is_today = gmdate( 'Y-m-d', $a ) === $today;
+			if ( $open && $b < $now ) { $item['due'] = 1; $due[] = $item; }
+			if ( $is_today ) { $day[] = $item; }
 			elseif ( $open && $a > $now ) { $next[] = $item; }
 		}
 		$out = array( 'due' => array_reverse( $due ), 'today' => $day, 'next' => $next, 'who' => $name, 'now' => $now, 'cal' => (int) get_option( 'driveflow_last_calendar_change', 0 ) );
