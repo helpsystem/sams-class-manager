@@ -239,13 +239,23 @@ class SDSC_Registration {
 												<?php if ( $code ) : ?><span class="sdsc-code"><?php echo esc_html( $code ); ?></span><?php endif; ?>
 											</span>
 										</span>
-										<?php if ( '' !== $price ) : ?><span class="sdsc-course-price">$<?php echo esc_html( number_format_i18n( (float) $price, ( floor( (float) $price ) == (float) $price ) ? 0 : 2 ) ); ?></span><?php endif; ?>
+										<?php
+										if ( '' !== $price ) :
+											$fmt = function ( $n ) { return '$' . number_format_i18n( (float) $n, ( floor( (float) $n ) == (float) $n ) ? 0 : 2 ); };
+											$now = class_exists( 'SDSC_Pay' ) ? SDSC_Pay::amount( $c->ID ) / 100 : 0;
+											$eb  = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::earlybird( $c->ID ) : null;
+											if ( $now > 0 && $now < (float) $price ) : ?>
+												<span class="sdsc-course-price"><s style="opacity:.55;font-weight:500"><?php echo esc_html( $fmt( $price ) ); ?></s> <?php echo esc_html( $fmt( $now ) ); ?><?php if ( $eb && (int) round( $now * 100 ) === $eb['cents'] ) : ?><small class="sdsc-eb">Early-bird price until <?php echo esc_html( date_i18n( 'M j', strtotime( $eb['until'] ) ) ); ?></small><?php endif; ?></span>
+											<?php else : ?>
+												<span class="sdsc-course-price"><?php echo esc_html( $fmt( $price ) ); ?></span>
+											<?php endif; ?>
+										<?php endif; ?>
 									</label>
 								<?php endforeach; ?>
 							</div>
 							<?php if ( class_exists( 'SDSC_Promo' ) ) : ?>
 							<div class="sdsc-promo" data-rest="<?php echo esc_url( rest_url( 'sdsc/v1/promo' ) ); ?>">
-								<label class="sdsc-field"><input type="text" name="promo" maxlength="30" placeholder=" " autocomplete="off" autocapitalize="characters" spellcheck="false" /><span>Discount code (optional)</span></label>
+								<label class="sdsc-field"><input type="text" name="promo" maxlength="30" placeholder=" " autocomplete="off" autocapitalize="characters" spellcheck="false" value="<?php echo esc_attr( isset( $_GET['code'] ) ? SDSC_Promo::clean( wp_unslash( $_GET['code'] ) ) : '' ); // phpcs:ignore ?>" /><span>Discount code (optional)</span></label>
 								<button type="button" class="sdsc-promo-apply">Apply</button>
 								<p class="sdsc-promo-msg" aria-live="polite"></p>
 							</div>
@@ -256,7 +266,7 @@ class SDSC_Registration {
 							function go(){var c=i.value.trim();if(!c){m.textContent='';m.className='sdsc-promo-msg';prices(true);return;}if(!cid()){m.textContent='Choose a course first.';m.className='sdsc-promo-msg is-bad';return;}b.disabled=true;m.textContent='Checking…';m.className='sdsc-promo-msg';
 							fetch(w.dataset.rest+'?code='+encodeURIComponent(c)+'&class='+cid(),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){b.disabled=false;if(d&&d.ok){m.textContent='✓ '+d.msg+' You pay '+d.price+' (you save '+d.save+').';m.className='sdsc-promo-msg is-ok';prices(false,d.price,d.list);}else{m.textContent=(d&&(d.msg||d.message))||'This code is not valid.';m.className='sdsc-promo-msg is-bad';prices(true);}}).catch(function(){b.disabled=false;m.textContent='Could not check the code. You can still continue — we will check it when you submit.';m.className='sdsc-promo-msg';});}
 							b.addEventListener('click',go);i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go();}});
-							f.addEventListener('change',function(e){if(e.target.name==='class_id'&&i.value.trim())go();});})();
+							f.addEventListener('change',function(e){if(e.target.name==='class_id'&&i.value.trim())go();});if(i.value.trim()&&cid())go();})();
 							</script>
 							<?php endif; ?>
 						<?php else : ?>
@@ -551,7 +561,7 @@ class SDSC_Registration {
 		}
 		$reg_id = (int) $wpdb->insert_id;
 
-		if ( '' !== $promo ) { SDSC_Promo::attach( $reg_id, $promo, $class_id ); }
+		if ( '' !== $promo ) { SDSC_Promo::attach( $reg_id, $promo, $class_id ); } elseif ( class_exists( 'SDSC_Promo' ) ) { SDSC_Promo::lock_auto( $reg_id, $class_id ); }
 
 		$registrant_id = self::link_registrant( $class_id, $d );
 		if ( $registrant_id ) {

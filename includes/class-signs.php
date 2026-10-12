@@ -253,7 +253,7 @@ class SDSC_Signs {
 		$c     = wp_parse_args( $c, array( 'code' => '', 'name' => '', 'price' => '', 'now' => '', 'd' => null, 'low' => false ) );
 		if ( 'school' === $style ) {
 			$plaques = array( array( 'lines' => array_filter( array( $dates, $time ) ), 'strong' => 0 ) );
-			if ( $c['d'] ) { $plaques[] = array( 'lines' => array( $c['d']['pct'] . '% OFF', $c['now'] ), 'strong' => 1 ); }
+			if ( $c['d'] ) { $plaques[] = array( 'lines' => array( ( $c['d']['off'] ?? $c['d']['pct'] . '% OFF' ), $c['now'] ), 'strong' => 1 ); }
 			return self::sign( 'school', array(), $plaques, 150 );
 		}
 		if ( 'marquee' === $style ) { return self::marquee( $c, $dates, $time ); }
@@ -352,7 +352,7 @@ class SDSC_Signs {
 		if ( empty( $item['d'] ) ) { return '<span class="sdsc3d-price">' . esc_html( $item['price'] ) . '</span>'; }
 		$d = $item['d'];
 		return '<span class="sdsc3d-price sdsc3d-price--sale"><s aria-label="Was ' . esc_attr( $d['old'] ) . '">' . esc_html( $d['old'] ) . '</s> ' . esc_html( $d['new'] )
-			. ' <em class="sdsc3d-off">' . esc_html( $d['pct'] ) . '% OFF</em>'
+			. ' <em class="sdsc3d-off">' . esc_html( $d['off'] ?? $d['pct'] . '% OFF' ) . '</em>'
 			. ( $d['ends'] ? '<small class="sdsc3d-ends">Offer ends ' . esc_html( $d['ends'] ) . '</small>' : '' ) . '</span>';
 	}
 
@@ -416,11 +416,12 @@ class SDSC_Signs {
 		$classes = array_map( function ( $c ) use ( $feed ) {
 			$url = $c['url'];
 			$c   = self::discount( $c, 'course' );
+			if ( $feed && class_exists( 'SDSC_Promo' ) ) { $c = SDSC_Promo::sign_offer( $c ); }
 			if ( $feed ) {
 				// The registration form sends students to the class's own payment link, so a discount
 				// that needs a different Stripe link cannot be honoured here: show it only when the
 				// price was changed on the existing links (no new link entered).
-				if ( $c['d'] && ! empty( $c['d']['url'] ) ) { $c['d'] = null; $c['now'] = $c['price']; }
+				if ( $c['d'] && ! empty( $c['d']['url'] ) ) { $c['d'] = null; $c['now'] = $c['price']; if ( class_exists( 'SDSC_Promo' ) ) { $c = SDSC_Promo::sign_offer( $c ); } }
 				$c['url'] = $url;
 			}
 			return $c;

@@ -142,7 +142,8 @@ class SDSC_Discounts {
 		$a = self::all();
 		?>
 		<div class="wrap">
-			<h1>Discounts</h1>
+			<h1>Discounts &amp; offers</h1>
+			<?php echo class_exists( 'SDSC_Promo' ) ? SDSC_Promo::tabs( 'sale' ) : ''; // phpcs:ignore ?>
 			<?php if ( isset( $_GET['saved'] ) ) : ?><div class="notice notice-success is-dismissible"><p>Saved.</p></div><?php endif; ?>
 			<p style="max-width:760px">Set a percentage off for a service. The site then shows the old price crossed out, the new price and an “X% OFF” badge.
 			<strong>Before you tick “Checkout charges this price”, make sure the customer is really charged the discounted amount</strong> — either change the price in Stripe, or create a new Stripe payment link with the new price and paste it below.

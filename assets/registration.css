@@ -279,3 +279,4 @@
 .sdsc-promo-msg.is-bad { color: #b42318; font-weight: 600; }
 .sdsc-due { font-size: 17px; }
 .sdsc-due-code { color: #00703c; font-size: 14px; }
+.sdsc-eb { display: block; margin-top: 2px; font-size: 12px; font-weight: 700; color: #00703c; white-space: nowrap; }

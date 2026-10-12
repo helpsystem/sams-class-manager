@@ -74,7 +74,7 @@ class SDSC_Workspace {
 			'refunds'        => array( 'Refunds', 'money', 'admin.php?page=sdsc-refunds', $can( 'refunds' ), '↩️', 'Full or prorated refunds by the refund policy.' ),
 			'prices'         => array( 'Prices', 'money', 'admin.php?page=sdsc-prices', $can( 'prices' ), '🏷️', 'Course and service prices used at checkout.' ),
 			'discounts'      => array( 'Discounts', 'money', 'admin.php?page=sdsc-discounts', $can( 'discounts' ), '％', 'Percentage discounts and their previews.' ),
-			'promo'          => array( 'Discount codes', 'money', 'admin.php?page=sdsc-promo', $can( 'promo' ), '🎟️', 'Codes students type at registration.' ),
+			'promo'          => array( 'Discounts & offers', 'money', 'admin.php?page=sdsc-promo', $can( 'promo' ), '🎟️', 'Codes, early bird, referral codes and results.' ),
 			'tv'             => array( 'Lobby TV', 'website', 'admin.php?page=sdsc-tv', $can( 'tv' ), '📺', 'What the lobby TV shows: messages, ticker, view.' ),
 			'notices'        => array( 'Banners & alerts', 'website', 'admin.php?page=sdsc-notices', $can( 'notices' ), '📣', 'Site banners, pop-ups, holidays and weather alerts.' ),
 			'feed'           => array( 'Website listing', 'website', 'admin.php?page=sdsc-feed', $can( 'feed' ), '🌐', 'Which classes show on the website and how.' ),

@@ -81,6 +81,11 @@ class SDSC_Pay {
 			$d = SDSC_Discounts::get( 'course' );
 			if ( $d && empty( $d['preview'] ) ) { $n = $n * ( 1 - (float) $d['pct'] / 100 ); }
 		}
+		// Early bird (automatic, Discounts & offers → Early bird): the better of the two, never both.
+		if ( class_exists( 'SDSC_Promo' ) ) {
+			$eb = SDSC_Promo::earlybird( $class_id );
+			if ( $eb && $eb['cents'] < (int) round( $n * 100 ) ) { $n = $eb['cents'] / 100; }
+		}
 		return (int) round( $n * 100 );
 	}
 
@@ -146,7 +151,7 @@ class SDSC_Pay {
 				'price_data' => array(
 					'currency'     => 'usd',
 					'unit_amount'  => $amount,
-					'product_data' => array( 'name' => mb_substr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ), 0, 200 ), 'description' => 'Student: ' . trim( $reg['first_name'] . ' ' . $reg['last_name'] ) . ( $promo && $amount < self::amount( $cid ) ? ' · Discount code ' . $promo['code'] . ' (' . $promo['label'] . ')' : '' ) ),
+					'product_data' => array( 'name' => mb_substr( html_entity_decode( $name, ENT_QUOTES, 'UTF-8' ), 0, 200 ), 'description' => 'Student: ' . trim( $reg['first_name'] . ' ' . $reg['last_name'] ) . ( $promo && $amount < (int) $promo['list_cents'] ? ' · ' . ( 'EARLY-BIRD' === $promo['code'] ? $promo['label'] : 'Discount code ' . $promo['code'] . ' (' . $promo['label'] . ')' ) : '' ) ),
 				),
 			) ),
 			'metadata'            => array( 'sdsc_reg' => $reg_id, 'sdsc_class' => $cid, 'site' => wp_parse_url( home_url(), PHP_URL_HOST ), 'promo' => $promo ? $promo['code'] : '' ),
@@ -243,7 +248,7 @@ class SDSC_Pay {
 		$list    = class_exists( 'SDSC_Schedule' ) ? SDSC_Schedule::sessions( $cid ) : array();
 		$listed  = (float) get_post_meta( $cid, '_sdsc_price', true ) * 100;
 		$pr        = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::for_reg( (int) $row['reg_id'] ) : null;
-		$promo_lbl = $pr ? 'Discount code ' . $pr['code'] . ' (' . $pr['label'] . ')' : 'Discount';
+		$promo_lbl = $pr ? ( 'EARLY-BIRD' === $pr['code'] ? $pr['label'] : 'Discount code ' . $pr['code'] . ' (' . $pr['label'] . ')' ) : 'Discount';
 		$paid    = (int) $row['amount'];
 		$no      = self::receipt_no( $row );
 		$date    = wp_date( 'F j, Y \a\t g:i A', strtotime( get_gmt_from_date( $row['paid_at'] ) . ' UTC' ) );
