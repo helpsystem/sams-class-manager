@@ -68,3 +68,9 @@ body.sdsc-skin .sdsc-reports-card { padding: 18px 20px !important; border: 0 !im
 	body.sdsc-skin .form-table td { padding: 4px 14px 14px; }
 	body.sdsc-skin table.widefat { display: block; overflow-x: auto; }
 }
+/* Fields never run out of their box (narrow screens, side-by-side panels). */
+body.sdsc-skin .wrap input.regular-text, body.sdsc-skin .wrap select, body.sdsc-skin .wrap textarea { max-width: 100%; }
+body.sdsc-skin .wrap input.regular-text { width: min(25em, 100%); }
+body.sdsc-skin #sdsc-form .form-table, body.sdsc-skin #sdsc-promo-ref .form-table { box-shadow: none; }
+body.sdsc-skin #sdsc-form .form-table th { width: 120px; padding-left: 0; }
+body.sdsc-skin #sdsc-form select[multiple] { width: 100%; min-height: 120px; }

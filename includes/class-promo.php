@@ -456,7 +456,7 @@ class SDSC_Promo {
 		echo '</tbody></table>';
 		echo '<script>document.addEventListener("click",function(e){var a=e.target.closest(".sdsc-copy");if(!a)return;e.preventDefault();(navigator.clipboard?navigator.clipboard.writeText(a.dataset.copy):Promise.reject()).then(function(){a.textContent="Copied ✓";setTimeout(function(){a.textContent="Copy link";},1500);}).catch(function(){window.prompt("Copy this link",a.dataset.copy);});});</script>';
 
-		echo '<div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:24px;max-width:1250px;margin-top:24px">';
+		echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;max-width:1250px;margin-top:24px;align-items:start">';
 		echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:4px 18px 10px" id="sdsc-form"><h2>' . ( $edit && isset( $all[ $edit ] ) ? 'Edit ' . esc_html( $edit ) : 'New code' ) . '</h2><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="sdsc_promo_save">';
 		wp_nonce_field( 'sdsc_promo' );
 		echo '<table class="form-table" role="presentation">'
