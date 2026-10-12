@@ -200,7 +200,7 @@ class SDSC_Preview {
 	/* ------------------------------------------------------------ the bar */
 
 	public static function bar() {
-		if ( ! is_user_logged_in() ) { return; }
+		if ( ! is_user_logged_in() || ! empty( $_GET['sdsc_embed'] ) || false !== strpos( (string) wp_get_referer(), 'sdsc_embed=1' ) ) { return; } // phpcs:ignore -- not inside dashboard screens
 		$pv = self::is_preview();
 		if ( ! $pv && ( ! current_user_can( 'manage_options' ) || is_admin() || ! self::on_dashboard() ) ) { return; }
 		$css = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:100000;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:calc(100% - 24px);padding:8px 10px;border-radius:999px;background:#15191d;color:#fff;font:600 13px/1.2 system-ui,-apple-system,Segoe UI,Arial,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.35)';
