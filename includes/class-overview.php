@@ -131,6 +131,13 @@ class SDSC_Overview {
 
 	/** Every screen this person may open, grouped like a toolbox. */
 	public static function tools() {
+		if ( class_exists( 'SDSC_Workspace' ) ) {
+			$out = array();
+			foreach ( SDSC_Workspace::menu() as $g => $items ) {
+				$out[ $g ] = array( SDSC_Workspace::groups()[ $g ], array_map( function ( $i ) { return array( $i[0], $i[1], $i[3], $i[2] ); }, $items ) );
+			}
+			return $out;
+		}
 		$groups = array(
 			'students' => array( 'Students & classes', array() ),
 			'lessons'  => array( 'Lessons & attendance', array() ),

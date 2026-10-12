@@ -1,0 +1,29 @@
+/* Sam's Class Manager — staff workspace on the dashboard */
+.sws-bar { --g: #00703c; --ink: #15191d; --mut: #5b646d; --line: #e3e7ea; position: relative; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; padding: 8px 10px; border-radius: 16px; background: #0b3d24; color: #fff; }
+.sws-menu { position: relative; }
+.sws-menu > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: #ffc20e; color: #15191d; font-weight: 800; cursor: pointer; user-select: none; }
+.sws-menu > summary::-webkit-details-marker { display: none; }
+.sws-burger { width: 16px; height: 2px; background: currentColor; box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor; }
+.sws-caret { font-size: 11px; transition: transform .15s; }
+.sws-menu[open] .sws-caret { transform: rotate(180deg); }
+.sws-panel { position: absolute; left: 0; top: calc(100% + 8px); width: min(980px, calc(100vw - 40px)); max-height: 72vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; padding: 16px; border-radius: 18px; background: #fff; color: var(--ink); box-shadow: 0 24px 60px rgba(0,0,0,.22), 0 0 0 1px var(--line); }
+.sws-h { margin: 6px 6px 6px; font-size: 11px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: var(--g); }
+.sws-col a, .sws-card { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 12px; color: var(--ink) !important; text-decoration: none; }
+.sws-col a:hover, .sws-col a:focus-visible { background: #f3faf6; outline: none; }
+.sws-ic { flex: 0 0 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: #f7f9fa; box-shadow: inset 0 0 0 1px var(--line); font-size: 16px; }
+.sws-col b, .sws-card b { display: block; font-size: 13.5px; }
+.sws-col small, .sws-card small { display: block; font-size: 11.5px; color: var(--mut); line-height: 1.35; }
+.sws-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.sws-quick a { padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff !important; font-size: 13px; font-weight: 700; text-decoration: none; }
+.sws-quick a:hover { background: rgba(255,255,255,.22); }
+.sws-role { margin-left: auto; padding: 0 6px; font-size: 12px; opacity: .8; }
+.sws-screen-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin: 0 0 10px; }
+.sws-crumb { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: #00703c; }
+.sws-screen-head h3 { margin: 2px 0 0; }
+.sws-full { font-size: 13px; font-weight: 700; color: #00703c; text-decoration: none; white-space: nowrap; }
+.sws-frame { display: block; width: 100%; min-height: 70vh; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px #e3e7ea; }
+.sws-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 0 0 14px; }
+.sws-card { background: #fff; box-shadow: 0 0 0 1px #e3e7ea; }
+.sws-card:hover { box-shadow: 0 0 0 2px #00703c; }
+.sws-deny { padding: 20px; border-radius: 16px; background: #fff6dc; }
+@media (max-width: 700px) { .sws-role { display: none; } .sws-panel { grid-template-columns: 1fr; } }
