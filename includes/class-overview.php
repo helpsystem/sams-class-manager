@@ -216,7 +216,9 @@ class SDSC_Overview {
 		$h .= self::tile( $new7, 'New registrations (7 days)', '', self::admin( 'sdsc-registrations' ) );
 		if ( $money ) { $h .= self::tile( self::money( $paid30 / 100 ), 'Paid online (30 days)' . ( 'test' === $mode ? ' · test' : '' ), 'is-ok', self::admin( 'sdsc-refunds' ) ); }
 		$h .= self::tile( (int) $fees['n'], 'Fees due' . ( $fees['n'] ? ' · ' . self::money( $fees['s'] ) : '' ), $fees['n'] ? 'is-warn' : '', self::admin( 'sdsc-lessons' ) );
-		$h .= '</div><div class="sov-grid">';
+		$h .= '</div>';
+		if ( class_exists( 'SDSC_Onboard' ) && in_array( $k, array( 'admin', 'manager' ), true ) ) { $h .= SDSC_Onboard::card(); }
+		$h .= '<div class="sov-grid">';
 
 		// Today: lessons + Zoom.
 		$t = self::lesson_rows( $lessons, 'student' );

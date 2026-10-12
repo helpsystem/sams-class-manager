@@ -59,6 +59,29 @@ class SDSC_TextQ {
 		return $out;
 	}
 
+	/* ================================================================ texts added by other features */
+
+	const EXTRA = 'sdsc_textq_extra';
+
+	/**
+	 * Put one text on the list (used when Twilio is not switched on). Lesson and Zoom reminders the list
+	 * already builds by itself are not added twice. Returns true when the text is (or already was) on the list.
+	 */
+	public static function add( $phone, $body, $ctx, $name = '', $label = '', $expires = null ) {
+		$ctx = (string) $ctx;
+		if ( preg_match( '/^lesson:\d+:(confirm|update|remind|cancelled|fee|waived)\b/', $ctx ) || preg_match( '/^zoom:\d+:[\d-]+:day:/', $ctx ) ) { return true; }
+		if ( ! class_exists( 'SDSC_Outreach' ) || ! SDSC_Outreach::phone_e164( $phone ) ) { return false; }
+		$k = 'x:' . md5( $ctx );
+		$x = get_option( self::EXTRA, array() );
+		$x = is_array( $x ) ? $x : array();
+		if ( isset( $x[ $k ] ) || isset( self::done_keys()[ $k ] ) ) { return false; }
+		$x[ $k ] = array( 'phone' => (string) $phone, 'body' => (string) $body, 'name' => (string) $name, 'label' => (string) $label, 'expires' => $expires ? SDSC_Lessons::ts( $expires ) : time() + 7 * DAY_IN_SECONDS, 'added' => time() );
+		// Keep the list small: drop expired ones.
+		$x = array_filter( $x, function ( $i ) { return (int) $i['expires'] > time() - DAY_IN_SECONDS; } );
+		update_option( self::EXTRA, array_slice( $x, -200, null, true ), false );
+		return true;
+	}
+
 	/* ================================================================ what is due */
 
 	/** Every text due now: [k, group, name, phone, why, texts{en,es}, lang, when(ts for sorting), link]. */
@@ -154,6 +177,12 @@ class SDSC_TextQ {
 			}
 		}
 
+		/* ---- texts added by other features (instructor links, one-hour reminders, …) */
+		foreach ( (array) get_option( self::EXTRA, array() ) as $k => $i ) {
+			if ( (int) $i['expires'] < $now ) { continue; }
+			$add( array( 'k' => $k, 'group' => 'other', 'name' => $i['name'] ? $i['name'] : SDSC_Outreach::phone_nice( $i['phone'] ), 'phone' => $i['phone'], 'why' => $i['label'] ? $i['label'] : 'Text', 'texts' => array( 'en' => $i['body'], 'es' => $i['body'] ), 'lang' => 'en', 'when' => (int) $i['added'], 'link' => admin_url( 'admin.php?page=' . self::PAGE ) ) );
+		}
+
 		/* ---- birthdays and license anniversaries (shared with Celebrations: a text marked here is marked there) */
 		if ( class_exists( 'SDSC_Outreach' ) ) {
 			$y = current_time( 'Y' );
@@ -201,7 +230,7 @@ class SDSC_TextQ {
 		wp_enqueue_script( 'sdsc-textq', SDSC_URL . 'assets/textq.js', array(), SDSC_VERSION, true );
 		wp_localize_script( 'sdsc-textq', 'SDSC_TQ', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'sdsc_tq' ) ) );
 		$items  = self::items();
-		$groups = array( 'lessons' => '🚗 Driving lessons', 'zoom' => '💻 Zoom classes', 'celebrate' => '🎉 Birthdays & anniversaries' );
+		$groups = array( 'lessons' => '🚗 Driving lessons', 'zoom' => '💻 Zoom classes', 'other' => '📨 Other texts', 'celebrate' => '🎉 Birthdays & anniversaries' );
 		?>
 		<div class="wrap sdo sdl sdq">
 			<h1 class="sdo-title"><span class="sdo-title-ic" aria-hidden="true">💬</span> Texts to send <span class="sdo-n sdq-left"><?php echo count( $items ); ?></span></h1>

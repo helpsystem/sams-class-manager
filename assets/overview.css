@@ -50,3 +50,7 @@ a.sov-tile:hover { box-shadow: 0 0 0 2px var(--g); transform: translateY(-1px); 
 .sov-tool-ic { flex: 0 0 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px var(--line); font-size: 17px; }
 .sov-tool b { display: block; font-size: 14px; }
 .sov-tool small { display: block; font-size: 12px; color: var(--mut); line-height: 1.35; }
+.sov-card--alert { margin: 0 0 12px; box-shadow: inset 4px 0 0 #ffc20e, 0 0 0 1px var(--line); }
+.sov-card--alert form { margin: 0; }
+.sov-card--alert button.sov-btn { border: 0; cursor: pointer; }
+.sov-flash { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #e7f5ec; color: #00653a; font-weight: 600; }
