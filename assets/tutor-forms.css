@@ -1,0 +1,40 @@
+/* Sam's Class Manager — school look for the Tutor LMS sign-in / sign-up forms */
+.tutor-login-wrap, #tutor-registration-form {
+	--g: #00703c; --g-d: #005a30; --ink: #15191d; --mut: #5b646d; --line: #dfe4e8;
+}
+.tutor-login-wrap.tutor-card, .tutor-card:has(> #tutor-registration-form) {
+	position: relative; max-width: 470px !important; margin: 34px auto !important; padding-top: 104px !important;
+	border: 0 !important; border-radius: 22px !important; background: #fff !important;
+	box-shadow: 0 1px 0 #e7ebee, 0 18px 50px rgba(11, 61, 36, .12) !important; overflow: hidden;
+}
+.tutor-login-wrap.tutor-card::before, .tutor-card:has(> #tutor-registration-form)::before {
+	content: ""; position: absolute; left: 0; right: 0; top: 0; height: 84px;
+	background: var(--sdsc-form-logo, none) center 14px / auto 56px no-repeat, linear-gradient(180deg, #f3faf6, #fff);
+	border-bottom: 1px solid #edf1f3;
+}
+.tutor-login-wrap.tutor-card::after, .tutor-card:has(> #tutor-registration-form)::after {
+	content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px;
+	background: linear-gradient(90deg, var(--g) 0 100%); box-shadow: 0 5px 0 -1px #ffc20e;
+}
+.tutor-login-wrap h1, .tutor-login-wrap h2, .tutor-login-wrap h3, .tutor-login-wrap .tutor-fs-5 { color: var(--ink) !important; text-align: center; }
+.tutor-login-wrap input[type=text], .tutor-login-wrap input[type=email], .tutor-login-wrap input[type=password],
+#tutor-registration-form input[type=text], #tutor-registration-form input[type=email], #tutor-registration-form input[type=password] {
+	min-height: 46px; padding: 10px 14px !important; border: 1px solid var(--line) !important; border-radius: 12px !important;
+	background: #f9fbfc !important; font-size: 15px !important; color: var(--ink) !important; transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.tutor-login-wrap input:focus, #tutor-registration-form input:focus {
+	outline: none !important; border-color: var(--g) !important; background: #fff !important; box-shadow: 0 0 0 4px rgba(0, 112, 60, .14) !important;
+}
+#tutor-registration-form label, .tutor-login-wrap label { color: var(--ink) !important; font-weight: 600; }
+.tutor-login-wrap .tutor-btn-primary, #tutor-registration-form .tutor-btn-primary {
+	min-height: 48px; border: 0 !important; border-radius: 999px !important; background: var(--g) !important; color: #fff !important;
+	font-weight: 700 !important; font-size: 15px !important; letter-spacing: .2px; box-shadow: 0 8px 18px rgba(0, 112, 60, .22) !important;
+}
+.tutor-login-wrap .tutor-btn-primary:hover, #tutor-registration-form .tutor-btn-primary:hover { background: var(--g-d) !important; }
+.tutor-login-wrap a, #tutor-registration-form a, .tutor-card:has(> #tutor-registration-form) a {
+	color: var(--g) !important; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; opacity: 1 !important; visibility: visible !important;
+}
+.tutor-login-wrap input[type=checkbox], #tutor-registration-form input[type=checkbox] { accent-color: var(--g); width: 18px; height: 18px; }
+@media (max-width: 520px) {
+	.tutor-login-wrap.tutor-card, .tutor-card:has(> #tutor-registration-form) { margin: 16px !important; border-radius: 18px !important; }
+}

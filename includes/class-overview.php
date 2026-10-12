@@ -127,6 +127,54 @@ class SDSC_Overview {
 		return $h . '</div>';
 	}
 
+	/* ------------------------------------------------------------ tools, grouped */
+
+	/** Every screen this person may open, grouped like a toolbox. */
+	public static function tools() {
+		$groups = array(
+			'students' => array( 'Students & classes', array() ),
+			'lessons'  => array( 'Lessons & attendance', array() ),
+			'sales'    => array( 'Money', array() ),
+			'reports'  => array( 'Reports', array() ),
+			'website'  => array( 'Website', array() ),
+			'security' => array( 'Security', array() ),
+			'setup'    => array( 'Setup', array() ),
+			'help'     => array( 'Help', array() ),
+		);
+		$icons = array( 'registrations' => '📝', 'reports' => '🗂️', 'outreach' => '🎉', 'lessons' => '🚗', 'driveflow' => '📅', 'texts' => '💬', 'attendance' => '🗓️', 'sms' => '📲', 'refunds' => '↩️', 'notices' => '📣', 'feed' => '🌐', 'mva' => '📰', 'prices' => '🏷️', 'discounts' => '％', 'blocklist' => '🛡️', 'api' => '🔑', 'settings' => '⚙️', 'email' => '✉️', 'team' => '👥', 'updates' => '✨', 'tours' => '🧭' );
+		$move  = array( 'lessons' => 'lessons', 'driveflow' => 'lessons', 'attendance' => 'lessons', 'texts' => 'lessons', 'sms' => 'lessons', 'reports' => 'reports' );
+		if ( class_exists( 'SDSC_Access' ) ) {
+			foreach ( SDSC_Access::features() as $k => $f ) {
+				if ( ! SDSC_Access::can( $k ) ) { continue; }
+				$g   = $move[ $k ] ?? ( isset( $groups[ $f[1] ] ) ? $f[1] : 'help' );
+				$url = false !== strpos( $f[3], '.php' ) ? admin_url( $f[3] ) : admin_url( 'admin.php?page=' . $f[3] );
+				if ( 'attendance' === $k && class_exists( 'SDSC_ZoomRoll' ) ) { $url = SDSC_ZoomRoll::url(); }
+				$groups[ $g ][1][] = array( $icons[ $k ] ?? '•', 'reports' === $k ? 'Student records (print)' : $f[0], $f[4], $url );
+			}
+		}
+		if ( class_exists( 'SDSC_Reports' ) && SDSC_Reports::mine() ) {
+			array_unshift( $groups['reports'][1], array( '📊', 'Reports & printing', 'Rosters, attendance, registrations, payments, lessons and fees — print or download.', SDSC_Reports::url() ) );
+		}
+		if ( current_user_can( 'edit_posts' ) && ( class_exists( 'SDSC_Access' ) && SDSC_Access::is_staff() ) ) {
+			$groups['students'][1][] = array( '🏫', 'Classes', 'Add or edit a class: dates, price, Zoom link, timetable and instructor.', admin_url( 'edit.php?post_type=sdsc_class' ) );
+		}
+		return array_filter( $groups, function ( $g ) { return (bool) $g[1]; } );
+	}
+
+	protected static function tools_html() {
+		$groups = self::tools();
+		if ( ! $groups ) { return ''; }
+		$h = '<section class="sov-tools"><h4 class="sov-tools-h">Your tools</h4><div class="sov-tools-grid">';
+		foreach ( $groups as $g ) {
+			$h .= '<div class="sov-group"><p class="sov-group-h">' . esc_html( $g[0] ) . '</p>';
+			foreach ( $g[1] as $t ) {
+				$h .= '<a class="sov-tool" href="' . esc_url( $t[3] ) . '"><span class="sov-tool-ic" aria-hidden="true">' . esc_html( $t[0] ) . '</span><span><b>' . esc_html( $t[1] ) . '</b><small>' . esc_html( $t[2] ) . '</small></span></a>';
+			}
+			$h .= '</div>';
+		}
+		return $h . '</div></section>';
+	}
+
 	/* ------------------------------------------------------------ office */
 
 	protected static function office( $k ) {
@@ -205,19 +253,22 @@ class SDSC_Overview {
 		$h .= self::card( 'Open classes', $o ? '<ul class="sov-list">' . $o . '</ul>' : self::empty_note( 'No classes are open for registration.' ), 'Edit classes', admin_url( 'edit.php?post_type=sdsc_class' ) );
 		$h .= '</div>';
 
-		$h .= self::links( array(
-			array( 'Registrations', self::admin( 'sdsc-registrations' ) ),
-			array( 'Lesson calendar', class_exists( 'SDSC_DriveFlow' ) && SDSC_DriveFlow::on() ? SDSC_DriveFlow::calendar_url() : self::admin( 'sdsc-lessons' ) ),
-			array( 'BTW lessons & fees', self::admin( 'sdsc-lessons' ) ),
-			array( 'Zoom attendance', class_exists( 'SDSC_ZoomRoll' ) ? SDSC_ZoomRoll::url() : self::admin( 'sdsc-attendance' ) ),
-			array( 'Texts to send', self::admin( 'sdsc-texts' ) ),
-			$money ? array( 'Refunds', self::admin( 'sdsc-refunds' ) ) : null,
-			array( 'Classes', admin_url( 'edit.php?post_type=sdsc_class' ) ),
-		) );
+		$h .= self::tools_html();
 		return $h;
 	}
 
 	/* ------------------------------------------------------------ instructor */
+
+	/** The name lessons use for this instructor: the DriveFlow profile linked by user id or e-mail, else the display name. */
+	public static function instructor_name( $u ) {
+		global $wpdb;
+		$dft = $wpdb->prefix . 'driveflow_instructors';
+		if ( self::exists( $dft ) ) {
+			$n = $wpdb->get_var( $wpdb->prepare( "SELECT name FROM $dft WHERE user_id = %d OR email = %s ORDER BY user_id = %d DESC LIMIT 1", $u->ID, $u->user_email, $u->ID ) ); // phpcs:ignore
+			if ( $n ) { return $n; }
+		}
+		return $u->display_name;
+	}
 
 	protected static function instructor( $u ) {
 		global $wpdb;
@@ -226,13 +277,7 @@ class SDSC_Overview {
 		$missing = array();
 		foreach ( $classes as $c ) { foreach ( SDSC_ZoomRoll::missing( $c->ID ) as $x ) { $missing[] = array( $c->ID, $x ); } }
 
-		// Driving lessons: by DriveFlow instructor name (linked by user id or e-mail), else by display name.
-		$name = $u->display_name;
-		$dft  = $wpdb->prefix . 'driveflow_instructors';
-		if ( self::exists( $dft ) ) {
-			$n = $wpdb->get_var( $wpdb->prepare( "SELECT name FROM $dft WHERE user_id = %d OR email = %s ORDER BY user_id = %d DESC LIMIT 1", $u->ID, $u->user_email, $u->ID ) ); // phpcs:ignore
-			if ( $n ) { $name = $n; }
-		}
+		$name = self::instructor_name( $u );
 		$lessons = array();
 		if ( class_exists( 'SDSC_Lessons' ) && self::exists( SDSC_Lessons::t_lessons() ) ) {
 			$lessons = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Lessons::t_lessons() . " WHERE instructor = %s AND status = 'booked' AND starts_at >= %s AND starts_at < %s ORDER BY starts_at LIMIT 12", $name, current_time( 'Y-m-d' ) . ' 00:00:00', wp_date( 'Y-m-d', time() + 7 * DAY_IN_SECONDS ) . ' 23:59:59' ), ARRAY_A ); // phpcs:ignore
@@ -265,6 +310,7 @@ class SDSC_Overview {
 		$h .= self::card( 'My driving lessons (next 7 days)', $lessons ? self::lesson_rows( $lessons, 'student' ) : self::empty_note( 'No driving lessons booked with you this week.' ) );
 		$h .= '</div>';
 
+		$h  .= self::tools_html();
 		$app = get_posts( array( 'post_type' => 'page', 'post_status' => 'publish', 's' => '[driveflow_instructor_form', 'numberposts' => 1 ) );
 		$h  .= self::links( array(
 			array( 'Zoom attendance', SDSC_ZoomRoll::url() ),
