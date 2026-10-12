@@ -1362,9 +1362,9 @@ class SDSC_Lessons {
 		$new = array();
 		foreach ( $items as $k => $v ) {
 			$new[ $k ] = $v;
-			if ( 'enrolled-courses' === $k ) { $new[ self::TAB ] = array( 'title' => 'My driving lessons', 'icon' => 'tutor-icon-calender-line' ); }
+			if ( 'enrolled-courses' === $k ) { $new[ self::TAB ] = array( 'title' => 'My driving lessons', 'icon' => 'calendar-check', 'active_icon' => 'calendar-check' ); }
 		}
-		if ( ! isset( $new[ self::TAB ] ) ) { $new[ self::TAB ] = array( 'title' => 'My driving lessons', 'icon' => 'tutor-icon-calender-line' ); }
+		if ( ! isset( $new[ self::TAB ] ) ) { $new[ self::TAB ] = array( 'title' => 'My driving lessons', 'icon' => 'calendar-check', 'active_icon' => 'calendar-check' ); }
 		return $new;
 	}
 
