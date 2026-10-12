@@ -136,7 +136,7 @@ class SDSC_Overview {
 
 		$lessons = array();
 		if ( class_exists( 'SDSC_Lessons' ) && self::exists( SDSC_Lessons::t_lessons() ) ) {
-			$lessons = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Lessons::t_lessons() . " WHERE starts_at >= %s AND starts_at < %s AND status IN ('booked','done') ORDER BY starts_at", $today . ' 00:00:00', $today . ' 23:59:59' ), ARRAY_A ); // phpcs:ignore
+			$lessons = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Lessons::t_lessons() . " WHERE starts_at >= %s AND starts_at < %s AND status IN ('booked','done')" . ( class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview() ? '' : " AND email NOT LIKE '%%@preview.samsdrivingschool.invalid'" ) . ' ORDER BY starts_at', $today . ' 00:00:00', $today . ' 23:59:59' ), ARRAY_A ); // phpcs:ignore
 		}
 		$classes = class_exists( 'SDSC_ZoomRoll' ) ? SDSC_ZoomRoll::classes() : array();
 		$zoom    = $classes ? self::zoom_today( $classes ) : array();
