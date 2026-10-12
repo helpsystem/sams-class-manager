@@ -214,7 +214,7 @@ class SDSC_Pay {
 		$card = $ch['payment_method_details']['card'] ?? array();
 		global $wpdb;
 		$wpdb->update( self::table(), array(
-			'card'        => $card ? mb_substr( ucfirst( (string) ( $card['brand'] ?? 'card' ) ) . ' •••• ' . preg_replace( '/\D/', '', (string) ( $card['last4'] ?? '' ) ), 0, 40 ) : '',
+			'card'        => $card ? mb_substr( ucfirst( (string) ( $card['brand'] ?? 'card' ) ) . ' •••• ' . preg_replace( '/\D/', '', (string) ( $card['last4'] ?? '' ) ), 0, 40 ) : ( 'link' === ( $ch['payment_method_details']['type'] ?? '' ) ? 'Card via Stripe Link' : '' ),
 			'receipt_url' => esc_url_raw( (string) ( $ch['receipt_url'] ?? '' ) ),
 		), array( 'id' => $id ) );
 	}
@@ -300,7 +300,7 @@ class SDSC_Pay {
 		$bt = array();
 		if ( $list && class_exists( 'SDSC_Schedule' ) ) { $bt[] = $btn( 'Add to my calendar', SDSC_Schedule::cal_page( $reg['email'] ) ); }
 		if ( $zoom ) { $bt[] = $btn( 'Zoom link', $zoom, ! $bt ); }
-		if ( $row['receipt_url'] ) { $bt[] = $btn( 'Card receipt', $row['receipt_url'], false ); }
+		if ( $row['receipt_url'] ) { $bt[] = $btn( 'Stripe receipt', $row['receipt_url'], false ); }
 		if ( $bt ) { $h .= '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 6px"><tr>' . implode( '', $bt ) . '</tr></table>'; }
 
 		$h .= '<p style="' . $f . 'margin:18px 0 0;font-size:12px;line-height:1.6;color:#8a929a;text-align:center">Refunds follow our <a href="' . esc_url( home_url( '/policy/' ) ) . '" style="color:#5b646d">school policies</a>. Sam’s Driving School LLC · 751 Rockville Pike, Unit 9B, Rockville, MD 20852 · (301) 726-3030</p>';
