@@ -239,7 +239,7 @@ class SDSC_Workspace {
 
 	/** Inside the dashboard frame: hide the wp-admin chrome so only the screen shows. */
 	public static function embedded_admin_css() {
-		if ( empty( $_GET['sdsc_embed'] ) && false === strpos( (string) wp_get_referer(), 'sdsc_embed=1' ) ) { return; } // phpcs:ignore
+		if ( class_exists( 'SDSC_Private' ) ? ! SDSC_Private::embedded() : ( empty( $_GET['sdsc_embed'] ) && false === strpos( (string) wp_get_referer(), 'sdsc_embed=1' ) ) ) { return; } // phpcs:ignore
 		// Other plugins' banners (reviews, upgrades, promos) do not belong in the dashboard.
 		remove_all_actions( 'admin_notices' );
 		remove_all_actions( 'all_admin_notices' );

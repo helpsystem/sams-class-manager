@@ -82,7 +82,7 @@
 
 @media (max-width: 1460px) { .sdh-call-t { display: none; } .sdh-menu a { padding: 10px 10px; } .sdh-logo img, .sdh-logo .sdh-logo-img { max-width: 230px; } .sdh-bar .sdh-wrap { gap: 12px; } }
 @media (max-width: 1240px) { .sdh-menu a { padding: 10px 10px; font-size: 15px; } .sdh-logo img, .sdh-logo .sdh-logo-img { max-width: 210px; } }
-@media (max-width: 1080px) {
+@media (max-width: 1240px) {
 	.sdh-burger { display: block; }
 	.sdh-cta { margin-left: auto; }
 	.sdh-nav {
@@ -485,7 +485,7 @@
 }
 /* drawer: logo in the empty top space, both numbers as big plates */
 .sdh-drawer-logo { display: none; }
-@media (max-width: 1080px) {
+@media (max-width: 1240px) {
 	.sdh-drawer-logo { display: block; position: absolute; left: 20px; top: 20px; line-height: 0; }
 	.sdh-drawer-logo .sdx-wm { height: 52px; width: auto; }
 	.sdh-drawer-cta .sdx-ph { width: 100%; }
@@ -538,15 +538,15 @@
 .sdh-skip { position: fixed !important; left: -9999px !important; top: 8px !important; z-index: 100001 !important; }
 .sdh-skip:focus { left: 12px !important; }
 /* v0.8.3: room for the "Driving Tips" item - the menu never runs under the logo */
-@media (min-width: 1081px) {
+@media (min-width: 1241px) {
   .sdh-menu a { padding: 10px 8px; }
   .sdh-menu > li > a::after { left: 8px; right: 8px; }
 }
-@media (min-width: 1081px) and (max-width: 1460px) {
+@media (min-width: 1241px) and (max-width: 1460px) {
   .sdh-menu a { padding: 10px 6px; font-size: 14.5px; }
   .sdh-menu > li > a::after { left: 6px; right: 6px; }
 }
-@media (min-width: 1081px) and (max-width: 1260px) {
+@media (min-width: 1241px) and (max-width: 1360px) {
   .sdh-menu a { padding: 9px 4px; font-size: 13.5px; }
   .sdh-menu > li > a::after { left: 4px; right: 4px; }
   .sdh-logo img, .sdh-logo .sdh-logo-img { max-width: 180px; }
@@ -554,7 +554,7 @@
 
 /* v0.9.0 — mobile drawer: the close button sits in the drawer's top corner (it used to stay where the header was
    and could land on top of the menu items), and the drawer starts below the WordPress admin bar for signed-in staff. */
-@media (max-width: 1080px) {
+@media (max-width: 1240px) {
   .sdh.is-open .sdh-burger { position: fixed; top: 18px; right: 16px; z-index: 1003; background: #f1f5f8; box-shadow: 0 2px 10px -4px rgba(5,15,30,.35); }
   .admin-bar .sdh-nav { top: 32px; }
   .admin-bar .sdh.is-open .sdh-burger { top: 50px; }
@@ -563,3 +563,12 @@
   .admin-bar .sdh-nav { top: 46px; }
   .admin-bar .sdh.is-open .sdh-burger { top: 64px; }
 }
+
+/* v0.9.5 — the bar never overlaps: the logo keeps its width, the menu has its own room, and the
+   phone/name drop out before anything collides (phones stay in the thin top bar). */
+.sdh-bar .sdh-logo { flex: 0 0 auto; position: relative; z-index: 2; }
+.sdh-bar .sdh-nav { min-width: 0; }
+.sdh-bar .sdh-cta { flex: 0 0 auto; }
+@media (min-width: 1241px) and (max-width: 1560px) { .sdh-bar .sdh-call, .sdh-bar .sdh-call-2 { display: none !important; } .sdh-bar .sdh-me-name { display: none; } .sdh-bar .sdh-me-btn { padding-right: 8px; } }
+.sdh.is-tight .sdh-bar .sdh-call, .sdh.is-tight .sdh-bar .sdh-call-2, .sdh.is-tight .sdh-bar .sdh-me-name, .sdh.is-tight .sdh-bar .sdh-signin span { display: none !important; }
+.sdh.is-tight .sdh-bar .sdh-signin { width: 46px; padding: 0; justify-content: center; }

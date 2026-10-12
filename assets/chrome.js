@@ -36,7 +36,7 @@
 			h.querySelector('.sdh-bar').addEventListener('click', function (e) { if (e.target === e.currentTarget && h.classList.contains('is-open')) { setOpen(false); } });
 			document.addEventListener('click', function (e) { if (h.classList.contains('is-open') && !nav.contains(e.target) && !burger.contains(e.target)) { setOpen(false); } });
 			nav.addEventListener('click', function (e) { if (e.target.closest('a')) { setOpen(false); } });
-			window.addEventListener('resize', function () { if (window.innerWidth > 1080 && h.classList.contains('is-open')) { setOpen(false); } });
+			window.addEventListener('resize', function () { if (window.innerWidth > 1240 && h.classList.contains('is-open')) { setOpen(false); } });
 		}
 	}
 

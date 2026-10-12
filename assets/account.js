@@ -1,6 +1,19 @@
 /* Sam's Driving School — header account menu (open/close, keyboard, outside click). */
 (function () {
   'use strict';
+  /* Header fit check: if the menu would run under the logo, drop the phone / name first. */
+  var hd = document.querySelector('.sdh'), nav = hd && hd.querySelector('.sdh-bar .sdh-nav'), mn = nav && nav.querySelector('.sdh-menu');
+  function fit() {
+    if (!hd || !nav || !mn) { return; }
+    hd.classList.remove('is-tight');
+    if (window.innerWidth <= 1240) { return; }
+    if (mn.scrollWidth > nav.clientWidth + 2) { hd.classList.add('is-tight'); }
+  }
+  fit(); window.addEventListener('resize', fit); window.addEventListener('load', fit);
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fit); }
+})();
+(function () {
+  'use strict';
   var me = document.querySelector('[data-sdh-me]');
   if (!me) { return; }
   var btn = me.querySelector('.sdh-me-btn'), menu = me.querySelector('.sdh-me-menu');
