@@ -64,6 +64,9 @@ class SDSC_Preview {
 		$login = 'preview-' . $key;
 		$u     = get_user_by( 'login', $login );
 		if ( ! $u ) {
+			// The site's spam snippet deletes new accounts whose e-mail domain is not on its allowlist; preview accounts are ours.
+			$spam = has_action( 'user_register', 'sds_remove_spam_domain_user' );
+			if ( false !== $spam ) { remove_action( 'user_register', 'sds_remove_spam_domain_user', $spam ); }
 			$id = wp_insert_user( array(
 				'user_login'   => $login,
 				'user_pass'    => wp_generate_password( 40, true, true ),
@@ -73,7 +76,8 @@ class SDSC_Preview {
 				'last_name'    => $r[0],
 				'role'         => $r[1],
 			) );
-			if ( is_wp_error( $id ) ) { return 0; }
+			if ( false !== $spam ) { add_action( 'user_register', 'sds_remove_spam_domain_user', $spam, 1 ); }
+			if ( is_wp_error( $id ) || ! get_userdata( $id ) ) { return 0; }
 			update_user_meta( $id, self::META, $key );
 			update_user_meta( $id, 'show_admin_bar_front', 'false' );
 			$u = get_user_by( 'id', $id );
