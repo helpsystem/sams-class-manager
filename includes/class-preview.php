@@ -120,6 +120,18 @@ class SDSC_Preview {
 				}
 			}
 		}
+		// A driving lesson for the preview student with the preview instructor, today and in three days.
+		if ( class_exists( 'SDSC_Lessons' ) ) {
+			$lt   = SDSC_Lessons::t_lessons();
+			$name = 'Preview · Instructor';
+			foreach ( array( 0, 3 ) as $d ) {
+				$at  = wp_date( 'Y-m-d', time() + $d * DAY_IN_SECONDS ) . ' 15:00:00';
+				$has = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $lt WHERE email = %s AND starts_at = %s", 'preview-student@preview.samsdrivingschool.invalid', $at ) ); // phpcs:ignore
+				if ( ! $has ) {
+					$wpdb->insert( $lt, array( 'first_name' => 'Preview', 'last_name' => 'Student', 'email' => 'preview-student@preview.samsdrivingschool.invalid', 'phone' => '(301) 555-0199', 'lesson_no' => $d ? 2 : 1, 'starts_at' => $at, 'minutes' => 120, 'place' => '751 Rockville Pike', 'instructor' => $name, 'status' => 'booked', 'created_at' => current_time( 'mysql' ), 'log' => 'Demo lesson for the dashboard preview.' ) );
+				}
+			}
+		}
 		return (int) $cid;
 	}
 

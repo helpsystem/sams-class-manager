@@ -1,0 +1,41 @@
+/* Sam's Class Manager — dashboard home ("Today at Sam's") */
+.sov { --g: #00703c; --g2: #e7f5ec; --y: #ffc20e; --ink: #15191d; --mut: #5b646d; --line: #e3e7ea; color: var(--ink); margin: 0 0 28px; }
+.sov-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding: 22px 24px; border-radius: 18px; background: linear-gradient(120deg, #0b3d24 0%, #00703c 60%, #1f8f4e 100%); color: #fff; position: relative; overflow: hidden; }
+.sov-hero::after { content: ""; position: absolute; left: 0; right: 0; bottom: 10px; height: 4px; background: repeating-linear-gradient(90deg, var(--y) 0 26px, transparent 26px 46px); opacity: .85; }
+.sov-hero h3 { margin: 2px 0 12px; font-size: 26px; line-height: 1.2; color: #fff; }
+.sov-kicker { margin: 0; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; opacity: .85; }
+.sov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.sov-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--line); color: var(--ink); text-decoration: none; transition: box-shadow .15s, transform .15s; }
+a.sov-tile:hover { box-shadow: 0 0 0 2px var(--g); transform: translateY(-1px); }
+.sov-tile b { font-size: 24px; line-height: 1.1; }
+.sov-tile span { font-size: 12.5px; color: var(--mut); }
+.sov-tile.is-warn { box-shadow: inset 4px 0 0 var(--y), 0 0 0 1px var(--line); }
+.sov-tile.is-warn b { color: #8a4b00; }
+.sov-tile.is-ok b { color: var(--g); }
+.sov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.sov-card { padding: 16px 18px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.sov-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; }
+.sov-card h4 { margin: 0; font-size: 15px; }
+.sov-card header a { font-size: 13px; color: var(--g); text-decoration: none; font-weight: 600; }
+.sov-list { margin: 0; padding: 0; list-style: none; }
+.sov-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f2f4; }
+.sov-list li:first-child { border-top: 0; }
+.sov-when { flex: 0 0 64px; display: flex; flex-direction: column; font-weight: 700; font-size: 14px; }
+.sov-when small, .sov-what small { font-weight: 400; font-size: 12px; color: var(--mut); }
+.sov-what { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sov-what b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+.sov-chip { flex: 0 0 auto; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #f0f2f4; color: var(--mut); white-space: nowrap; }
+.sov-chip--booked, .sov-chip--done, .sov-chip--paid { background: var(--g2); color: #00653a; }
+.sov-chip--due, .sov-chip--late_cancel, .sov-chip--no_show { background: #fff1e0; color: #8a4b00; }
+.sov-btn { flex: 0 0 auto; display: inline-block; padding: 8px 14px; border-radius: 999px; background: var(--g); color: #fff !important; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.sov-btn--ghost { background: #fff; color: var(--g) !important; box-shadow: inset 0 0 0 1px var(--g); }
+.sov-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.sov-line { margin: 0 0 2px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sov-sub { margin: 0; color: var(--mut); font-size: 13.5px; }
+.sov-empty { margin: 6px 0; color: var(--mut); font-size: 13.5px; }
+.sov-bar { display: block; height: 5px; margin-top: 5px; border-radius: 5px; background: #eef1f3; overflow: hidden; }
+.sov-bar i { display: block; height: 100%; background: var(--g); border-radius: 5px; }
+.sov-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.sov-links a { padding: 9px 14px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--line); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
+.sov-links a:hover { box-shadow: 0 0 0 2px var(--g); color: var(--g); }
+@media (max-width: 600px) { .sov-hero { padding: 18px; } .sov-hero h3 { font-size: 21px; } .sov-grid { grid-template-columns: 1fr; } .sov-list li { flex-wrap: wrap; } }

@@ -101,8 +101,9 @@ class SDSC_ZoomRoll {
 	}
 
 	public static function tutor_nav( $items ) {
-		if ( ! is_array( $items ) || ! self::allowed() ) { return $items; }
-		$items[ self::TAB ] = array( 'title' => 'Zoom attendance', 'icon' => 'check-square', 'active_icon' => 'check-square-filled' );
+		if ( ! is_array( $items ) ) { return $items; }
+		// Always listed (Tutor builds its URL rules from this list); auth_cap hides it from people without access.
+		$items[ self::TAB ] = array( 'title' => 'Zoom attendance', 'icon' => 'check-square', 'active_icon' => 'check-square-filled', 'auth_cap' => 'sdsc_access_attendance' );
 		return $items;
 	}
 
