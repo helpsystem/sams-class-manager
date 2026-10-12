@@ -154,7 +154,7 @@ class SDSC_Workspace {
 		foreach ( $pick as $key => $p ) {
 			if ( ! empty( $s[ $key ][3] ) ) { $front[ 'sdsc-w-' . $key ] = array( 'title' => $p[0], 'icon' => $p[1], 'url' => self::url( $key ) ); }
 		}
-		foreach ( array( 'sdsc-zoom-attendance', 'sdsc-reports' ) as $key ) { if ( isset( $items[ $key ] ) ) { $front[ $key ] = $items[ $key ]; } }
+		foreach ( array( 'sdsc-messages', 'sdsc-zoom-attendance', 'sdsc-reports' ) as $key ) { if ( isset( $items[ $key ] ) ) { $front[ $key ] = $items[ $key ]; } }
 		$student_only = array( 'courses', 'enrolled-courses', 'notes', 'calendar', 'sdsc-lessons', 'wishlist', 'reviews', 'my-quiz-attempts', 'purchase_history', 'order-history' );
 		foreach ( $items as $key => $v ) {
 			if ( isset( $front[ $key ] ) || 'index' === $key ) { continue; }
