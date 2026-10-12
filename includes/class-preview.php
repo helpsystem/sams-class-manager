@@ -104,6 +104,7 @@ class SDSC_Preview {
 		update_post_meta( $cid, '_sdsc_end', wp_date( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ) );
 		update_post_meta( $cid, '_sdsc_sched', array( 'days' => array( 1, 2, 3, 4 ), 'from' => '17:30', 'to' => '20:30', 'count' => 10, 'remind' => 0 ) );
 		if ( class_exists( 'SDSC_ZoomRoll' ) ) { update_post_meta( $cid, SDSC_ZoomRoll::INSTR, self::account( 'instructor' ) ); }
+		if ( class_exists( 'SDSC_DriveFlow' ) ) { SDSC_DriveFlow::ensure_instructor( self::account( 'instructor' ) ); }
 
 		global $wpdb;
 		if ( class_exists( 'SDSC_Registration' ) ) {
@@ -123,7 +124,8 @@ class SDSC_Preview {
 		// A driving lesson for the preview student with the preview instructor, today and in three days.
 		if ( class_exists( 'SDSC_Lessons' ) ) {
 			$lt   = SDSC_Lessons::t_lessons();
-			$name = 'Preview · Instructor';
+			$name = 'Preview Instructor'; // same name as the preview instructor's DriveFlow profile
+			$wpdb->query( $wpdb->prepare( "UPDATE $lt SET instructor = %s WHERE email = %s", $name, 'preview-student@preview.samsdrivingschool.invalid' ) ); // phpcs:ignore
 			foreach ( array( 0, 3 ) as $d ) {
 				$at  = wp_date( 'Y-m-d', time() + $d * DAY_IN_SECONDS ) . ' 15:00:00';
 				$has = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $lt WHERE email = %s AND starts_at = %s", 'preview-student@preview.samsdrivingschool.invalid', $at ) ); // phpcs:ignore

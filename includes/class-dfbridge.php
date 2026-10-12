@@ -33,6 +33,57 @@ class SDSC_DriveFlow {
 		add_action( 'driveflow_calendar_changed', array( __CLASS__, 'queue' ) );
 		add_action( 'sdsc_schedule_tick', array( __CLASS__, 'sync' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 31 );
+		add_action( 'template_redirect', array( __CLASS__, 'link_me' ), 5 );
+		add_action( 'set_user_role', array( __CLASS__, 'on_role' ), 10, 2 );
+		add_action( 'add_user_role', array( __CLASS__, 'on_role' ), 10, 2 );
+	}
+
+	/* ------------------------------------------------------------ instructor accounts ↔ DriveFlow profiles */
+
+	public static function instructor_roles() { return array( 'tutor_instructor', 'sdsc_instructor', 'driveflow_instructor' ); }
+
+	/**
+	 * Make sure an instructor's site account has a DriveFlow instructor profile, so the in-car app and the
+	 * lesson calendar know them: link an existing profile with the same e-mail, or create one.
+	 * Returns the DriveFlow instructor id, or 0.
+	 */
+	public static function ensure_instructor( $user ) {
+		$u = $user instanceof WP_User ? $user : get_userdata( (int) $user );
+		if ( ! $u || ! self::on() || ! array_intersect( (array) $u->roles, self::instructor_roles() ) ) { return 0; }
+		global $wpdb;
+		$t = $wpdb->prefix . 'driveflow_instructors';
+		$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $t WHERE user_id = %d LIMIT 1", $u->ID ) ); // phpcs:ignore
+		if ( $id ) { return $id; }
+		if ( $u->user_email ) {
+			$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $t WHERE email = %s AND user_id = 0 LIMIT 1", $u->user_email ) ); // phpcs:ignore
+			if ( $id ) { $wpdb->update( $t, array( 'user_id' => $u->ID, 'updated_at' => current_time( 'mysql' ) ), array( 'id' => $id ) ); return $id; }
+		}
+		$now  = current_time( 'mysql' );
+		$name = trim( $u->first_name . ' ' . $u->last_name );
+		$wpdb->insert( $t, array(
+			'user_id'    => $u->ID,
+			'name'       => $name ? $name : $u->display_name,
+			'email'      => $u->user_email,
+			'phone'      => (string) get_user_meta( $u->ID, 'billing_phone', true ),
+			'status'     => 'active',
+			'created_at' => $now,
+			'updated_at' => $now,
+		) );
+		if ( $wpdb->insert_id && class_exists( 'DriveFlow_Pro' ) && method_exists( 'DriveFlow_Pro', 'notify_calendar_change' ) ) { DriveFlow_Pro::notify_calendar_change(); }
+		return (int) $wpdb->insert_id;
+	}
+
+	/** When an instructor opens any page, link their profile (checked at most once a day). */
+	public static function link_me() {
+		if ( ! is_user_logged_in() ) { return; }
+		$k = 'sdsc_dfi_' . get_current_user_id();
+		if ( get_transient( $k ) ) { return; }
+		self::ensure_instructor( wp_get_current_user() );
+		set_transient( $k, 1, DAY_IN_SECONDS );
+	}
+
+	public static function on_role( $user_id, $role ) {
+		if ( in_array( $role, self::instructor_roles(), true ) ) { delete_transient( 'sdsc_dfi_' . $user_id ); self::ensure_instructor( $user_id ); }
 	}
 
 	/** "Lesson calendar" in the Sam's School menu opens DriveFlow's calendar. */
