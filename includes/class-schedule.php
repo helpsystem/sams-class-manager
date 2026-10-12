@@ -190,7 +190,7 @@ class SDSC_Schedule {
 
 	public static function class_name( $class_id ) {
 		$code = (string) get_post_meta( $class_id, '_sdsc_course_code', true );
-		$t    = html_entity_decode( get_the_title( $class_id ), ENT_QUOTES, 'UTF-8' );
+		$t    = html_entity_decode( (string) get_post_field( 'post_title', $class_id ), ENT_QUOTES, 'UTF-8' );
 		return trim( $t . ( $code && false === strpos( $t, $code ) ? ' (' . $code . ')' : '' ) );
 	}
 

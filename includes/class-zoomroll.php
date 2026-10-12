@@ -65,7 +65,9 @@ class SDSC_ZoomRoll {
 		if ( ! self::sees_all() ) {
 			$args['meta_query'] = array( array( 'key' => self::INSTR, 'value' => get_current_user_id(), 'type' => 'NUMERIC' ) ); // phpcs:ignore
 		}
-		return array_values( array_filter( get_posts( $args ), function ( $p ) { return (bool) SDSC_Schedule::sessions( $p->ID ); } ) );
+		$pv = class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview();
+		// The private demo class is only for the "View as" preview accounts.
+		return array_values( array_filter( get_posts( $args ), function ( $p ) use ( $pv ) { return ( $pv || ! get_post_meta( $p->ID, '_sdsc_demo_class', true ) ) && SDSC_Schedule::sessions( $p->ID ); } ) );
 	}
 
 	/* ------------------------------------------------------------ class edit screen: instructor */
