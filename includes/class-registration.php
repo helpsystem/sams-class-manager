@@ -166,6 +166,9 @@ class SDSC_Registration {
 			$class_id = isset( $_GET['sdsc_class'] ) ? absint( $_GET['sdsc_class'] ) : 0;
 			return self::render_success( $class_id );
 		}
+		if ( 'paid' === $result && class_exists( 'SDSC_Pay' ) ) {
+			return self::render_paid();
+		}
 
 		$classes  = self::open_classes();
 		$want     = $atts['course'] ? $atts['course'] : ( isset( $_GET['course'] ) ? sanitize_text_field( wp_unslash( $_GET['course'] ) ) : '' );
@@ -316,9 +319,43 @@ class SDSC_Registration {
 		return ob_get_clean();
 	}
 
+	/** Back from Stripe Checkout. */
+	protected static function render_paid() {
+		$rid  = isset( $_GET['sdsc_r'] ) ? absint( $_GET['sdsc_r'] ) : 0; // phpcs:ignore
+		$rtok = isset( $_GET['sdsc_t'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_t'] ) ) : ''; // phpcs:ignore
+		$sid  = isset( $_GET['sdsc_s'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_s'] ) ) : ''; // phpcs:ignore
+		$row  = SDSC_Pay::confirm_return( $rid, $rtok, $sid );
+		$name = $row ? self::class_label( (int) $row['class_id'] ) : '';
+		ob_start();
+		?>
+		<div class="sdsc-reg" id="sdsc">
+			<div class="sdsc-reg-card sdsc-reg-done">
+				<?php echo SDSC_Brand::logo( 'stacked', 'sdsc-reg-logo sdsc-reg-logo--stacked', 110 ); // phpcs:ignore ?>
+				<?php if ( $row ) : ?>
+					<h2 class="sdsc-reg-title">Payment received — you're in!</h2>
+					<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
+					<p>We received <?php echo esc_html( '$' . number_format( $row['amount'] / 100, 2 ) ); ?>. A confirmation with your class dates and Zoom link is on its way to <?php echo esc_html( $row['email'] ); ?>.</p>
+					<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_payment_complete',value:<?php echo (float) ( $row['amount'] / 100 ); ?>,currency:'USD'});</script>
+				<?php else : ?>
+					<h2 class="sdsc-reg-title">We're confirming your payment</h2>
+					<p>This can take a minute. You will receive an e-mail as soon as it is confirmed. If you were not charged, you can go back and try again.</p>
+				<?php endif; ?>
+				<p><a class="sdsc-btn" href="tel:+13017263030">Questions? Call (301) 726-3030</a></p>
+			</div>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
 	protected static function render_success( $class_id ) {
 		$pay  = $class_id ? get_post_meta( $class_id, '_sdsc_payment_link', true ) : '';
 		$name = $class_id ? self::class_label( $class_id ) : '';
+		$rid  = isset( $_GET['sdsc_r'] ) ? absint( $_GET['sdsc_r'] ) : 0; // phpcs:ignore
+		$rtok = isset( $_GET['sdsc_t'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_t'] ) ) : ''; // phpcs:ignore
+		if ( $rid && class_exists( 'SDSC_Pay' ) && hash_equals( SDSC_Pay::token( $rid ), $rtok ) ) {
+			$online = SDSC_Pay::url( $rid, $class_id );
+			if ( $online ) { $pay = $online; }
+		}
 		ob_start();
 		?>
 		<div class="sdsc-reg" id="sdsc">
@@ -485,7 +522,9 @@ class SDSC_Registration {
 		self::notify_admin( $reg_id, $class_id, $d );
 		do_action( 'sdsc_registered', $reg_id, $d, ! empty( $_POST['offers'] ) );
 
-		wp_safe_redirect( add_query_arg( array( 'sdsc_reg' => 'done', 'sdsc_class' => $class_id ), $return ) . '#sdsc' );
+		$q = array( 'sdsc_reg' => 'done', 'sdsc_class' => $class_id );
+		if ( class_exists( 'SDSC_Pay' ) ) { $q['sdsc_r'] = $reg_id; $q['sdsc_t'] = SDSC_Pay::token( $reg_id ); }
+		wp_safe_redirect( add_query_arg( $q, $return ) . '#sdsc' );
 		exit;
 	}
 
