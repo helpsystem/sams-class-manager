@@ -1,0 +1,70 @@
+/* Sam's School — one look for every school screen (dashboard frame and wp-admin).
+   Gives the plain WordPress parts (headings, tabs, tables, buttons, fields, notices) the school style. */
+body.sdsc-skin { --k-g: #00703c; --k-gd: #005a30; --k-g2: #e7f5ec; --k-ink: #15191d; --k-mut: #5b646d; --k-line: #e1e6ea; --k-r: 14px; background: #f6f8f7; }
+body.sdsc-skin #wpbody-content { padding-top: 6px; }
+body.sdsc-skin .wrap { margin: 14px 18px 0 6px; color: var(--k-ink); }
+body.sdsc-skin .wrap > h1, body.sdsc-skin .wrap h1.wp-heading-inline { font-size: 24px; font-weight: 800; letter-spacing: -.2px; line-height: 1.25; margin: 4px 0 10px; padding: 0; }
+body.sdsc-skin .wrap h2 { font-size: 17px; font-weight: 800; margin: 26px 0 10px; }
+body.sdsc-skin .wrap p, body.sdsc-skin .wrap .description, body.sdsc-skin .sdsc-lead { font-size: 14px; line-height: 1.6; color: #3a434b; max-width: 820px; }
+body.sdsc-skin .wrap code { border-radius: 6px; background: #eef2f0; padding: 2px 6px; font-size: 12.5px; }
+
+/* tabs */
+body.sdsc-skin .nav-tab-wrapper, body.sdsc-skin h2.nav-tab-wrapper { display: flex; flex-wrap: nowrap; gap: 4px; margin: 14px 0 18px; padding: 4px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px var(--k-line); overflow-x: auto; scrollbar-width: none; }
+body.sdsc-skin .nav-tab-wrapper::-webkit-scrollbar { display: none; }
+body.sdsc-skin .nav-tab { flex: 0 0 auto; margin: 0; padding: 9px 16px; border: 0; border-radius: 9px; background: transparent; color: var(--k-ink); font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+body.sdsc-skin .nav-tab:hover { background: #f1f4f3; color: var(--k-ink); }
+body.sdsc-skin .nav-tab:focus-visible { outline: 2px solid var(--k-g); outline-offset: 1px; box-shadow: none; }
+body.sdsc-skin .nav-tab-active, body.sdsc-skin .nav-tab-active:hover, body.sdsc-skin .nav-tab-active:focus { background: var(--k-g); color: #fff; }
+
+/* tables */
+body.sdsc-skin table.widefat, body.sdsc-skin .wp-list-table { border: 0; border-radius: var(--k-r); overflow: hidden; background: #fff; box-shadow: 0 0 0 1px var(--k-line), 0 10px 24px -22px rgba(0,0,0,.35); }
+body.sdsc-skin table.widefat thead th, body.sdsc-skin table.widefat thead td, body.sdsc-skin .wp-list-table thead th, body.sdsc-skin .wp-list-table tfoot th { padding: 11px 12px; border-bottom: 1px solid var(--k-line); background: #f7f9f8; color: var(--k-mut); font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+body.sdsc-skin table.widefat td, body.sdsc-skin table.widefat tbody th { padding: 11px 12px; font-size: 13.5px; vertical-align: middle; }
+body.sdsc-skin table.widefat.striped > tbody > :nth-child(odd) { background: #fbfcfc; }
+body.sdsc-skin table.widefat tbody tr:hover { background: #f2faf5; }
+body.sdsc-skin table.widefat a { color: var(--k-gd); font-weight: 600; }
+body.sdsc-skin .form-table { margin-top: 6px; border-radius: var(--k-r); background: #fff; box-shadow: 0 0 0 1px var(--k-line); }
+body.sdsc-skin .form-table th { padding: 16px 12px 16px 18px; width: 210px; font-weight: 700; }
+body.sdsc-skin .form-table td { padding: 12px 18px 12px 10px; }
+
+/* buttons */
+body.sdsc-skin .wrap .button, body.sdsc-skin .wrap .page-title-action, body.sdsc-skin .wrap .button-secondary { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: #fff; color: var(--k-gd); box-shadow: inset 0 0 0 1.5px #b9dcc8; font-size: 13.5px; font-weight: 700; line-height: 1; text-decoration: none; vertical-align: middle; transition: background .15s, box-shadow .15s; }
+body.sdsc-skin .wrap .button:hover, body.sdsc-skin .wrap .page-title-action:hover { background: var(--k-g2); color: var(--k-gd); box-shadow: inset 0 0 0 1.5px var(--k-g); }
+body.sdsc-skin .wrap .button-primary, body.sdsc-skin .wrap input.button-primary, body.sdsc-skin #publish { background: var(--k-g); color: #fff; box-shadow: none; border: 0; border-radius: 999px; min-height: 40px; padding: 0 22px; font-weight: 800; text-shadow: none; }
+body.sdsc-skin .wrap .button-primary:hover, body.sdsc-skin #publish:hover { background: var(--k-gd); color: #fff; }
+body.sdsc-skin .wrap .button:focus-visible, body.sdsc-skin .wrap .button-primary:focus-visible { outline: 2px solid var(--k-g); outline-offset: 2px; box-shadow: none; }
+body.sdsc-skin .wrap .button-small, body.sdsc-skin .wrap .button.button-small { min-height: 30px; padding: 0 12px; font-size: 12.5px; }
+body.sdsc-skin .wrap .button-link-delete, body.sdsc-skin .wrap a.submitdelete { color: #b42318; }
+
+/* fields */
+body.sdsc-skin .wrap input[type=text], body.sdsc-skin .wrap input[type=search], body.sdsc-skin .wrap input[type=email], body.sdsc-skin .wrap input[type=number], body.sdsc-skin .wrap input[type=url], body.sdsc-skin .wrap input[type=date], body.sdsc-skin .wrap input[type=datetime-local], body.sdsc-skin .wrap input[type=tel], body.sdsc-skin .wrap select, body.sdsc-skin .wrap textarea { min-height: 38px; border: 1px solid #cdd5da; border-radius: 10px; background-color: #fff; color: var(--k-ink); font-size: 14px; box-shadow: none; }
+body.sdsc-skin .wrap textarea { padding: 10px 12px; line-height: 1.5; }
+body.sdsc-skin .wrap select { padding-right: 30px; }
+body.sdsc-skin .wrap input:focus, body.sdsc-skin .wrap select:focus, body.sdsc-skin .wrap textarea:focus { border-color: var(--k-g); box-shadow: 0 0 0 3px rgba(0,112,60,.15); outline: none; }
+body.sdsc-skin .wrap input[type=checkbox], body.sdsc-skin .wrap input[type=radio] { accent-color: var(--k-g); }
+body.sdsc-skin .search-box { float: none; display: flex; gap: 8px; margin: 6px 0 14px; }
+body.sdsc-skin .search-box input[type=search] { width: min(360px, 100%); }
+
+/* notices & cards */
+body.sdsc-skin .notice, body.sdsc-skin div.updated, body.sdsc-skin div.error { margin: 12px 0; border: 0; border-left: 4px solid var(--k-g); border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px var(--k-line); }
+body.sdsc-skin .notice-warning { border-left-color: #ffc20e; }
+body.sdsc-skin .notice-error, body.sdsc-skin div.error { border-left-color: #d63638; }
+body.sdsc-skin .postbox { border: 0; border-radius: var(--k-r); box-shadow: 0 0 0 1px var(--k-line), 0 10px 24px -22px rgba(0,0,0,.35); overflow: hidden; }
+body.sdsc-skin .postbox .postbox-header { border-bottom: 1px solid var(--k-line); background: #f7f9f8; }
+body.sdsc-skin .postbox .hndle { font-size: 15px; font-weight: 800; }
+body.sdsc-skin .subsubsub { margin: 4px 0 8px; font-size: 13px; }
+body.sdsc-skin .subsubsub a.current { color: var(--k-gd); }
+body.sdsc-skin .tablenav { margin: 8px 0; }
+body.sdsc-skin .page-numbers { display: inline-grid; place-items: center; min-width: 34px; height: 34px; margin: 0 2px; padding: 0 8px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--k-line); color: var(--k-ink); text-decoration: none; }
+body.sdsc-skin .page-numbers.current { background: var(--k-g); color: #fff; box-shadow: none; }
+
+/* Student records (print) */
+body.sdsc-skin .sdsc-reports-title { font-size: 24px !important; font-weight: 800; }
+body.sdsc-skin .sdsc-reports-card { padding: 18px 20px !important; border: 0 !important; border-radius: var(--k-r) !important; background: #fff !important; box-shadow: 0 0 0 1px var(--k-line) !important; }
+
+@media (max-width: 782px) {
+	body.sdsc-skin .wrap { margin: 10px 12px 0; }
+	body.sdsc-skin .form-table th { width: auto; padding: 14px 14px 4px; }
+	body.sdsc-skin .form-table td { padding: 4px 14px 14px; }
+	body.sdsc-skin table.widefat { display: block; overflow-x: auto; }
+}

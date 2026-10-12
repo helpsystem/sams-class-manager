@@ -22,7 +22,7 @@ class SDSC_Settings {
 	}
 
 	public static function menu() {
-		add_submenu_page( 'sdsc-dashboard', 'تنظیمات', 'تنظیمات', 'manage_options', 'sdsc-settings', array( __CLASS__, 'render' ) );
+		add_submenu_page( 'sdsc-dashboard', 'Settings', 'Settings', 'manage_options', 'sdsc-settings', array( __CLASS__, 'render' ) );
 	}
 
 	public static function register() {
@@ -61,8 +61,8 @@ class SDSC_Settings {
 
 	public static function get_options() {
 		$defaults = array(
-			'zoom_account_1_label' => 'اکانت زوم ۱',
-			'zoom_account_2_label' => 'اکانت زوم ۲',
+			'zoom_account_1_label' => 'Zoom account 1',
+			'zoom_account_2_label' => 'Zoom account 2',
 		);
 		$o = get_option( self::OPTION, array() );
 		return wp_parse_args( is_array( $o ) ? array_filter( $o, 'strlen' ) : array(), $defaults );
@@ -81,19 +81,19 @@ class SDSC_Settings {
 		$o = self::get_options();
 		?>
 		<div class="wrap">
-			<h1>تنظیمات پلاگین کلاس‌های سام</h1>
+			<h1>Settings</h1>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION ); ?>
-				<h2>اسم اکانت‌های زوم</h2>
-				<p class="description">این اسم‌ها در فرم کلاس و صفحه اتصال‌ها نمایش داده می‌شوند.</p>
+				<h2>Zoom account names</h2>
+				<p class="description">These names show on the class form (Zoom account) and on API connections.</p>
 				<table class="form-table">
-					<tr><th>اکانت ۱</th><td><input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[zoom_account_1_label]" value="<?php echo esc_attr( $o['zoom_account_1_label'] ); ?>" class="regular-text" /></td></tr>
-					<tr><th>اکانت ۲</th><td><input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[zoom_account_2_label]" value="<?php echo esc_attr( $o['zoom_account_2_label'] ); ?>" class="regular-text" /></td></tr>
+					<tr><th>Account 1</th><td><input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[zoom_account_1_label]" value="<?php echo esc_attr( $o['zoom_account_1_label'] ); ?>" class="regular-text" /></td></tr>
+					<tr><th>Account 2</th><td><input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[zoom_account_2_label]" value="<?php echo esc_attr( $o['zoom_account_2_label'] ); ?>" class="regular-text" /></td></tr>
 				</table>
-				<?php submit_button( 'ذخیره' ); ?>
+				<?php submit_button( 'Save' ); ?>
 			</form>
 			<?php if ( class_exists( 'SDSC_Api' ) && SDSC_Api::can() ) : ?>
-				<p>کلیدهای Stripe و زوم در صفحه <a href="<?php echo esc_url( admin_url( 'admin.php?page=sdsc-api' ) ); ?>">API connections</a> و به‌صورت رمزنگاری‌شده نگه داشته می‌شوند.</p>
+				<p>Stripe and Zoom keys are kept, encrypted, on <a href="<?php echo esc_url( admin_url( 'admin.php?page=sdsc-api' ) ); ?>">API connections</a>.</p>
 			<?php endif; ?>
 		</div>
 		<?php

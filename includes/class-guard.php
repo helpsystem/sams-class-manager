@@ -194,7 +194,7 @@ class SDSC_Guard {
 		<div class="wrap">
 			<h1>Blocked sign-ups</h1>
 			<?php if ( isset( $_GET['saved'] ) ) : // phpcs:ignore ?><div class="notice notice-success"><p>Saved.</p></div><?php endif; ?>
-			<p>Addresses and domains here cannot create an account on any form of the site (WordPress, online course, sign-up popup). Gmail look-alikes (extra dots or “+” tags) are caught too, and Gmail addresses with 4 or more dots are refused automatically. Anyone refused is asked to call the school.</p>
+			<p>Addresses and domains here cannot create an account on any form of the website (account sign-up, online course, sign-up pop-up). Gmail look-alikes (extra dots or “+” tags) are caught too, and Gmail addresses with 4 or more dots are refused automatically. Anyone refused is asked to call the school.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="sdsc_blocklist_save" />
 				<?php wp_nonce_field( 'sdsc_blocklist' ); ?>

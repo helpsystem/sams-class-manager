@@ -697,14 +697,15 @@ class SDSC_Registration {
 		$rows  = $wpdb->get_results( $wpdb->prepare( $sql, array_merge( $args, array( $per, ( $paged - 1 ) * $per ) ) ) );
 
 		echo '<h1>Registrations <span class="count">(' . (int) $total . ')</span></h1>';
-		echo '<p>Use the shortcode <code>[sdsc_registration_form]</code> on any page. To preselect a course, add <code>?course=C-68</code> to the page link.</p>';
-		echo '<form method="get"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email or phone"/> <button class="button">Search</button></p></form>';
-		echo '<table class="widefat striped"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th></tr></thead><tbody>';
+		echo '<p class="sdsc-lead" id="sdsc-reg-lead">Every sign-up from the website, newest first. Click a student’s name to see the whole form, the signed contract and the signatures.</p>';
+		if ( current_user_can( 'manage_options' ) ) { echo '<p class="description">Administrator note: the form is the <code>[sdsc_registration_form]</code> shortcode; add <code>?course=CODE</code> to a link to preselect a class.</p>'; }
+		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email or phone" aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
+		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th></tr></thead><tbody>';
 		if ( ! $rows ) { echo '<tr><td colspan="7">No registrations yet.</td></tr>'; }
 		foreach ( $rows as $r ) {
 			$url  = admin_url( 'admin.php?page=sdsc-registrations&view=' . $r->id );
 			$code = $r->class_id ? get_post_meta( $r->class_id, '_sdsc_course_code', true ) : '';
-			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( $r->source ) . '</td></tr>';
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( array( 'native' => 'Website', 'forminator' => 'Website (old form)', 'demo' => 'Demo' )[ $r->source ] ?? ucfirst( (string) $r->source ) ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
 		$pages = (int) ceil( $total / $per );

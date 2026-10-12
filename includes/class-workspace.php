@@ -73,7 +73,7 @@ class SDSC_Workspace {
 			'outreach'       => array( 'Celebrations & campaigns', 'talk', 'admin.php?page=sdsc-outreach', $can( 'outreach' ), '🎉', 'Birthday wishes, anniversaries, group e-mails and texts.' ),
 			'refunds'        => array( 'Refunds', 'money', 'admin.php?page=sdsc-refunds', $can( 'refunds' ), '↩️', 'Full or prorated refunds by the refund policy.' ),
 			'prices'         => array( 'Prices', 'money', 'admin.php?page=sdsc-prices', $can( 'prices' ), '🏷️', 'Course and service prices used at checkout.' ),
-			'discounts'      => array( 'Discounts', 'money', 'admin.php?page=sdsc-discounts', $can( 'discounts' ), '％', 'Percentage discounts and their previews.' ),
+			'discounts'      => array( 'Site-wide sale', 'money', 'admin.php?page=sdsc-discounts', $can( 'discounts' ), '％', 'A percentage off a service for everyone, with a preview.' ),
 			'promo'          => array( 'Discounts & offers', 'money', 'admin.php?page=sdsc-promo', $can( 'promo' ), '🎟️', 'Codes, early bird, referral codes and results.' ),
 			'tv'             => array( 'Lobby TV', 'website', 'admin.php?page=sdsc-tv', $can( 'tv' ), '📺', 'What the lobby TV shows: messages, ticker, view.' ),
 			'notices'        => array( 'Banners & alerts', 'website', 'admin.php?page=sdsc-notices', $can( 'notices' ), '📣', 'Site banners, pop-ups, holidays and weather alerts.' ),
@@ -233,7 +233,7 @@ class SDSC_Workspace {
 		if ( 'classes' === $key && ! empty( $_GET['new'] ) ) { $path = 'post-new.php?post_type=sdsc_class'; } // phpcs:ignore
 		$src = add_query_arg( 'sdsc_embed', '1', admin_url( $path ) );
 		return '<div class="sws-screen"><div class="sws-screen-head"><div><p class="sws-crumb">' . esc_html( self::groups()[ $s[1] ] ) . '</p><h3><span aria-hidden="true">' . esc_html( $s[4] ) . '</span> ' . esc_html( $s[0] ) . '</h3></div>'
-			. '<a class="sws-full" href="' . esc_url( admin_url( $path ) ) . '" target="_blank" rel="noopener">Open full screen ↗</a></div>'
+			. '<a class="sws-full" href="' . esc_url( current_user_can( 'manage_options' ) ? admin_url( $path ) : $src ) . '" target="_blank" rel="noopener">Open full screen ↗</a></div>'
 			. '<iframe class="sws-frame" title="' . esc_attr( $s[0] ) . '" src="' . esc_url( $src ) . '" loading="eager"></iframe></div>';
 	}
 

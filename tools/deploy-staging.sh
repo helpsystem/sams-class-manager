@@ -13,6 +13,7 @@ echo "backup: /root/site-backups/staging-plugins-$TS.tgz"
 W=$(mktemp -d); curl -fsSL https://codeload.github.com/helpsystem/sams-class-manager/tar.gz/${1:-refs/heads/main} | tar -xz -C $W
 SRC=$(ls -d $W/sams-class-manager-*)
 for d in includes assets templates; do cp -a $SRC/$d/. $PL/$d/; done
+python3 $SRC/tools/english-ui.py $PL
 python3 $SRC/tools/driveflow-security-fixes.py $DF
 # In-car app: DriveFlow template hands the screen to SDSC_CarApp (classic form kept as fallback).
 cp $SRC/driveflow/instructor-form-classic.php $DF/templates/instructor-form-classic.php

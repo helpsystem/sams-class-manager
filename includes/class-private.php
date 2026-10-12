@@ -27,6 +27,22 @@ class SDSC_Private {
 		add_action( 'login_enqueue_scripts', array( __CLASS__, 'login_look' ) );
 		add_filter( 'login_headerurl', function () { return home_url( '/' ); } );
 		add_filter( 'login_headertext', function () { return 'Sam’s Driving School'; } );
+		add_filter( 'admin_body_class', array( __CLASS__, 'skin_class' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'skin' ), 30 );
+	}
+
+	/** School screens (page=sdsc-…, classes) get one look, whoever opens them. */
+	protected static function school_screen() {
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 0 === strpos( $page, 'sdsc-' ) ) { return true; }
+		$scr = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		return $scr && 'sdsc_class' === $scr->post_type;
+	}
+
+	public static function skin_class( $c ) { return self::school_screen() ? $c . ' sdsc-skin' : $c; }
+
+	public static function skin() {
+		if ( self::school_screen() ) { wp_enqueue_style( 'sdsc-staff-skin', SDSC_URL . 'assets/staff-skin.css', array(), SDSC_VERSION ); }
 	}
 
 	public static function is_admin_user() { return current_user_can( 'manage_options' ); }
@@ -85,7 +101,7 @@ class SDSC_Private {
 		$scr = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		if ( $scr ) { $scr->remove_help_tabs(); }
 		add_filter( 'screen_options_show_screen', '__return_false' );
-		echo '<style id="sdsc-private">#wpadminbar,#adminmenumain,#adminmenuback,#adminmenuwrap,#wpfooter,#screen-meta-links,.update-nag,#contextual-help-link-wrap{display:none!important}html.wp-toolbar{padding-top:0!important}#wpcontent,.auto-fold #wpcontent{margin-left:0!important}</style>';
+		echo '<style id="sdsc-private">#wpadminbar,#adminmenumain,#adminmenuback,#adminmenuwrap,#wpfooter,#screen-meta-links,.update-nag,#contextual-help-link-wrap{display:none!important}html.wp-toolbar{padding-top:0!important}#wpcontent,.auto-fold #wpcontent{margin-left:0!important}.driveflow-admin-wrap a.button[href*="demo"],.driveflow-admin-wrap a.button[href*="seed"]{display:none!important}</style>';
 	}
 
 	public static function login_look() {

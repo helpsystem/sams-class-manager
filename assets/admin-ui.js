@@ -39,15 +39,38 @@
 		return e;
 	}
 
+	/* The workspace shows each screen in a frame (same site). Steps look inside that frame first;
+	   "top:" in front of a selector means the dashboard around it, "@@text" keeps only elements with that text. */
+	function frame() {
+		var f = document.querySelector('iframe.sws-frame');
+		try { return f && f.contentDocument && f.contentDocument.body ? f : null; } catch (e) { return null; }
+	}
+
 	function findTarget(sel) {
 		if (!sel) { return null; }
-		var list;
-		try { list = document.querySelectorAll(sel); } catch (e) { return null; }
-		for (var i = 0; i < list.length; i++) {
-			var r = list[i].getBoundingClientRect();
-			if (r.width > 0 && r.height > 0) { return list[i]; }
+		var docs, txt = '', f = frame(), i = sel.indexOf('@@');
+		if (i > -1) { txt = sel.slice(i + 2).toLowerCase(); sel = sel.slice(0, i); }
+		if (sel.indexOf('top:') === 0) { sel = sel.slice(4); docs = [document]; } else { docs = f ? [f.contentDocument, document] : [document]; }
+		for (var d = 0; d < docs.length; d++) {
+			var list;
+			try { list = docs[d].querySelectorAll(sel); } catch (e) { continue; }
+			for (var k = 0; k < list.length; k++) {
+				var r = list[k].getBoundingClientRect();
+				if (r.width > 0 && r.height > 0 && (!txt || (list[k].textContent || '').toLowerCase().indexOf(txt) > -1)) { return list[k]; }
+			}
 		}
 		return null;
+	}
+
+	/* Position of an element on the dashboard page, also when it sits inside the screen frame. */
+	function rectOf(node) {
+		var r = node.getBoundingClientRect();
+		if (node.ownerDocument === document) { return r; }
+		var f = frame();
+		if (!f) { return r; }
+		var fr = f.getBoundingClientRect();
+		var top = r.top + fr.top, left = r.left + fr.left;
+		return { top: top, left: left, right: left + r.width, bottom: top + r.height, width: r.width, height: r.height };
 	}
 
 	function Tour(steps, opts) {
@@ -90,6 +113,8 @@
 		document.addEventListener('keydown', this.onKey, true);
 		window.addEventListener('resize', this.onMove);
 		window.addEventListener('scroll', this.onMove, true);
+		this.fw = frame() ? frame().contentWindow : null;
+		if (this.fw) { try { this.fw.addEventListener('scroll', this.onMove, true); this.fw.document.addEventListener('keydown', this.onKey, true); } catch (e) { this.fw = null; } }
 		var self = this;
 		requestAnimationFrame(function () { self.root.classList.add('is-on'); self.go(0); });
 	};
@@ -98,6 +123,7 @@
 		document.removeEventListener('keydown', this.onKey, true);
 		window.removeEventListener('resize', this.onMove);
 		window.removeEventListener('scroll', this.onMove, true);
+		if (this.fw) { try { this.fw.removeEventListener('scroll', this.onMove, true); this.fw.document.removeEventListener('keydown', this.onKey, true); } catch (e) {} }
 		var r = this.root;
 		r.classList.remove('is-on');
 		setTimeout(function () { if (r.parentNode) { r.parentNode.removeChild(r); } }, reduce ? 0 : 200);
@@ -141,7 +167,7 @@
 		var vw = window.innerWidth, vh = window.innerHeight, gap = 14, pad = 8;
 		var c = this.card.getBoundingClientRect();
 		var cw = c.width || 340, ch = c.height || 180;
-		var r = this.target && this.target.isConnected ? this.target.getBoundingClientRect() : null;
+		var r = this.target && this.target.isConnected ? rectOf(this.target) : null;
 		var place = st.placement || 'auto';
 		if (!r || place === 'center') {
 			this.root.classList.add('is-center');
@@ -200,27 +226,49 @@
 		} catch (e) {}
 	}
 
+	function inWorkspaceFrame() {
+		try { return window.top !== window && !!window.parent.document.querySelector('iframe.sws-frame'); } catch (e) { return false; }
+	}
+
 	function start() {
 		var D = window.SDSC_TOUR;
 		if (!D || !D.steps || !D.steps.length || T) { return; }
-		T = new Tour(D.steps, { onClose: function () { markSeen(D.key); } });
+		var f = document.querySelector('iframe.sws-frame');
+		if (Number(D.frame) === 1 && f && !frame()) { f.addEventListener('load', function () { setTimeout(start, 250); }, { once: true }); return; }
+		var steps = D.steps.filter(function (st) { return !Number(st.skip) || !!findTarget(st.target); });
+		if (!steps.length) { return; }
+		T = new Tour(steps, { onClose: function () { markSeen(D.key); } });
 		T.open();
 	}
 
 	function launcher() {
 		var D = window.SDSC_TOUR;
-		if (!D || !D.key) { return; }
+		if (!D || !D.key || !D.steps || !D.steps.length) { return; }
 		try { if (localStorage.getItem('sdt_seen_' + D.key)) { D.seen = 1; } } catch (e) {}
-		var b = el('button', 'sdt-launch' + (Number(D.seen) === 1 ? '' : ' is-new'),
-			'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"/></svg><span>Take the tour</span>');
+		var head = document.querySelector('.sws-screen-head'), bar = document.querySelector('.sws-bar');
+		var inline = !!(head || bar);
+		var b = el('button', 'sdt-launch' + (inline ? ' sdt-launch--inline' : '') + (Number(D.seen) === 1 ? '' : ' is-new'),
+			'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"/></svg><span>' + (inline ? 'How this screen works' : 'Take the tour') + '</span>');
 		b.type = 'button';
 		b.setAttribute('aria-label', 'Take the guided tour of ' + D.title);
 		b.addEventListener('click', start);
-		document.body.appendChild(b);
+		if (head) {
+			var tools = head.querySelector('.sws-tools');
+			if (!tools) { tools = el('div', 'sws-tools'); var full = head.querySelector('.sws-full'); if (full) { head.insertBefore(tools, full); tools.appendChild(full); } else { head.appendChild(tools); } }
+			tools.insertBefore(b, tools.firstChild);
+		} else if (bar) {
+			bar.insertBefore(b, bar.querySelector('.sws-role'));
+		} else {
+			document.body.appendChild(b);
+		}
 	}
 
 	function init() {
+		if (window.__sdtInit) { return; }
+		window.__sdtInit = 1;
 		menuHeadings();
+		// Inside the dashboard frame the tour is run by the dashboard around it.
+		if (inWorkspaceFrame()) { return; }
 		launcher();
 		document.addEventListener('click', function (e) {
 			var a = e.target.closest && e.target.closest('.sdsc-tour-start a, a[href="#sdsc-tour"]');
@@ -229,7 +277,7 @@
 		var D = window.SDSC_TOUR;
 		if (D && Number(D.auto) === 1) {
 			if (window.history && history.replaceState) {
-				history.replaceState(null, '', location.href.replace(/([?&])sdsc_tour=[^&]*(&|$)/, function (m, a, b) { return b ? a : ''; }));
+				history.replaceState(null, '', location.href.replace(/([?&])(sdsc_tour|tour)=[^&]*(&|$)/, function (m, a, k, b) { return b ? a : ''; }).replace(/[?&]$/, ''));
 			}
 			setTimeout(start, 450);
 		}

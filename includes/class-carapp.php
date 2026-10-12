@@ -245,6 +245,7 @@ class SDSC_CarApp {
 		?>
 <link rel="stylesheet" href="<?php echo esc_url( SDSC_URL . 'assets/carapp.css?ver=' . $ver ); ?>">
 <?php echo class_exists( 'SDSC_Notify' ) ? SDSC_Notify::tags() : ''; // phpcs:ignore -- escaped inside ?>
+<?php echo class_exists( 'SDSC_Tours' ) ? SDSC_Tours::tags( 'instructor_app' ) : ''; // phpcs:ignore -- escaped inside ?>
 <div id="sca" class="sca" data-state="loading">
 	<header class="sca-bar">
 		<div class="sca-brand">

@@ -139,10 +139,10 @@ class SDSC_MVA_News {
 		?>
 		<div class="wrap">
 			<h1>MVA headlines</h1>
-			<p style="max-width:780px">Checked automatically once a day from <a href="<?php echo esc_url( self::SOURCE ); ?>" target="_blank" rel="noopener">mva.maryland.gov/news</a>. The site shows only the headline, date and a link to the MVA page (the MVA text is copyrighted by the State of Maryland). Use <strong>Write a post</strong> to start a draft where you explain the update in your own words.
-			Add the list anywhere with the shortcode <code>[sdsc_mva_news]</code>.</p>
+			<p class="sdsc-lead" id="sdsc-mva-lead">Checked automatically once a day from <a href="<?php echo esc_url( self::SOURCE ); ?>" target="_blank" rel="noopener">mva.maryland.gov/news</a>. The site shows only the headline, date and a link to the MVA page (the MVA text is copyrighted by the State of Maryland). Use <strong>Write a post</strong> to start a draft where you explain the update in your own words.
+			<?php if ( current_user_can( 'manage_options' ) ) : ?><span class="description">Administrator note: the list is the <code>[sdsc_mva_news]</code> shortcode.</span><?php endif; ?></p>
 			<?php if ( isset( $_GET['refreshed'] ) ) : ?><div class="notice notice-info"><p><?php echo $_GET['refreshed'] ? esc_html( (int) $_GET['refreshed'] . ' headlines fetched.' ) : 'Could not read the MVA news page right now.'; ?></p></div><?php endif; ?>
-			<p><a class="button" href="<?php echo esc_url( admin_url( 'admin-post.php?action=sdsc_mva_refresh&_wpnonce=' . $nonce ) ); ?>">Check now</a>
+			<p id="sdsc-mva-check"><a class="button" href="<?php echo esc_url( admin_url( 'admin-post.php?action=sdsc_mva_refresh&_wpnonce=' . $nonce ) ); ?>">Check now</a>
 			<?php if ( ! empty( $d['fetched'] ) ) : ?> <span style="color:#646970">Last checked <?php echo esc_html( human_time_diff( $d['fetched'] ) ); ?> ago.</span><?php endif; ?></p>
 			<table class="widefat striped" style="max-width:1100px">
 				<thead><tr><th style="width:110px">Date</th><th>Headline</th><th style="width:110px">Shown on site</th><th style="width:130px"></th></tr></thead>

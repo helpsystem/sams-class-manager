@@ -439,7 +439,7 @@ class SDSC_Promo {
 			echo '<div class="notice notice-success"><p>Saved code <b>' . esc_html( $sc ) . '</b>.' . ( isset( $all[ $sc ] ) ? ' Link that fills it in for the student: <code>' . esc_html( self::share_url( $sc, $all[ $sc ] ) ) . '</code>' : '' ) . '</p></div>';
 		}
 		echo '<p style="max-width:900px">Students type a code on the registration form (or open a link that fills it in). The website checks it, Stripe charges the discounted price and the receipt shows the code. A code never adds on top of the early-bird or site-wide price — the student gets whichever is better.</p>';
-		echo '<table class="widefat striped" style="max-width:1250px"><thead><tr><th>Code</th><th>Discount</th><th>Where it is used</th><th>Courses</th><th>Valid</th><th>Paid uses (' . esc_html( $res['mode'] ?? '' ) . ')</th><th>Revenue</th><th>Status</th><th></th></tr></thead><tbody>';
+		echo '<table class="widefat striped" id="sdsc-promo-list" style="max-width:1250px"><thead><tr><th>Code</th><th>Discount</th><th>Where it is used</th><th>Courses</th><th>Valid</th><th>Paid uses (' . esc_html( $res['mode'] ?? '' ) . ')</th><th>Revenue</th><th>Status</th><th></th></tr></thead><tbody>';
 		if ( ! $all ) { echo '<tr><td colspan="9">No codes yet — create one below.</td></tr>'; }
 		foreach ( $all as $code => $c ) {
 			$c    = wp_parse_args( $c, array( 'channel' => '', 'note' => '', 'classes' => array(), 'starts' => '', 'ends' => '', 'max' => 0 ) );
@@ -475,7 +475,7 @@ class SDSC_Promo {
 			. '</table>';
 		submit_button( $edit && isset( $all[ $edit ] ) ? 'Save code' : 'Create code' );
 		echo '</form></div>';
-		echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:4px 18px 14px"><h2>Referral code for a student</h2><p>A happy student shares their own code with friends; you see how many friends registered. Creates <b>FIRSTNAME + 2 digits</b>, all courses, valid for a year.</p><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="sdsc_promo_ref">';
+		echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:4px 18px 14px" id="sdsc-promo-ref"><h2>Referral code for a student</h2><p>A happy student shares their own code with friends; you see how many friends registered. Creates <b>FIRSTNAME + 2 digits</b>, all courses, valid for a year.</p><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="sdsc_promo_ref">';
 		wp_nonce_field( 'sdsc_promo_ref' );
 		echo '<p><label>Student’s name<br><input name="who" required class="regular-text" placeholder="e.g. Sara Karimi"></label></p><p><label>Friend gets <input type="number" name="value" value="25" min="1" step="1" style="width:80px"></label> <select name="type"><option value="amt">$ off</option><option value="pct">% off</option></select> &nbsp; <label>up to <input type="number" name="max" value="10" min="0" style="width:70px"> friends</label></p>';
 		submit_button( 'Create referral code', 'secondary', 'submit', false );
@@ -492,7 +492,7 @@ class SDSC_Promo {
 			. '<tr><th>Discount</th><td><input type="number" name="value" min="0" step="0.01" value="' . esc_attr( $o['value'] ) . '" style="width:100px"> <select name="type"><option value="amt"' . selected( $o['type'], 'amt', false ) . '>$ off</option><option value="pct"' . selected( $o['type'], 'pct', false ) . '>% off</option></select></td></tr>'
 			. '<tr><th>Deadline</th><td><input type="number" name="days" min="0" max="60" value="' . (int) $o['days'] . '" style="width:70px"> days before the class starts</td></tr></table>';
 		submit_button( 'Save early bird' );
-		echo '</form></div><h2 style="margin-top:26px">What each open class shows now</h2><table class="widefat striped" style="max-width:900px"><thead><tr><th>Class</th><th>Starts</th><th>Normal price</th><th>Price today</th><th>Early bird until</th></tr></thead><tbody>';
+		echo '</form></div><h2 style="margin-top:26px">What each open class shows now</h2><table class="widefat striped" id="sdsc-promo-now" style="max-width:900px"><thead><tr><th>Class</th><th>Starts</th><th>Normal price</th><th>Price today</th><th>Early bird until</th></tr></thead><tbody>';
 		$any = false;
 		foreach ( class_exists( 'SDSC_Registration' ) ? SDSC_Registration::open_classes() : array() as $c ) {
 			$any  = true;
@@ -522,7 +522,7 @@ class SDSC_Promo {
 		foreach ( array( array( (int) $tot['n'], 'paid registrations' ), array( self::money( $tot['revenue'] ), 'paid online' ), array( $wd, 'with a discount' ), array( self::money( $given ), 'given as discounts' ) ) as $b ) {
 			echo '<div style="background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:12px 18px;min-width:150px"><div style="font-size:22px;font-weight:700">' . esc_html( $b[0] ) . '</div><div style="color:#646970">' . esc_html( $b[1] ) . '</div></div>';
 		}
-		echo '</div><h2>By source</h2><table class="widefat striped" style="max-width:800px"><thead><tr><th>Source</th><th>Paid registrations</th><th>Revenue</th><th>Discount given</th></tr></thead><tbody>';
+		echo '</div><h2>By source</h2><table class="widefat striped" id="sdsc-promo-src" style="max-width:800px"><thead><tr><th>Source</th><th>Paid registrations</th><th>Revenue</th><th>Discount given</th></tr></thead><tbody>';
 		if ( ! $byc ) { echo '<tr><td colspan="4">No discounted payments yet.</td></tr>'; }
 		foreach ( $byc as $k => $r ) { echo '<tr><td>' . esc_html( $k ) . '</td><td>' . (int) $r['n'] . '</td><td>' . esc_html( self::money( $r['revenue'] ) ) . '</td><td>' . esc_html( self::money( $r['given'] ) ) . '</td></tr>'; }
 		echo '</tbody></table><h2 style="margin-top:22px">By code</h2><table class="widefat striped" style="max-width:800px"><thead><tr><th>Code</th><th>Paid registrations</th><th>Revenue</th><th>Discount given</th><th>Last paid</th></tr></thead><tbody>';
