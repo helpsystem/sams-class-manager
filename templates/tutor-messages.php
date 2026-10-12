@@ -3,7 +3,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>
 <div class="tutor-dashboard-content-inner">
-	<div id="sdsc-chat-page" class="sdk-page" data-thread="<?php echo isset( $_GET['t'] ) ? (int) $_GET['t'] : 0; // phpcs:ignore ?>">
+	<div id="sdsc-chat-page" class="sdk-page" data-open="<?php echo isset( $_GET['t'] ) ? (int) $_GET['t'] : 0; // phpcs:ignore ?>">
 		<p class="sdk-loading">Loading messages…</p>
 	</div>
 </div>

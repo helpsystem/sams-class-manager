@@ -184,8 +184,8 @@
     chatRoot.querySelector('.sdk-back').addEventListener('click', function () { showList(); });
     chatRoot.addEventListener('click', function (e) {
       if (e.target.closest('.sdk-x')) { closeAll(); return; }
-      var t = e.target.closest('[data-thread]'); if (t) { openConv(parseInt(t.dataset.thread, 10)); return; }
-      var c = e.target.closest('[data-to]');
+      var t = e.target.closest('.sdk-row[data-thread]'); if (t) { openConv(parseInt(t.dataset.thread, 10)); return; }
+      var c = e.target.closest('.sdk-row[data-to]');
       if (c) { api('chat/open', { method: 'POST', body: { to: c.dataset.to } }).then(function (r) { openConv(r.id); }).catch(function (er) { toast({ icon: '⚠', title: er.message }); }); }
     });
     var find = chatRoot.querySelector('.sdk-find input'), ft = null;
@@ -309,7 +309,7 @@
   if (page) {
     chatShell(page, true);
     loadThreads().then(function (d) {
-      var t = parseInt(page.dataset.thread || '0', 10);
+      var t = parseInt(page.dataset.open || '0', 10);
       if (t) { openConv(t); }
       else if (d && !mobile() && d.threads.length) { openConv(d.threads[0].id); }
     });
