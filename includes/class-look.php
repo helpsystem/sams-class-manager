@@ -66,7 +66,7 @@ class SDSC_Look {
 	public static function login_open() {
 		echo '<div class="sdsc-auth sdsc-auth--login">' . self::side( // phpcs:ignore -- escaped in side()
 			'Student & staff portal',
-			'Welcome back',
+			'Your driving school, online',
 			'Sign in to see your classes, driving lessons and messages in one place.',
 			array(
 				array( 'cal', 'Classes & Zoom links', 'Your schedule, attendance and reminders.' ),
@@ -78,13 +78,14 @@ class SDSC_Look {
 
 	public static function login_close() {
 		$reg = function_exists( 'tutor_utils' ) ? tutor_utils()->student_register_url() : wp_registration_url();
-		echo '<p class="sdsc-auth-alt">New here? <a href="' . esc_url( $reg ) . '">Create a student account</a> · Want to join a class? <a href="' . esc_url( home_url( '/register-course/' ) ) . '">Register for a course</a></p></div></div>';
+		unset( $reg );
+		echo '<p class="sdsc-auth-alt">Want to join a class? <a href="' . esc_url( home_url( '/register-course/' ) ) . '">Register for a course</a></p></div></div>';
 	}
 
 	public static function student_side() {
 		echo self::side( // phpcs:ignore -- escaped in side()
 			'Free student account',
-			'Create your account',
+			'One account for everything',
 			'One account for your classes, lessons, payments and receipts.',
 			array(
 				array( 'card', 'Pay online, safely', 'Card payments through Stripe — receipts in your inbox.' ),

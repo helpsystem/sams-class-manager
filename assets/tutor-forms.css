@@ -100,3 +100,9 @@
 	.sdsc-auth .tutor-login-form-wrapper > div:first-child, #tutor-registration-wrap:has(> .sdsc-auth-side) > form::before { font-size: 24px !important; }
 }
 @media (prefers-reduced-motion: reduce) { .sdsc-auth-road::after { animation: none; } }
+
+/* the school panel keeps its own colours inside Tutor's wrappers */
+#tutor-registration-wrap .sdsc-auth-side .sdsc-auth-title, .sdsc-auth .sdsc-auth-side .sdsc-auth-title { color: #fff !important; font-size: clamp(28px, 3.4vw, 38px) !important; font-weight: 900 !important; text-align: left !important; margin: 0 !important; }
+#tutor-registration-wrap .sdsc-auth-side a.sdsc-auth-help, .sdsc-auth .sdsc-auth-side a.sdsc-auth-help { color: #fff !important; text-decoration: none !important; }
+#tutor-registration-wrap .sdsc-auth-side .sdsc-auth-note a, .sdsc-auth .sdsc-auth-side .sdsc-auth-note a { color: #ffc20e !important; }
+@media (max-width: 900px) { #tutor-registration-wrap .sdsc-auth-side .sdsc-auth-title, .sdsc-auth .sdsc-auth-side .sdsc-auth-title { font-size: 26px !important; } }
