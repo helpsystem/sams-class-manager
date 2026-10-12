@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  *  - Staff mark present / absent on the class attendance grid.
  */
 class SDSC_Schedule {
-	const DBV       = '1';
+	const DBV       = '2';
 	const DBO       = 'sdsc_attend_db';
 	const META      = '_sdsc_sched';
 	const HOOK      = 'sdsc_schedule_tick';
@@ -58,6 +58,8 @@ class SDSC_Schedule {
 			rsvp_at datetime DEFAULT NULL,
 			actual varchar(8) NOT NULL DEFAULT '',
 			actual_by bigint(20) unsigned NOT NULL DEFAULT 0,
+			actual_at datetime DEFAULT NULL,
+			staff_note varchar(255) NOT NULL DEFAULT '',
 			sent varchar(255) NOT NULL DEFAULT '',
 			note varchar(255) NOT NULL DEFAULT '',
 			PRIMARY KEY  (id),
@@ -133,6 +135,7 @@ class SDSC_Schedule {
 		} else {
 			echo '<p style="color:#646970">Sessions appear here after the start date, days and times are saved.</p>';
 		}
+		do_action( 'sdsc_class_timetable_fields', $post );
 	}
 
 	public static function save_meta( $post_id ) {
@@ -221,7 +224,7 @@ class SDSC_Schedule {
 		$n     = 0;
 		$miss1 = false;
 		foreach ( $rows as $r ) {
-			$abs = 'absent' === $r['actual'] || ( 'no' === $r['rsvp'] && 'present' !== $r['actual'] && $r['sess'] <= current_time( 'Y-m-d' ) );
+			$abs = 'absent' === $r['actual'] || ( 'no' === $r['rsvp'] && '' === $r['actual'] && $r['sess'] <= current_time( 'Y-m-d' ) );
 			if ( ! $abs ) { continue; }
 			if ( $r['sess'] === $first ) { $miss1 = true; } else { $n++; }
 		}
@@ -648,7 +651,7 @@ class SDSC_Schedule {
 			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::table() . " WHERE kind = 'zoom' AND ref = %d", $cid ), ARRAY_A ) as $r ) { $rows[ $r['email'] . '|' . $r['sess'] ] = $r; } // phpcs:ignore
 			$today = current_time( 'Y-m-d' );
 			?>
-			<p class="sdo-lead">✓ = said they will come · ✗ = told us they can&rsquo;t · pick <b>P</b> (present) or <b>A</b> (absent) after each class. Session 1 is mandatory; after it <?php echo (int) self::ALLOWED; ?> absences are allowed (policies 1 and 4).</p>
+			<p class="sdo-lead">✓ = said they will come · ✗ = told us they can&rsquo;t · pick <b>P</b> (present), <b>L</b> (late), <b>E</b> (left early) or <b>A</b> (absent) after each class — or let the instructor do it on the dashboard (Zoom attendance). Session 1 is mandatory; after it <?php echo (int) self::ALLOWED; ?> absences are allowed (policies 1 and 4).</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'sdsc_att' ); ?><input type="hidden" name="action" value="sdsc_att_save"><input type="hidden" name="class" value="<?php echo (int) $cid; ?>">
 				<div style="overflow-x:auto">
@@ -663,7 +666,7 @@ class SDSC_Schedule {
 									<?php echo $r && 'yes' === $r['rsvp'] ? '<span title="Confirmed">✓</span>' : ( $r && 'no' === $r['rsvp'] ? '<span title="' . esc_attr( 'Told us: ' . $r['rsvp_at'] . ( $r['note'] ? ' — ' . $r['note'] : '' ) ) . '" style="color:#b32d2e">✗</span>' : '' ); ?>
 									<?php if ( $x['date'] <= $today ) : ?>
 										<input type="hidden" name="e[<?php echo esc_attr( md5( $p['email'] ) ); ?>]" value="<?php echo esc_attr( $p['email'] ); ?>">
-										<select name="<?php echo esc_attr( $name ); ?>" aria-label="<?php echo esc_attr( $p['first'] . ' session ' . $x['n'] ); ?>"><option value="">—</option><option value="present"<?php selected( $r['actual'] ?? '', 'present' ); ?>>P</option><option value="absent"<?php selected( $r['actual'] ?? '', 'absent' ); ?>>A</option></select>
+										<select name="<?php echo esc_attr( $name ); ?>" aria-label="<?php echo esc_attr( $p['first'] . ' session ' . $x['n'] ); ?>"><option value="">—</option><option value="present"<?php selected( $r['actual'] ?? '', 'present' ); ?>>P</option><option value="late"<?php selected( $r['actual'] ?? '', 'late' ); ?>>L</option><option value="left"<?php selected( $r['actual'] ?? '', 'left' ); ?>>E</option><option value="absent"<?php selected( $r['actual'] ?? '', 'absent' ); ?>>A</option></select>
 									<?php endif; ?>
 								</td>
 							<?php endforeach; ?>
@@ -690,11 +693,11 @@ class SDSC_Schedule {
 			$email = $emails[ $h ] ?? '';
 			if ( ! $email ) { continue; }
 			foreach ( (array) $days as $date => $v ) {
-				if ( ! in_array( $date, $valid, true ) || ! in_array( $v, array( '', 'present', 'absent' ), true ) ) { continue; }
+				if ( ! in_array( $date, $valid, true ) || ! in_array( $v, array( '', 'present', 'late', 'left', 'absent' ), true ) ) { continue; }
 				$r = self::row( 'zoom', $cid, $date, $email );
 				if ( ! $r && '' === $v ) { continue; }
 				if ( $r && $r['actual'] === $v ) { continue; }
-				self::put( 'zoom', $cid, $date, $email, array( 'actual' => $v, 'actual_by' => get_current_user_id() ) );
+				self::put( 'zoom', $cid, $date, $email, array( 'actual' => $v, 'actual_by' => get_current_user_id(), 'actual_at' => current_time( 'mysql' ) ) );
 			}
 		}
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::PAGE . '&class=' . $cid . '&msg=' . rawurlencode( 'Attendance saved.' ) ) );
@@ -714,6 +717,7 @@ class SDSC_Schedule {
 			$h .= '<article class="sdl-h"><div class="sdl-h-top"><div><b>' . esc_html( self::class_name( $cid ) ) . '</b><br><span class="sdl-m">'
 				. ( $next ? esc_html( ( $es ? 'Próxima clase: ' : 'Next class: ' ) . $next['n'] . ' — ' . SDSC_Lessons::when( $next['start'], $lang ) ) : ( $es ? 'Todas las clases terminaron.' : 'All classes are done.' ) )
 				. '</span></div><span class="sdl-pill' . ( $used > self::ALLOWED || $miss1 ? ' sdl-pill--due' : '' ) . '">' . esc_html( ( $es ? 'Ausencias ' : 'Absences ' ) . $used . '/' . self::ALLOWED ) . '</span></div>';
+			if ( class_exists( 'SDSC_ZoomRoll' ) ) { $h .= SDSC_ZoomRoll::student_strip( $cid, $email, $lang ); }
 			if ( $next ) {
 				$u   = self::att_url( 'zoom', $cid, $next['date'], $email );
 				$h  .= '<p class="sdl-note"><a href="' . esc_url( $u . '&a=yes' ) . '">' . ( $es ? '✓ Confirmar asistencia' : '✓ Confirm I’ll be there' ) . '</a> · <a href="' . esc_url( $u . '&a=no' ) . '">' . ( $es ? 'No puedo asistir' : 'I can’t make it' ) . '</a></p>';

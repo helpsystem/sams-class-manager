@@ -1,0 +1,46 @@
+/* Sam's Class Manager — Zoom attendance checklist on the Tutor dashboard */
+.szr { --g: #00703c; --ink: #1d2327; --mut: #646970; --line: #dcdcde; color: var(--ink); }
+.szr h3 { margin: 0 0 12px; }
+.szr-m { color: var(--mut); font-size: 13px; }
+.szr-ok { padding: 10px 14px; border-radius: 10px; background: #e7f5ec; color: #00653a; font-weight: 600; }
+.szr-pick { margin: 0 0 12px; } .szr-pick select { min-width: 260px; max-width: 100%; }
+.szr-todo { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; background: #fff6dc; }
+.szr-todo summary { cursor: pointer; font-weight: 700; color: #8a4b00; } .szr-todo ul { margin: 8px 0 0 18px; }
+.szr-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 0 12px; }
+.szr-tab { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 6px 8px; border-radius: 10px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); text-decoration: none; font-size: 12px; }
+.szr-tab b { font-size: 16px; }
+.szr-tab.is-done { background: #e7f5ec; } .szr-tab.is-due { background: #fff6dc; }
+.szr-tab.is-on { box-shadow: inset 0 0 0 2px var(--g); }
+.szr-card { margin: 0 0 16px; padding: 14px; border-radius: 14px; background: #fff; box-shadow: 0 0 0 1px var(--line); }
+.szr-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+.szr-tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #fde8e8; color: #b32d2e; font-size: 12px; font-weight: 700; }
+.szr-btn { display: inline-block; padding: 10px 18px; border: 0; border-radius: 999px; background: var(--g); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
+.szr-btn--ghost { background: #fff; color: var(--g); box-shadow: inset 0 0 0 1px var(--g); }
+.szr-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.szr-row { display: grid; grid-template-columns: minmax(160px, 1fr) auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid #f0f0f1; }
+.szr-who { display: flex; flex-direction: column; gap: 2px; }
+.szr-rsvp { font-size: 12px; font-weight: 600; } .szr-rsvp.is-yes { color: #00653a; } .szr-rsvp.is-no { color: #b32d2e; }
+.szr-seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.szr-o { position: relative; cursor: pointer; }
+.szr-o input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.szr-o span { display: inline-block; padding: 8px 12px; border-radius: 999px; background: #f6f7f7; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; font-weight: 600; min-height: 20px; }
+.szr-o input:focus-visible + span { outline: 2px solid var(--g); outline-offset: 2px; }
+.szr-o--present input:checked + span { background: #00703c; color: #fff; box-shadow: none; }
+.szr-o--late input:checked + span, .szr-o--left input:checked + span { background: #ffc20e; color: #1d2327; box-shadow: none; }
+.szr-o--absent input:checked + span { background: #b32d2e; color: #fff; box-shadow: none; }
+.szr-note { grid-column: 1 / -1; width: 100%; max-width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; }
+.szr-scroll { overflow-x: auto; margin-top: 8px; }
+.szr-grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+.szr-grid th, .szr-grid td { padding: 6px; text-align: center; border-bottom: 1px solid #f0f0f1; white-space: nowrap; }
+.szr-grid th:first-child, .szr-grid td:first-child { text-align: left; }
+.szr-grid td.szr-c { font-weight: 800; }
+@media (max-width: 600px) { .szr-row { grid-template-columns: 1fr; } .szr-o span { padding: 9px 11px; } }
+/* Zoom attendance: 10-session strip (student dashboard and staff grid) */
+.szr-dots { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; padding: 0; list-style: none; }
+.szr-dots li { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 44px; border-radius: 10px; font-size: 11px; line-height: 1.1; }
+.szr-dots li b { font-size: 11px; font-weight: 600; opacity: .7; } .szr-dots li span { font-size: 16px; font-weight: 800; }
+.szr-c--present { background: #e7f5ec; color: #00653a; }
+.szr-c--late, .szr-c--left { background: #fff6dc; color: #8a4b00; }
+.szr-c--absent { background: #fde8e8; color: #b32d2e; }
+.szr-c--none { background: #f0f0f1; color: #50575e; }
+.szr-c--up { background: #fff; color: #8c8f94; box-shadow: inset 0 0 0 1px #dcdcde; }
