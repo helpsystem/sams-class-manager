@@ -78,6 +78,7 @@ class SDSC_TextQ {
 			$hrs  = (int) SDSC_Lessons::settings()['hours'];
 			$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Lessons::t_lessons() . ' WHERE starts_at > %s ORDER BY starts_at', wp_date( 'Y-m-d H:i:s', $now - 3 * DAY_IN_SECONDS ) ), ARRAY_A ); // phpcs:ignore
 			foreach ( $rows as $l ) {
+				if ( '@preview.samsdrivingschool.invalid' === substr( $l['email'], -34 ) ) { continue; } // "View as" demo data
 				$start = SDSC_Lessons::ts( $l['starts_at'] );
 				$dl    = $start - $hrs * HOUR_IN_SECONDS;
 				$name  = trim( $l['first_name'] . ' ' . $l['last_name'] );
@@ -126,6 +127,7 @@ class SDSC_TextQ {
 					$isTod = $x['date'] === $today && $start > $now;
 					if ( ! $isTom && ! $isTod ) { continue; }
 					foreach ( SDSC_Schedule::roster( $cid ) as $p ) {
+						if ( '@preview.samsdrivingschool.invalid' === substr( $p['email'], -34 ) ) { continue; }
 						$rv = SDSC_Schedule::row( 'zoom', $cid, $x['date'], $p['email'] );
 						if ( $isTod && $rv && in_array( $rv['rsvp'], array( 'yes', 'no' ), true ) ) { continue; }
 						$u     = SDSC_Schedule::att_url( 'zoom', $cid, $x['date'], $p['email'] );

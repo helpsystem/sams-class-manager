@@ -377,7 +377,7 @@ class SDSC_Outreach {
 		}
 		$url = '';
 		if ( 'license_ask' === $kind ) {
-			$url            = self::url( 'lic', $c['k'] ) . ( 'es' === $lang ? '&l=es' : '' );
+			$url            = 'es' === $lang ? add_query_arg( 'l', 'es', self::url( 'lic', $c['k'] ) ) : self::url( 'lic', $c['k'] );
 			$vars['{link}'] = $url;
 		}
 		$icon = array( 'birthday' => '🎂', 'anniversary' => '🚗', 'license_ask' => '🎉' )[ $kind ];
@@ -400,7 +400,8 @@ class SDSC_Outreach {
 	}
 
 	public static function url( $what, $k ) {
-		return add_query_arg( 'sdsc_' . $what, self::token( $k, $what ), home_url( '/' ) );
+		$u = add_query_arg( 'sdsc_' . $what, self::token( $k, $what ), home_url( '/' ) );
+		return class_exists( 'SDSC_Short' ) ? SDSC_Short::make( $u ) : $u;
 	}
 
 	/* ================================================================ sending */

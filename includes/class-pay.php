@@ -87,7 +87,8 @@ class SDSC_Pay {
 	/** URL of the "Continue to payment" button, or '' when online payment is not possible for this class. */
 	public static function url( $reg_id, $class_id ) {
 		if ( ! self::ready() || ! self::amount( $class_id ) ) { return ''; }
-		return add_query_arg( array( 'action' => 'sdsc_pay', 'r' => (int) $reg_id, 't' => self::token( $reg_id ) ), admin_url( 'admin-post.php' ) );
+		$u = add_query_arg( array( 'action' => 'sdsc_pay', 'r' => (int) $reg_id, 't' => self::token( $reg_id ) ), admin_url( 'admin-post.php' ) );
+		return class_exists( 'SDSC_Short' ) ? SDSC_Short::make( $u ) : $u;
 	}
 
 	protected static function reg( $reg_id ) {

@@ -301,8 +301,8 @@ class SDSC_Overview {
 			if ( $next && $zoom ) { $act[] = '<a class="sov-btn sov-btn--ghost" href="' . esc_url( $zoom ) . '" target="_blank" rel="noopener">Zoom link</a>'; }
 			if ( $next ) {
 				$a     = SDSC_Schedule::att_url( 'zoom', $cid, $next['date'], $email );
-				$act[] = '<a class="sov-btn sov-btn--ghost" href="' . esc_url( $a . '&a=yes' ) . '">I’ll be there</a>';
-				$act[] = '<a class="sov-btn sov-btn--ghost" href="' . esc_url( $a . '&a=no' ) . '">I can’t make it</a>';
+				$act[] = '<a class="sov-btn sov-btn--ghost" href="' . esc_url( add_query_arg( 'a', 'yes', $a ) ) . '">I’ll be there</a>';
+				$act[] = '<a class="sov-btn sov-btn--ghost" href="' . esc_url( add_query_arg( 'a', 'no', $a ) ) . '">I can’t make it</a>';
 			}
 			$cards .= self::card( 'My class', $b . ( $act ? '<p class="sov-actions">' . implode( '', $act ) . '</p>' : '' ) );
 		}

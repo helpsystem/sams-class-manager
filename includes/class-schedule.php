@@ -239,7 +239,8 @@ class SDSC_Schedule {
 
 	public static function att_url( $kind, $ref, $sess, $email ) {
 		$p = $kind . '|' . (int) $ref . '|' . $sess . '|' . strtolower( $email );
-		return add_query_arg( 'sdsc_att', self::b64( $p ) . '.' . self::sig( $p ), home_url( '/' ) );
+		$u = add_query_arg( 'sdsc_att', self::b64( $p ) . '.' . self::sig( $p ), home_url( '/' ) );
+		return class_exists( 'SDSC_Short' ) ? SDSC_Short::make( $u ) : $u;
 	}
 
 	public static function cal_token( $email ) {
@@ -247,7 +248,10 @@ class SDSC_Schedule {
 		return self::b64( $e ) . '.' . self::sig( 'cal|' . $e );
 	}
 
-	public static function cal_page( $email ) { return add_query_arg( 'sdsc_cal', self::cal_token( $email ), home_url( '/' ) ); }
+	public static function cal_page( $email ) {
+		$u = add_query_arg( 'sdsc_cal', self::cal_token( $email ), home_url( '/' ) );
+		return class_exists( 'SDSC_Short' ) ? SDSC_Short::make( $u ) : $u;
+	}
 	public static function ics_url( $email ) { return add_query_arg( 'sdsc_ics', self::cal_token( $email ), home_url( '/' ) ); }
 
 	protected static function read_cal( $tok ) {
@@ -270,8 +274,8 @@ class SDSC_Schedule {
 		$es = 'es' === $lang;
 		$b  = function ( $href, $label, $bg, $fg ) { return '<td style="padding:4px"><a href="' . esc_url( $href ) . '" style="display:inline-block;padding:13px 22px;border-radius:999px;background:' . $bg . ';color:' . $fg . ';font:700 15px Arial,Helvetica,sans-serif;text-decoration:none">' . esc_html( $label ) . '</a></td>'; };
 		return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:6px auto 18px"><tr>'
-			. $b( $u . '&a=yes', $es ? '✓ Sí, estaré allí' : '✓ Yes, I’ll be there', '#00703c', '#ffffff' )
-			. $b( $u . '&a=no', $es ? 'No puedo asistir' : 'I can’t make it', '#f0f0f1', '#15191d' )
+			. $b( add_query_arg( 'a', 'yes', $u ), $es ? '✓ Sí, estaré allí' : '✓ Yes, I’ll be there', '#00703c', '#ffffff' )
+			. $b( add_query_arg( 'a', 'no', $u ), $es ? 'No puedo asistir' : 'I can’t make it', '#f0f0f1', '#15191d' )
 			. '</tr></table>';
 	}
 
@@ -720,7 +724,7 @@ class SDSC_Schedule {
 			if ( class_exists( 'SDSC_ZoomRoll' ) ) { $h .= SDSC_ZoomRoll::student_strip( $cid, $email, $lang ); }
 			if ( $next ) {
 				$u   = self::att_url( 'zoom', $cid, $next['date'], $email );
-				$h  .= '<p class="sdl-note"><a href="' . esc_url( $u . '&a=yes' ) . '">' . ( $es ? '✓ Confirmar asistencia' : '✓ Confirm I’ll be there' ) . '</a> · <a href="' . esc_url( $u . '&a=no' ) . '">' . ( $es ? 'No puedo asistir' : 'I can’t make it' ) . '</a></p>';
+				$h  .= '<p class="sdl-note"><a href="' . esc_url( add_query_arg( 'a', 'yes', $u ) ) . '">' . ( $es ? '✓ Confirmar asistencia' : '✓ Confirm I’ll be there' ) . '</a> · <a href="' . esc_url( add_query_arg( 'a', 'no', $u ) ) . '">' . ( $es ? 'No puedo asistir' : 'I can’t make it' ) . '</a></p>';
 			}
 			$h .= '</article>';
 		}
