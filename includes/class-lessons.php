@@ -1371,7 +1371,7 @@ class SDSC_Lessons {
 	public static function tutor_template( $tpl ) {
 		global $wp_query;
 		if ( isset( $wp_query->query_vars['tutor_dashboard_page'] ) && self::TAB === $wp_query->query_vars['tutor_dashboard_page'] ) {
-			return SDSC_PATH . 'templates/tutor-my-lessons.php';
+			return dirname( __DIR__ ) . '/templates/tutor-my-lessons.php';
 		}
 		return $tpl;
 	}

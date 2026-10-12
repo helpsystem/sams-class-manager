@@ -75,7 +75,7 @@ class SDSC_Reports {
 
 	public static function template( $tpl ) {
 		global $wp_query;
-		if ( self::TAB === ( $wp_query->query_vars['tutor_dashboard_page'] ?? '' ) ) { return SDSC_PATH . 'templates/tutor-reports.php'; }
+		if ( self::TAB === ( $wp_query->query_vars['tutor_dashboard_page'] ?? '' ) ) { return dirname( __DIR__ ) . '/templates/tutor-reports.php'; }
 		return $tpl;
 	}
 

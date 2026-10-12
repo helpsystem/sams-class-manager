@@ -15,7 +15,7 @@ SRC=$(ls -d $W/sams-class-manager-*)
 for d in includes assets templates; do cp -a $SRC/$d/. $PL/$d/; done
 python3 $SRC/tools/driveflow-security-fixes.py $DF
 # main file: fleet -> DriveFlow bridge, add Zoom roll call, version 0.9.4
-python3 - "$MAIN" <<'PY'
+python3 - "$MAIN" "$(echo ${1:-$(date +%s)} | cut -c1-7)" <<'PY'
 import re,sys
 p=sys.argv[1]; s=open(p).read()
 s=s.replace("includes/class-fleet.php","includes/class-dfbridge.php").replace("SDSC_Fleet::init();","SDSC_DriveFlow::init();")
@@ -59,7 +59,7 @@ if "SDSC_Look::init();" not in s:
     s=s.replace("SDSC_ZoomRoll::init();","SDSC_ZoomRoll::init(); SDSC_Look::init();",1)
 if "SDSC_Pay::init();" not in s:
     s=s.replace("SDSC_ZoomRoll::init();","SDSC_ZoomRoll::init(); SDSC_Pay::init();",1)
-s=re.sub(r"(Version:\s*)0\.9\.\d+",r"\g<1>0.9.4",s); s=re.sub(r"('SDSC_VERSION',\s*')0\.9\.\d+",r"\g<1>0.9.4",s)
+s=re.sub(r"(Version:\s*)0\.9\.\d+",r"\g<1>0.9.4",s); s=re.sub(r"('SDSC_VERSION',\s*')[0-9][0-9A-Za-z.\-]*",r"\g<1>0.9.4."+sys.argv[2],s)
 open(p,'w').write(s)
 PY
 grep -n "class-pay\|Pay::init\|dfbridge\|zoomroll\|DriveFlow::init\|ZoomRoll::init\|Version:\|SDSC_VERSION'" $MAIN
