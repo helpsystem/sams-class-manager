@@ -146,7 +146,8 @@ class SDSC_Look {
 		$first = $u->first_name ? $u->first_name : $u->display_name;
 		$full  = trim( $u->first_name . ' ' . $u->last_name );
 		$full  = $full ? $full : $u->display_name;
-		$parts = preg_split( '/\s+/', $full );
+		$parts = array_values( array_filter( preg_split( '/\s+/', preg_replace( '/[^\p{L}\s]/u', '', $full ) ) ) );
+		$parts = $parts ? $parts : array( '?' );
 		$ini   = mb_strtoupper( mb_substr( $parts[0], 0, 1 ) . ( count( $parts ) > 1 ? mb_substr( end( $parts ), 0, 1 ) : '' ) );
 		list( $rk, $rl ) = self::role();
 		$unread = ( class_exists( 'SDSC_Chat' ) ? SDSC_Chat::unread( $u->ID ) : 0 );
