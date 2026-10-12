@@ -121,8 +121,14 @@ class SDSC_Preview {
 				}
 			}
 		}
-		// A driving lesson for the preview student with the preview instructor, today and in three days.
-		if ( class_exists( 'SDSC_Lessons' ) ) {
+		// Driving lessons in DriveFlow (the in-car app, the calendar and "My lessons" all read them):
+		// lesson 1 done last week with another instructor, lesson 2 today and 3 later with the preview
+		// instructor, plus a second student whose report is still missing.
+		if ( class_exists( 'SDSC_DriveFlow' ) && SDSC_DriveFlow::on() && class_exists( 'SDSC_Lessons' ) ) {
+			self::demo_df();
+			$lt = SDSC_Lessons::t_lessons();
+			$wpdb->query( $wpdb->prepare( "DELETE FROM $lt WHERE df_id = 0 AND email = %s AND log LIKE %s", 'preview-student@preview.samsdrivingschool.invalid', 'Demo lesson for the dashboard preview.%' ) ); // phpcs:ignore -- our own demo rows
+		} elseif ( class_exists( 'SDSC_Lessons' ) ) {
 			$lt   = SDSC_Lessons::t_lessons();
 			$name = 'Preview Instructor'; // same name as the preview instructor's DriveFlow profile
 			$wpdb->query( $wpdb->prepare( "UPDATE $lt SET instructor = %s WHERE email = %s", $name, 'preview-student@preview.samsdrivingschool.invalid' ) ); // phpcs:ignore
@@ -135,6 +141,49 @@ class SDSC_Preview {
 			}
 		}
 		return (int) $cid;
+	}
+
+	/** Demo DriveFlow data for the previews (all marked "(demo)", e-mails on the .invalid domain). */
+	protected static function demo_df() {
+		global $wpdb;
+		$p   = $wpdb->prefix . 'driveflow_';
+		$now = current_time( 'mysql' );
+		$dom = '@preview.samsdrivingschool.invalid';
+		// A second instructor, so the student's record shows a change of instructor.
+		$b = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}instructors WHERE email = %s", 'demo-instructor-b' . $dom ) ); // phpcs:ignore
+		if ( ! $b ) {
+			$wpdb->insert( $p . 'instructors', array( 'name' => 'Demo Instructor B', 'email' => 'demo-instructor-b' . $dom, 'license_number' => 'DEMO-B', 'status' => 'active', 'agreement_signed' => 1, 'onboarding_completed' => 1, 'phone' => '(301) 555-0198', 'payment_details' => 'demo', 'created_at' => $now, 'updated_at' => $now ) );
+		}
+		$plate = (string) $wpdb->get_var( "SELECT plate_number FROM {$p}vehicles WHERE status = 'active' ORDER BY id LIMIT 1" ); // phpcs:ignore
+		if ( '' === $plate ) {
+			$plate = 'DEMO01';
+			$wpdb->insert( $p . 'vehicles', array( 'plate_number' => $plate, 'model' => 'Demo car', 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
+		}
+		$stu = function ( $name, $email ) use ( $wpdb, $p, $now ) {
+			$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}students WHERE email = %s", $email ) ); // phpcs:ignore
+			if ( ! $id ) {
+				$wpdb->insert( $p . 'students', array( 'name' => $name, 'email' => $email, 'phone' => '(301) 555-0199', 'license_number' => 'DEMO-PERMIT', 'package_name' => 'Demo 6-lesson package', 'total_sessions' => 6, 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
+				$id = (int) $wpdb->insert_id;
+			}
+			return $id;
+		};
+		$s1 = $stu( 'Preview Student', 'preview-student' . $dom );
+		$s2 = $stu( 'Demo Rivera', 'demo-rivera' . $dom );
+		$day = function ( $d, $h ) { return wp_date( 'Y-m-d', time() + $d * DAY_IN_SECONDS ) . ' ' . $h; };
+		$grid = array();
+		foreach ( range( 0, 21 ) as $i ) { $grid[ $i ] = array( 'l1' => (string) ( 4 - ( $i % 3 ) ) ); }
+		$form = array( 'source' => 'in_car_eval_record', 'dates' => array( 'l1' => wp_date( 'Y-m-d', time() - 6 * DAY_IN_SECONDS ) ), 'skills_eval' => $grid, 'conds_eval' => array(), 'final_evaluation' => 'Pass', 'column' => 1, 'instructor_notes' => 'Good mirror checks and steering. Practice smooth braking before stop signs.', 'fuel' => array( 'level_pct' => 75 ), 'incident' => array( 'reported' => 0 ) );
+		$rows = array(
+			array( $s1, 'Preview Student', 'Demo Instructor B', 1, $day( -6, '15:00:00' ), $day( -6, '17:00:00' ), 'completed', wp_json_encode( $form ) ),
+			array( $s1, 'Preview Student', 'Preview Instructor', 2, $day( 0, '15:00:00' ), $day( 0, '17:00:00' ), 'upcoming', null ),
+			array( $s1, 'Preview Student', 'Preview Instructor', 3, $day( 3, '15:00:00' ), $day( 3, '17:00:00' ), 'upcoming', null ),
+			array( $s2, 'Demo Rivera', 'Preview Instructor', 1, $day( -1, '10:00:00' ), $day( -1, '12:00:00' ), 'upcoming', null ),
+		);
+		foreach ( $rows as $r ) {
+			$has = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}sessions WHERE student_id = %d AND session_number = %d AND lesson_topic LIKE %s", $r[0], $r[3], '%(demo)' ) ); // phpcs:ignore
+			if ( $has ) { continue; }
+			$wpdb->insert( $p . 'sessions', array( 'student_id' => $r[0], 'student_name' => $r[1], 'instructor_name' => $r[2], 'session_number' => $r[3], 'lesson_topic' => 'Behind-the-wheel lesson (demo)', 'scheduled_start' => $r[4], 'scheduled_end' => $r[5], 'status' => $r[6], 'form_data' => $r[7], 'plate_number' => $plate, 'created_at' => $now, 'updated_at' => $now ) );
+		}
 	}
 
 	/* ------------------------------------------------------------ switching */
