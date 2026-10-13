@@ -339,3 +339,31 @@
 .sdsc-pick-desc { margin: 0; color: #50575e; font-size: 12.5px; }
 .sdsc-pick-prev { padding: 8px 0 0; background: linear-gradient(#f6f7f7, #fff); border-radius: 8px; font-family: "Overpass", system-ui, sans-serif; }
 .sdsc-pick-prev .s3d { margin: 0 auto; }
+
+/* v0.9.6: every service button jumps to its own section (not the top of the page) */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+#driver-ed, #practice, #online-course, #road-test-car, #services { scroll-margin-top: 110px; }
+#online-course:target .sdsc3d-card, #road-test-car:target .sdsc3d-card { box-shadow: 0 0 0 3px #24c45c, 0 18px 40px -24px rgba(0,0,0,.45); transition: box-shadow .4s; }
+.sdsc3d-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sdsc3d-tag { margin: -2px 0 8px !important; color: #00703c !important; font-weight: 700; font-size: .92rem; }
+
+/* behind-the-wheel packages: one clear table instead of 11 signs */
+.sdsc3d--btw .sdsc3d-head p:last-child { max-width: 640px; }
+.sdsc3d-btw-wrap { max-width: 760px; margin: 22px 0 0; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px #e1e6ea, 0 18px 40px -30px rgba(0,0,0,.45); overflow: hidden; }
+.sdsc3d-btw-t { width: 100%; margin: 0 !important; border: 0 !important; border-collapse: collapse; font-size: 1rem; }
+.sdsc3d-btw-t th, .sdsc3d-btw-t td { padding: 12px 18px !important; border: 0 !important; border-bottom: 1px solid #eef1f3 !important; text-align: left; vertical-align: middle; background: none !important; color: #15191d; }
+.sdsc3d-btw-t thead th { padding-top: 14px !important; padding-bottom: 10px !important; background: #f4f8f6 !important; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #5b646d; }
+.sdsc3d-btw-t tbody tr:last-child > * { border-bottom: 0 !important; }
+.sdsc3d-btw-t tbody tr:hover > * { background: #f7fbf8 !important; }
+.sdsc3d-btw-t tbody th { font-weight: 600; white-space: nowrap; }
+.sdsc3d-btw-t tbody th b { font-size: 1.25rem; font-weight: 900; color: #00703c; margin-right: 2px; }
+.sdsc3d-btw-t td:nth-child(2) { color: #5b646d; }
+.sdsc3d-btw-t td:last-child { text-align: right; }
+.sdsc3d-btw-t .sdsc3d-price { font-weight: 800; }
+.sdsc3d--more { padding-top: 10px; }
+@media (max-width: 560px) {
+	.sdsc3d-btw-t th, .sdsc3d-btw-t td { padding: 10px 10px !important; }
+	.sdsc3d-btw-t td:nth-child(2) { display: none; }
+	.sdsc3d-btw-t thead th:nth-child(2) { display: none; }
+}

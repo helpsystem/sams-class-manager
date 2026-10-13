@@ -62,7 +62,6 @@ class SDSC_WhyUs {
 		}
 		$icons = array( 'teach', 'clock', 'pin', 'car' );
 		$g     = self::google();
-		$tel   = 'tel:+13017263030';
 		if ( class_exists( 'SDSC_Signs' ) ) { SDSC_Signs::enqueue(); }
 		ob_start();
 		?>
@@ -78,8 +77,6 @@ class SDSC_WhyUs {
 						<li><span class="swu-big"><?php echo esc_html( $g['score'] ); ?><span class="swu-star" aria-hidden="true">&#9733;</span></span><span>Google rating &middot; <?php echo esc_html( $g['count'] ); ?> reviews</span></li>
 					<?php endif; ?>
 					<li><span class="swu-big">Best of 2025</span><span>Rockville &middot; BusinessRate award</span></li>
-					<li><span class="swu-big">Women-owned</span><span>&amp; operated in Rockville</span></li>
-					<li><span class="swu-big">Male &amp; female instructors</span><span>English, Spanish &amp; Farsi (Persian)</span></li>
 				</ul>
 				<div class="swu-grid">
 					<ul class="swu-features">
@@ -99,10 +96,6 @@ class SDSC_WhyUs {
 						<div class="swu-story-t">
 							<h3><?php echo esc_html( $story_h ? $story_h : 'Learn Theoretically. Apply Practically.' ); ?></h3>
 							<?php foreach ( array_slice( $story, 0, 2 ) as $p ) : ?><p><?php echo esc_html( self::fix_name( $p ) ); ?></p><?php endforeach; ?>
-							<div class="swu-ctas">
-								<a class="sdsc3d-cta" href="<?php echo esc_url( home_url( '/services/' ) ); ?>">See classes &amp; prices</a>
-								<a class="sdsc3d-cta sdsc3d-cta--ghost" href="<?php echo esc_attr( $tel ); ?>">Call (301) 726-3030</a>
-							</div>
 						</div>
 					</div>
 				</div>

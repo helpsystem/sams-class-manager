@@ -104,7 +104,6 @@ class SDSC_Chrome {
 					<div class="sdh-top-l">
 						<?php foreach ( $phones as $p ) { echo self::phone_chip( $p, 'sm' ); } // phpcs:ignore -- escaped in helper ?>
 					</div>
-					<a class="sdh-top-mark" href="<?php echo esc_url( home_url( '/' ) ); ?>" tabindex="-1" aria-hidden="true"><?php echo self::logo_full( self::logo_img() ); // phpcs:ignore ?></a>
 					<a class="sdh-addr" href="<?php echo esc_url( self::MAPS ); ?>" data-sdsc-nav target="_blank" rel="noopener"><?php echo self::icon( 'pin' ); // phpcs:ignore ?><span><?php echo esc_html( self::ADDRESS ); ?></span></a>
 				</div>
 			</div>
@@ -124,7 +123,7 @@ class SDSC_Chrome {
 						?>
 						<?php echo class_exists( 'SDSC_Look' ) ? SDSC_Look::account( 'drawer' ) : ''; // phpcs:ignore -- escaped in helper ?>
 						<div class="sdh-drawer-cta">
-							<a class="sdh-btn sdh-btn--go" href="<?php echo esc_url( $enroll ); ?>">See classes &amp; prices</a>
+							<a class="sdh-btn sdh-btn--go" href="<?php echo esc_url( $enroll ); ?>">Enroll now</a>
 							<?php foreach ( $phones as $p ) { echo self::phone_chip( $p, 'lg' ); } // phpcs:ignore -- escaped in helper ?>
 							<p class="sdh-drawer-addr"><?php echo esc_html( self::ADDRESS ); ?></p>
 						</div>
@@ -454,12 +453,11 @@ class SDSC_Chrome {
 		$year   = (int) current_time( 'Y' );
 		$fb     = get_theme_mod( 'ruzbahani_facebook' );
 		$ig     = get_theme_mod( 'ruzbahani_instagram' );
-		$svc    = home_url( '/services/' );
 		$learn  = array(
 			array( "Driver's Ed — 36 hours", self::enroll_url() ),
-			array( 'Behind-the-wheel practice', $svc ),
-			array( 'Road test car rental', home_url( '/car-rentals/' ) ),
-			array( 'Online 3-hour course', $svc ),
+			array( 'Behind-the-wheel practice', home_url( '/#practice' ) ),
+			array( 'Online 3-hour course', home_url( '/#online-course' ) ),
+			array( 'Road test car rental', home_url( '/#road-test-car' ) ),
 		);
 		if ( get_page_by_path( 'register-course' ) ) { $learn[] = array( 'Register for a class', home_url( '/register-course/' ) ); }
 		$word = 'SAM\'S';
