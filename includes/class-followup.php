@@ -24,7 +24,15 @@ class SDSC_Followup {
 		add_action( 'admin_post_sdsc_followup_now', array( __CLASS__, 'remind_now' ) );
 	}
 
+	/** Only registrations made after this feature was switched on are followed up (older ones never get surprise e-mails). */
+	public static function since() {
+		$s = get_option( 'sdsc_followup_since' );
+		if ( ! $s ) { $s = current_time( 'mysql' ); update_option( 'sdsc_followup_since', $s, false ); }
+		return max( $s, wp_date( 'Y-m-d H:i:s', time() - 21 * DAY_IN_SECONDS ) );
+	}
+
 	public static function schedule() {
+		self::since();
 		if ( ! wp_next_scheduled( 'sdsc_followup_run' ) ) { wp_schedule_event( time() + 300, 'hourly', 'sdsc_followup_run' ); }
 	}
 
@@ -152,7 +160,7 @@ class SDSC_Followup {
 	/** Hourly: next e-mail round for anything still missing (registrations of the last 3 weeks). */
 	public static function run() {
 		global $wpdb;
-		$since = wp_date( 'Y-m-d H:i:s', time() - 21 * DAY_IN_SECONDS );
+		$since = self::since();
 		$ids   = $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM ' . SDSC_Registration::table() . " WHERE source = 'native' AND done_at IS NULL AND created_at > %s ORDER BY id LIMIT 200", $since ) );
 		foreach ( $ids as $rid ) {
 			$r = self::row( $rid );
@@ -186,7 +194,7 @@ class SDSC_Followup {
 	public static function text_items() {
 		global $wpdb;
 		$out   = array();
-		$since = wp_date( 'Y-m-d H:i:s', time() - 21 * DAY_IN_SECONDS );
+		$since = self::since();
 		$ids   = $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM ' . SDSC_Registration::table() . " WHERE source = 'native' AND done_at IS NULL AND created_at > %s AND created_at < %s ORDER BY id DESC LIMIT 100", $since, wp_date( 'Y-m-d H:i:s', time() - 2 * HOUR_IN_SECONDS ) ) );
 		foreach ( $ids as $rid ) {
 			$r = self::row( $rid );
