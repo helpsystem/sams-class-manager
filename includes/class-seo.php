@@ -91,9 +91,9 @@ class SDSC_Seo {
 				'postalCode'      => $a['postalCode'] ?? '20852',
 				'addressCountry'  => $a['addressCountry'] ?? 'US',
 			),
-			'areaServed'  => array(
-				array( '@type' => 'AdministrativeArea', 'name' => 'Montgomery County, Maryland' ),
-				array( '@type' => 'City', 'name' => 'Rockville, Maryland' ),
+			'areaServed'  => array_merge(
+				array( array( '@type' => 'AdministrativeArea', 'name' => 'Montgomery County, Maryland' ) ),
+				class_exists( 'SDSC_Areas' ) ? array_values( array_map( function ( $a ) { return array( '@type' => 'City', 'name' => $a[0] . ', Maryland' ); }, SDSC_Areas::areas() ) ) : array( array( '@type' => 'City', 'name' => 'Rockville, Maryland' ) )
 			),
 			'knowsLanguage' => array( 'en', 'es', 'fa' ),
 			'contactPoint'  => array(

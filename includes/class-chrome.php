@@ -460,6 +460,8 @@ class SDSC_Chrome {
 			array( 'Road test car rental', home_url( '/#road-test-car' ) ),
 		);
 		if ( get_page_by_path( 'register-course' ) ) { $learn[] = array( 'Register for a class', home_url( '/register-course/' ) ); }
+		if ( get_page_by_path( 'areas-we-serve' ) ) { $learn[] = array( 'Areas we serve', home_url( '/areas-we-serve/' ) ); }
+		if ( get_page_by_path( 'join-our-team' ) ) { $learn[] = array( 'Jobs: become an instructor', home_url( '/join-our-team/' ) ); }
 		$word = 'SAM\'S';
 		$d    = 0;
 		$dl   = function () use ( &$d ) { $d += 70; return '--bwf-d:' . $d . 'ms'; };

@@ -150,7 +150,7 @@
 			cards.forEach(function (c, i) {
 				var t, o = 1;
 				if (i < a) { t = 'translate3d(0,-115%,0) rotateX(32deg)'; o = 0; }
-				else if (i === a) { t = 'translate3d(0,' + (-f * 125) + '%,0) rotateX(' + (f * 38) + 'deg)'; o = Math.max(0, 1 - f * 1.8); }
+				else if (i === a) { t = 'translate3d(0,' + (-f * 150) + '%,0) rotateX(' + (f * 40) + 'deg)'; o = Math.max(0, 1 - f * 2.4); }
 				else { var b = i - a - f; t = 'translate3d(0,' + (b * 14) + 'px,0) scale(' + (1 - b * 0.05) + ')'; o = b > 3 ? 0 : 1; }
 				c.style.transform = t; c.style.opacity = o;
 				c.setAttribute('aria-hidden', i < a ? 'true' : 'false');
