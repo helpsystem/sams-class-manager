@@ -166,7 +166,7 @@ class SDSC_TextQ {
 							'group' => 'zoom',
 							'name'  => trim( $p['first'] . ' ' . $p['last'] ),
 							'phone' => $p['phone'],
-							'why'   => SDSC_Schedule::class_name( $cid ) . ' · class ' . $x['n'] . ' ' . ( $isTom ? 'tomorrow' : 'today' ) . ' ' . wp_date( 'g:i a', $start ),
+							'why'   => SDSC_Schedule::class_name( $cid, true ) . ' · class ' . $x['n'] . ' ' . ( $isTom ? 'tomorrow' : 'today' ) . ' ' . wp_date( 'g:i a', $start ),
 							'texts' => $t,
 							'lang'  => $p['lang'],
 							'when'  => $start,

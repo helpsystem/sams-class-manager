@@ -81,7 +81,8 @@ class SDSC_Class_Feed {
 			$desc  = has_excerpt( $id ) ? get_the_excerpt( $p ) : $fallback_desc;
 			$items[] = array(
 				'id'    => $id,
-				'code'  => $code,
+				'code'  => class_exists( 'SDSC_Registration' ) ? SDSC_Registration::public_code( $id ) : '',
+				'real'  => $code,
 				'when'  => trim( $long . ( $days ? ' · ' . $days : '' ) ),
 				'dates' => $short,
 				'time'  => strtoupper( str_replace( ',', ' · ', str_replace( ' ', '', $days ) ) ),
@@ -89,7 +90,7 @@ class SDSC_Class_Feed {
 				'desc'  => wp_strip_all_tags( $desc ),
 				'price' => is_numeric( $price ) ? '$' . number_format_i18n( (float) $price, floor( (float) $price ) == (float) $price ? 0 : 2 ) : $price,
 				'raw'   => is_numeric( $price ) ? (float) $price : null,
-				'url'   => 0 === $left ? '' : add_query_arg( 'course', rawurlencode( '' !== $code ? $code : 'id-' . $id ), $reg ) . '#sdsc',
+				'url'   => 0 === $left ? '' : add_query_arg( 'course', rawurlencode( SDSC_Registration::course_param( $id ) ), $reg ) . '#sdsc',
 				'cta'   => 'Enroll Now',
 				'left'  => $left,
 				'low'   => $left > 0 && $left <= (int) $o['low_seats'],
@@ -172,7 +173,7 @@ class SDSC_Class_Feed {
 	protected static function sign_picker() {
 		if ( ! class_exists( 'SDSC_Signs' ) ) { return; }
 		$items = class_exists( 'SDSC_Registration' ) ? self::items() : array();
-		$c     = $items ? $items[0] : array( 'code' => 'C-68', 'name' => 'Driver Education PM Class', 'price' => '$250', 'now' => '$250', 'd' => null, 'left' => 12, 'low' => false, 'dates' => 'OCT 15 – NOV 15', 'time' => 'MON–THU · 5:30–8:30PM' );
+		$c     = $items ? $items[0] : array( 'code' => '', 'real' => '', 'name' => 'Driver Education PM Class', 'price' => '$250', 'now' => '$250', 'd' => null, 'left' => 12, 'low' => false, 'dates' => 'OCT 15 – NOV 15', 'time' => 'MON–THU · 5:30–8:30PM' );
 		$c['d'] = null; $c['now'] = $c['price'];
 		$cur   = SDSC_Signs::sign_style();
 		?>
@@ -223,7 +224,7 @@ class SDSC_Class_Feed {
 			<?php else : ?>
 				<table class="widefat striped" style="max-width:900px"><thead><tr><th>Class</th><th>When</th><th>Price</th><th>Seats left</th><th>Enroll link</th></tr></thead><tbody>
 				<?php foreach ( $items as $c ) : ?>
-					<tr><td><a href="<?php echo esc_url( get_edit_post_link( $c['id'] ) ); ?>"><?php echo esc_html( $c['name'] . ( $c['code'] ? ' (' . $c['code'] . ')' : '' ) ); ?></a></td>
+					<tr><td><a href="<?php echo esc_url( get_edit_post_link( $c['id'] ) ); ?>"><?php echo esc_html( $c['name'] . ( $c['real'] ? ' (' . $c['real'] . ')' : '' ) ); ?></a></td>
 					<td><?php echo esc_html( $c['when'] ); ?></td><td><?php echo esc_html( $c['price'] ); ?></td>
 					<td><?php echo $c['left'] < 0 ? '&mdash;' : esc_html( $c['left'] ); ?></td>
 					<td><?php echo $c['url'] ? '<a href="' . esc_url( $c['url'] ) . '" target="_blank">open</a>' : 'Full'; ?></td></tr>

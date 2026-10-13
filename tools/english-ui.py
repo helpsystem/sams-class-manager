@@ -121,6 +121,15 @@ RULES = {
     ],
 }
 
+# Whole-file changes (applied every run, idempotent): students see the public class code, not the course number.
+EXTRA = {
+    'includes/class-email.php': [
+        (r"\$code(\s*)= get_post_meta\( \$class_id, '_sdsc_course_code', true \);",
+         r"$code\1= class_exists( 'SDSC_Registration' ) && method_exists( 'SDSC_Registration', 'public_code' ) ? SDSC_Registration::public_code( $class_id ) : get_post_meta( $class_id, '_sdsc_course_code', true );"),
+        (r'\(course " \. \$code \. "\):', '(class " . $code . "):'),
+    ],
+}
+
 FILES = ['includes/class-cpt-classes.php', 'includes/class-cpt-registrants.php', 'includes/class-admin-dashboard.php',
          'includes/class-email.php', 'includes/class-cron.php', 'sams-class-manager.php']
 
@@ -150,6 +159,8 @@ for rel in FILES:
                 l = word(k).sub(MAP[k].replace('\\', '\\\\'), l)
         lines[i] = l
     out = '\n'.join(lines)
+    for rx, rep in EXTRA.get(rel, []):
+        out = re.sub(rx, rep, out)
     if out != src:
         open(p, 'w', encoding='utf-8').write(out)
     left = [(n + 1, re.sub('[؀-ۿ‌][^\'"<>;]*', '<FA>', l.strip())[:150]) for n, l in enumerate(out.split('\n')) if has_fa.search(l) and not is_comment(l)]

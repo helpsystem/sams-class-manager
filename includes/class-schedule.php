@@ -191,8 +191,9 @@ class SDSC_Schedule {
 		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT class_id FROM ' . SDSC_Registration::table() . ' WHERE email = %s AND class_id > 0', strtolower( $email ) ) ) ); // phpcs:ignore
 	}
 
-	public static function class_name( $class_id ) {
-		$code = (string) get_post_meta( $class_id, '_sdsc_course_code', true );
+	/** Class name with its code: the public code for students, the real course number when $staff. */
+	public static function class_name( $class_id, $staff = false ) {
+		$code = $staff ? (string) get_post_meta( $class_id, '_sdsc_course_code', true ) : ( class_exists( 'SDSC_Registration' ) && method_exists( 'SDSC_Registration', 'public_code' ) ? SDSC_Registration::public_code( $class_id ) : '' );
 		$t    = html_entity_decode( (string) get_post_field( 'post_title', $class_id ), ENT_QUOTES, 'UTF-8' );
 		return trim( $t . ( $code && false === strpos( $t, $code ) ? ' (' . $code . ')' : '' ) );
 	}
@@ -643,7 +644,7 @@ class SDSC_Schedule {
 			<h1 class="sdo-title"><span class="sdo-title-ic" aria-hidden="true">🗓️</span> Class attendance</h1>
 			<?php if ( isset( $_GET['msg'] ) ) : // phpcs:ignore ?><div class="notice notice-success is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['msg'] ) ) ); // phpcs:ignore ?></p></div><?php endif; ?>
 			<form method="get" class="sdo-filter sdl-inline"><input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE ); ?>">
-				<select name="class" onchange="this.form.submit()"><?php foreach ( $classes as $c ) : ?><option value="<?php echo (int) $c->ID; ?>"<?php selected( $cid, $c->ID ); ?>><?php echo esc_html( self::class_name( $c->ID ) . ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ); ?></option><?php endforeach; ?></select>
+				<select name="class" onchange="this.form.submit()"><?php foreach ( $classes as $c ) : ?><option value="<?php echo (int) $c->ID; ?>"<?php selected( $cid, $c->ID ); ?>><?php echo esc_html( self::class_name( $c->ID, true ) . ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ); ?></option><?php endforeach; ?></select>
 				<noscript><button class="sdo-btn sdo-btn--ghost">Show</button></noscript>
 			</form>
 			<?php

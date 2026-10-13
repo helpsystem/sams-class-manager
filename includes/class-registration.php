@@ -116,16 +116,59 @@ class SDSC_Registration {
 		return $out;
 	}
 
-	public static function class_label( $class_id ) {
-		$code  = get_post_meta( $class_id, '_sdsc_course_code', true );
+	public static function class_label( $class_id, $staff = false ) {
+		$code  = $staff ? get_post_meta( $class_id, '_sdsc_course_code', true ) : self::public_code( $class_id );
 		$start = get_post_meta( $class_id, '_sdsc_start', true );
 		$when  = $start ? date_i18n( 'M j, Y', strtotime( $start ) ) : '';
 		$label = get_the_title( $class_id );
 		return trim( $label . ( $when ? ' — starts ' . $when : '' ) . ( $code ? ' (' . $code . ')' : '' ) );
 	}
 
+	/**
+	 * The class code students see: time of day + start date, e.g. PM-1026 (evening class starting Oct 26).
+	 * The school's real course number (C-70 …) stays inside: staff screens, student files and reports.
+	 * Two classes that start the same day at the same time of day get PM-1026, PM-1026B, … (oldest first).
+	 */
+	public static function public_code( $class_id ) {
+		static $memo = array();
+		$class_id = (int) $class_id;
+		if ( isset( $memo[ $class_id ] ) ) { return $memo[ $class_id ]; }
+		$base = self::public_base( $class_id );
+		if ( '' === $base ) { return $memo[ $class_id ] = ''; }
+		$day  = substr( (string) get_post_meta( $class_id, '_sdsc_start', true ), 0, 10 );
+		$same = array();
+		foreach ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => array( 'publish', 'private', 'future', 'draft', 'pending' ), 'numberposts' => -1, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC', 'meta_query' => array( array( 'key' => '_sdsc_start', 'value' => $day, 'compare' => 'LIKE' ) ) ) ) as $id ) { // phpcs:ignore
+			if ( self::public_base( (int) $id ) === $base ) { $same[] = (int) $id; }
+		}
+		$i = array_search( $class_id, $same, true );
+		return $memo[ $class_id ] = $base . ( $i ? chr( 65 + (int) $i ) : '' );
+	}
+
+	protected static function public_base( $class_id ) {
+		$start = (string) get_post_meta( $class_id, '_sdsc_start', true );
+		if ( ! preg_match( '/^\d{4}-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/', $start, $m ) ) { return ''; }
+		$h = isset( $m[3] ) && '' !== $m[3] && '00:00' !== $m[3] . ':' . $m[4] ? (int) $m[3] : null;
+		if ( null === $h && class_exists( 'SDSC_Schedule' ) ) {
+			$sc = SDSC_Schedule::sched( $class_id );
+			if ( ! empty( $sc['from'] ) ) { $h = (int) substr( $sc['from'], 0, 2 ); }
+		}
+		return ( null === $h ? 'C' : ( $h < 12 ? 'AM' : 'PM' ) ) . '-' . $m[1] . $m[2];
+	}
+
+	/** Link value for ?course= — the public code, or id-N for a class without a start date. */
+	public static function course_param( $class_id ) {
+		$pc = self::public_code( $class_id );
+		return '' !== $pc ? $pc : 'id-' . (int) $class_id;
+	}
+
 	public static function find_class_by_code( $code ) {
 		if ( ! $code ) { return 0; }
+		// Public codes (PM-1026): matched against the classes open for registration (hidden ones included).
+		if ( preg_match( '/^(AM|PM|C)-\d{4}[A-Z]?$/i', (string) $code ) ) {
+			$code = strtoupper( (string) $code );
+			foreach ( self::open_classes( true ) as $p ) { if ( self::public_code( $p->ID ) === $code ) { return (int) $p->ID; } }
+			return 0;
+		}
 		// Classes without a course code yet are linked as ?course=id-123.
 		if ( preg_match( '/^id-(\d+)$/', (string) $code, $m ) ) {
 			$id = (int) $m[1];
@@ -227,7 +270,7 @@ class SDSC_Registration {
 									$end   = get_post_meta( $c->ID, '_sdsc_end', true );
 									$days  = get_post_meta( $c->ID, '_sdsc_days_time', true );
 									$price = get_post_meta( $c->ID, '_sdsc_price', true );
-									$code  = get_post_meta( $c->ID, '_sdsc_course_code', true );
+									$code  = self::public_code( $c->ID );
 									?>
 									<label class="sdsc-course">
 										<input type="radio" name="class_id" value="<?php echo esc_attr( $c->ID ); ?>" required <?php checked( $selected, $c->ID ); ?> />
@@ -662,7 +705,7 @@ class SDSC_Registration {
 			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1><table class="widefat striped" style="max-width:800px">';
 			$rows = array(
 				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
-				'Course'          => $r->class_id ? self::class_label( $r->class_id ) : '—',
+				'Course'          => $r->class_id ? self::class_label( $r->class_id, true ) : '—',
 				'Date of birth'   => $r->dob . ( $r->age ? " (age $r->age)" : '' ),
 				'Gender'          => $r->gender,
 				'Email'           => $r->email,

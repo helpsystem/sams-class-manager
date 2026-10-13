@@ -301,7 +301,7 @@ class SDSC_Signs {
 	protected static function exit_sign( $c, $dates, $time ) {
 		$f  = self::sign_facts( $c );
 		$o  = '<div class="sdex sdex--' . $f['state'] . '" aria-hidden="true"><div class="sdex-sign">';
-		if ( $c['code'] ) { $o .= '<span class="sdex-tab">Exit ' . esc_html( preg_replace( '/^C-?/i', '', $c['code'] ) ) . '</span>'; }
+		if ( $c['code'] ) { $o .= '<span class="sdex-tab">Exit ' . esc_html( preg_replace( '/^(C-?|AM-|PM-)/i', '', $c['code'] ) ) . '</span>'; }
 		$o .= '<div class="sdex-panel"><div class="sdex-in">';
 		$o .= '<p class="sdex-l1">Driver&rsquo;s Ed' . ( $f['shift'] ? ' <small>' . esc_html( $f['shift'] ) . '</small>' : '' ) . '</p>';
 		if ( $dates ) { $o .= '<p class="sdex-l2">' . esc_html( ucwords( strtolower( $dates ) ) ) . '</p>'; }

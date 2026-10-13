@@ -82,7 +82,9 @@ class SDSC_Promo {
 			echo '<p><label><input type="checkbox" name="sdsc_no_eb" value="1" ' . checked( (bool) get_post_meta( $post->ID, '_sdsc_no_earlybird', true ), true, false ) . '> No early-bird price for this class</label></p>';
 		}
 		if ( class_exists( 'SDSC_Class_Feed' ) && method_exists( 'SDSC_Class_Feed', 'reg_url' ) && 'auto-draft' !== $post->post_status ) {
-			echo '<p class="description">Direct registration link:<br><code style="word-break:break-all">' . esc_html( add_query_arg( 'course', rawurlencode( '' !== $code ? $code : 'id-' . $post->ID ), SDSC_Class_Feed::reg_url() ) ) . '</code></p>';
+			$pc = SDSC_Registration::public_code( $post->ID );
+			if ( '' !== $pc ) { echo '<p><b>Students see</b><br><span style="font:600 15px monospace">' . esc_html( $pc ) . '</span><br><span class="description">The code on the website, the registration form, links, receipts and e-mails (time of day + start date). The course number above stays inside the school.</span></p>'; }
+			echo '<p class="description">Direct registration link:<br><code style="word-break:break-all">' . esc_html( add_query_arg( 'course', rawurlencode( SDSC_Registration::course_param( $post->ID ) ), SDSC_Class_Feed::reg_url() ) ) . '</code></p>';
 		}
 	}
 
@@ -394,8 +396,7 @@ class SDSC_Promo {
 		$base = class_exists( 'SDSC_Class_Feed' ) ? SDSC_Class_Feed::reg_url() : home_url( '/register-course/' );
 		$args = array( 'code' => $code );
 		if ( ! empty( $c['classes'] ) && 1 === count( $c['classes'] ) ) {
-			$cc = (string) get_post_meta( (int) $c['classes'][0], '_sdsc_course_code', true );
-			$args['course'] = '' !== $cc ? $cc : 'id-' . (int) $c['classes'][0];
+			$args['course'] = SDSC_Registration::course_param( (int) $c['classes'][0] );
 		}
 		return add_query_arg( $args, $base ) . '#sdsc';
 	}

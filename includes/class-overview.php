@@ -223,7 +223,7 @@ class SDSC_Overview {
 		// Today: lessons + Zoom.
 		$t = self::lesson_rows( $lessons, 'student' );
 		foreach ( $zoom as $z ) {
-			$t .= '<ul class="sov-list"><li><span class="sov-when">' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $z[1]['start'] ) ) ) . '<small>Zoom</small></span><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $z[0] ) ) . '</b><small>' . esc_html( 'Session ' . $z[1]['n'] . ' · ' . ( class_exists( 'SDSC_ZoomRoll' ) && SDSC_ZoomRoll::instructor_of( $z[0] ) ? get_the_author_meta( 'display_name', SDSC_ZoomRoll::instructor_of( $z[0] ) ) : 'no instructor assigned' ) ) . '</small></span><a class="sov-btn" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $z[0], 'zs' => $z[1]['date'] ) ) ) . '">Attendance</a></li></ul>';
+			$t .= '<ul class="sov-list"><li><span class="sov-when">' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $z[1]['start'] ) ) ) . '<small>Zoom</small></span><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $z[0], true ) ) . '</b><small>' . esc_html( 'Session ' . $z[1]['n'] . ' · ' . ( class_exists( 'SDSC_ZoomRoll' ) && SDSC_ZoomRoll::instructor_of( $z[0] ) ? get_the_author_meta( 'display_name', SDSC_ZoomRoll::instructor_of( $z[0] ) ) : 'no instructor assigned' ) ) . '</small></span><a class="sov-btn" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $z[0], 'zs' => $z[1]['date'] ) ) ) . '">Attendance</a></li></ul>';
 		}
 		$h .= self::card( 'Today', $t ? $t : self::empty_note( 'Nothing scheduled for today.' ) );
 
@@ -231,7 +231,7 @@ class SDSC_Overview {
 		if ( $missing ) {
 			$m = '<ul class="sov-list">';
 			foreach ( array_slice( $missing, 0, 6 ) as $x ) {
-				$m .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0] ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' · ' . wp_date( 'D M j', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '</small></span><a class="sov-btn sov-btn--ghost" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $x[0], 'zs' => $x[1]['date'] ) ) ) . '">Open</a></li>';
+				$m .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0], true ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' · ' . wp_date( 'D M j', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '</small></span><a class="sov-btn sov-btn--ghost" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $x[0], 'zs' => $x[1]['date'] ) ) ) . '">Open</a></li>';
 			}
 			$h .= self::card( 'Attendance sheets to submit', $m . '</ul>', 'All', SDSC_ZoomRoll::url() );
 		}
@@ -242,7 +242,7 @@ class SDSC_Overview {
 			$r = '<ul class="sov-list">';
 			foreach ( $recent as $x ) {
 				$paid = class_exists( 'SDSC_Pay' ) && SDSC_Pay::paid_row( (int) $x['id'] );
-				$r   .= '<li><span class="sov-what"><b>' . esc_html( trim( $x['first_name'] . ' ' . $x['last_name'] ) ) . '</b><small>' . esc_html( ( $x['class_id'] ? SDSC_Schedule::class_name( (int) $x['class_id'] ) . ' · ' : '' ) . human_time_diff( strtotime( get_gmt_from_date( $x['created_at'] ) . ' UTC' ) ) . ' ago' ) . '</small></span><span class="sov-chip ' . ( $paid ? 'sov-chip--done' : 'sov-chip--due' ) . '">' . ( $paid ? 'Paid' : 'Not paid yet' ) . '</span></li>';
+				$r   .= '<li><span class="sov-what"><b>' . esc_html( trim( $x['first_name'] . ' ' . $x['last_name'] ) ) . '</b><small>' . esc_html( ( $x['class_id'] ? SDSC_Schedule::class_name( (int) $x['class_id'], true ) . ' · ' : '' ) . human_time_diff( strtotime( get_gmt_from_date( $x['created_at'] ) . ' UTC' ) ) . ' ago' ) . '</small></span><span class="sov-chip ' . ( $paid ? 'sov-chip--done' : 'sov-chip--due' ) . '">' . ( $paid ? 'Paid' : 'Not paid yet' ) . '</span></li>';
 			}
 			$r .= '</ul>';
 		}
@@ -256,7 +256,7 @@ class SDSC_Overview {
 				$taken = class_exists( 'SDSC_Class_Feed' ) ? (int) SDSC_Class_Feed::seats_taken( $c->ID ) : 0;
 				$st    = substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 );
 				$pct   = $cap > 0 ? min( 100, (int) round( $taken / $cap * 100 ) ) : 0;
-				$o    .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $c->ID ) ) . '</b><small>' . esc_html( ( $st ? 'Starts ' . wp_date( 'M j', strtotime( $st . ' 12:00' ) ) : 'No start date' ) . ' · ' . ( $cap ? $taken . ' of ' . $cap . ' seats' : $taken . ' registered' ) ) . '</small>' . ( $cap ? '<i class="sov-bar"><i style="width:' . $pct . '%"></i></i>' : '' ) . '</span>' . ( SDSC_Schedule::sessions( $c->ID ) ? '' : '<span class="sov-chip sov-chip--due" title="Fill in Timetable &amp; calendar on the class">No timetable</span>' ) . '</li>';
+				$o    .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) ) . '</b><small>' . esc_html( ( $st ? 'Starts ' . wp_date( 'M j', strtotime( $st . ' 12:00' ) ) : 'No start date' ) . ' · ' . ( $cap ? $taken . ' of ' . $cap . ' seats' : $taken . ' registered' ) ) . '</small>' . ( $cap ? '<i class="sov-bar"><i style="width:' . $pct . '%"></i></i>' : '' ) . '</span>' . ( SDSC_Schedule::sessions( $c->ID ) ? '' : '<span class="sov-chip sov-chip--due" title="Fill in Timetable &amp; calendar on the class">No timetable</span>' ) . '</li>';
 			}
 		}
 		$h .= self::card( 'Open classes', $o ? '<ul class="sov-list">' . $o . '</ul>' : self::empty_note( 'No classes are open for registration.' ), 'Edit classes', admin_url( 'edit.php?post_type=sdsc_class' ) );
@@ -303,7 +303,7 @@ class SDSC_Overview {
 		$z = '';
 		foreach ( $zoom as $x ) {
 			$link = (string) get_post_meta( $x[0], '_sdsc_zoom_link', true );
-			$z   .= '<li><span class="sov-when">' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '<small>Zoom</small></span><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0] ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' of ' . count( SDSC_Schedule::sessions( $x[0] ) ) . ' · ' . count( SDSC_Schedule::roster( $x[0] ) ) . ' students' ) . '</small></span>'
+			$z   .= '<li><span class="sov-when">' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '<small>Zoom</small></span><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0], true ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' of ' . count( SDSC_Schedule::sessions( $x[0] ) ) . ' · ' . count( SDSC_Schedule::roster( $x[0] ) ) . ' students' ) . '</small></span>'
 				. ( $link ? '<a class="sov-btn sov-btn--ghost" href="' . esc_url( $link ) . '" target="_blank" rel="noopener">Open Zoom</a>' : '' )
 				. '<a class="sov-btn" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $x[0], 'zs' => $x[1]['date'] ) ) ) . '">Take attendance</a></li>';
 		}
@@ -312,7 +312,7 @@ class SDSC_Overview {
 		if ( $missing ) {
 			$m = '<ul class="sov-list">';
 			foreach ( array_slice( $missing, 0, 6 ) as $x ) {
-				$m .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0] ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' · ' . wp_date( 'D M j', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '</small></span><a class="sov-btn sov-btn--ghost" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $x[0], 'zs' => $x[1]['date'] ) ) ) . '">Submit</a></li>';
+				$m .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $x[0], true ) ) . '</b><small>' . esc_html( 'Session ' . $x[1]['n'] . ' · ' . wp_date( 'D M j', SDSC_Lessons::ts( $x[1]['start'] ) ) ) . '</small></span><a class="sov-btn sov-btn--ghost" href="' . esc_url( SDSC_ZoomRoll::url( array( 'zc' => $x[0], 'zs' => $x[1]['date'] ) ) ) . '">Submit</a></li>';
 			}
 			$h .= self::card( 'Attendance sheets to submit', $m . '</ul>' );
 		}
@@ -347,7 +347,7 @@ class SDSC_Overview {
 			$paid = $reg && class_exists( 'SDSC_Pay' ) ? SDSC_Pay::paid_row( (int) $reg['id'] ) : null;
 			$pay  = $reg && ! $paid && class_exists( 'SDSC_Pay' ) ? SDSC_Pay::url( (int) $reg['id'], $cid ) : '';
 			$zoom = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
-			$b    = '<p class="sov-line"><b>' . esc_html( SDSC_Schedule::class_name( $cid ) ) . '</b> '
+			$b    = '<p class="sov-line"><b>' . esc_html( SDSC_Schedule::class_name( $cid, true ) ) . '</b> '
 				. ( $paid ? '<span class="sov-chip sov-chip--done">Paid ' . esc_html( '$' . number_format( $paid['amount'] / 100, 2 ) ) . '</span>' : ( $pay ? '<span class="sov-chip sov-chip--due">Payment due</span>' : '' ) ) . '</p>'
 				. '<p class="sov-sub">' . ( $next ? esc_html( 'Next: session ' . $next['n'] . ' — ' . SDSC_Lessons::when( $next['start'], 'en' ) ) : ( $list ? 'All sessions are done.' : 'The class schedule will appear here soon.' ) ) . '</p>'
 				. ( $list && class_exists( 'SDSC_ZoomRoll' ) ? SDSC_ZoomRoll::student_strip( $cid, $email, 'en' ) : '' );

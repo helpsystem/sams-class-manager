@@ -181,7 +181,7 @@ class SDSC_ZoomRoll {
 
 		$h .= '<form method="get" class="szr-pick"><label>Class <select name="zc" onchange="this.form.submit()">';
 		foreach ( $classes as $c ) {
-			$h .= '<option value="' . (int) $c->ID . '"' . selected( $cid, $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID ) . ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ) . '</option>';
+			$h .= '<option value="' . (int) $c->ID . '"' . selected( $cid, $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ) . '</option>';
 		}
 		$h .= '</select></label><noscript><button>Show</button></noscript></form>';
 
@@ -212,7 +212,7 @@ class SDSC_ZoomRoll {
 		$items = array();
 		foreach ( $classes as $c ) {
 			foreach ( self::missing( $c->ID ) as $x ) {
-				$items[] = '<li><a href="' . esc_url( self::url( array( 'zc' => $c->ID, 'zs' => $x['date'] ) ) ) . '">' . esc_html( SDSC_Schedule::class_name( $c->ID ) . ' — session ' . $x['n'] . ', ' . wp_date( 'D M j', SDSC_Lessons::ts( $x['start'] ) ) ) . '</a> <span class="szr-m">' . esc_html( 'Instructor: ' . self::who( self::instructor_of( $c->ID ) ) ) . '</span></li>';
+				$items[] = '<li><a href="' . esc_url( self::url( array( 'zc' => $c->ID, 'zs' => $x['date'] ) ) ) . '">' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ' — session ' . $x['n'] . ', ' . wp_date( 'D M j', SDSC_Lessons::ts( $x['start'] ) ) ) . '</a> <span class="szr-m">' . esc_html( 'Instructor: ' . self::who( self::instructor_of( $c->ID ) ) ) . '</span></li>';
 			}
 		}
 		if ( ! $items ) { return '<p class="szr-ok">Every attendance sheet up to today has been submitted.</p>'; }
