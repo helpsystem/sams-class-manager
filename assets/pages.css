@@ -221,3 +221,12 @@
 	.sdp-slide-body { bottom: 168px; }
 }
 .sdp-slider:not(.is-live) .sdp-slide-img { inset: 0 !important; width: 100% !important; height: 100% !important; }
+/* desktop: whole photo on the right top, the next posts as small cards under it (nothing covers the photo) */
+@media (min-width: 901px) {
+	.sdp-slide:nth-child(1) .sdp-slide-img, .sdp-slide:nth-child(2) .sdp-slide-img { inset: 22px 24px 150px 46%; height: calc(100% - 172px) !important; }
+	.sdp-slide:nth-child(n+3) { top: auto; bottom: 18px; transform: none; width: 120px; height: 112px; border-radius: 14px; }
+	.sdp-slide:nth-child(3) { left: 46%; }
+	.sdp-slide:nth-child(4) { left: calc(46% + 132px); }
+	.sdp-slide:nth-child(n+5) { left: calc(46% + 264px); }
+	.sdp-slide:nth-child(n+3) .sdp-slide-mini { font-size: .72rem; left: 8px; right: 8px; bottom: 8px; -webkit-line-clamp: 2; }
+}

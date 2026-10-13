@@ -338,7 +338,7 @@ class SDSC_Areas {
 	 * "We're hiring" card that leads to the Join our team page. Used in the site footer (dark) and on Contact Us (light).
 	 */
 	public static function hiring_card( $variant = 'light' ) {
-		if ( ! get_page_by_path( self::JOIN ) ) { return ''; }
+		if ( ! get_page_by_path( self::JOIN ) || is_page( self::JOIN ) ) { return ''; } // not on the Join page itself
 		static $css = false;
 		$h = '';
 		if ( ! $css ) {
