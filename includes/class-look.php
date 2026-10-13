@@ -27,7 +27,12 @@ class SDSC_Look {
 		if ( is_admin() ) { return; }
 		wp_enqueue_style( 'sdsc-account', SDSC_URL . 'assets/account.css', array(), SDSC_VERSION );
 		wp_enqueue_script( 'sdsc-account', SDSC_URL . 'assets/account.js', array(), SDSC_VERSION, true );
-		if ( is_user_logged_in() ) { return; }
+		if ( is_user_logged_in() ) {
+			// Animated "Log out" button for staff and students (assets/logout.js turns every logout link into it).
+			wp_enqueue_style( 'sdsc-logout', SDSC_URL . 'assets/logout.css', array(), SDSC_VERSION );
+			wp_enqueue_script( 'sdsc-logout', SDSC_URL . 'assets/logout.js', array(), SDSC_VERSION, true );
+			return;
+		}
 		wp_enqueue_style( 'sdsc-tutor-forms', SDSC_URL . 'assets/tutor-forms.css', array(), SDSC_VERSION );
 		$logo = class_exists( 'SDSC_Brand' ) && method_exists( 'SDSC_Brand', 'img' ) ? SDSC_Brand::img( 'sams-logo-stacked.webp' ) : '';
 		if ( $logo ) { wp_add_inline_style( 'sdsc-tutor-forms', ':root{--sdsc-form-logo:url("' . esc_url_raw( $logo ) . '")}' ); }

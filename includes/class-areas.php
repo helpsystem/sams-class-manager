@@ -211,20 +211,179 @@ class SDSC_Areas {
 		return $h . '</ul>';
 	}
 
+	/** Small road-sign icons, drawn inline (no outside files). */
+	protected static function ic( $n ) {
+		$i = array(
+			'pin'   => '<path d="M12 22s7-6.6 7-12a7 7 0 1 0-14 0c0 5.4 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/>',
+			'metro' => '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M8.5 14h.01M15.5 14h.01M8 21l2-4M16 21l-2-4"/>',
+			'zoom'  => '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5 21 7v10l-5-3.5"/>',
+			'wheel' => '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 14.5V21M9.6 11.2 3.4 9.6M14.4 11.2l6.2-1.6"/>',
+			'flag'  => '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+			'arrow' => '<path d="M5 12h14M13 6l6 6-6 6"/>',
+			'phone' => '<path d="M6.6 3h3l1.6 4.2-2 1.3a11 11 0 0 0 6.3 6.3l1.3-2 4.2 1.6v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.2 2 2 0 0 1 6.6 3z"/>',
+		);
+		return '<svg class="sda-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ( $i[ $n ] ?? '' ) . '</svg>';
+	}
+
+	protected static function index_css() {
+		return '<style>
+.sdai{--g:#00703c;--gd:#004d29;--y:#ffc20e;max-width:1180px;margin:0 auto;padding:clamp(18px,3vw,36px) 16px clamp(40px,6vw,72px);font-family:Overpass,system-ui,sans-serif;color:#15191d}
+.sdai .sda-ic{width:1.15em;height:1.15em;flex:none}
+.sdai-hero{position:relative;overflow:hidden;border-radius:28px;padding:clamp(28px,5vw,56px);color:#fff;background:radial-gradient(120% 140% at 100% 0%,rgba(255,194,14,.22),transparent 45%),linear-gradient(135deg,#00703c,#003d20 70%)}
+.sdai-hero::after{content:"";position:absolute;left:-5%;right:-5%;bottom:22px;height:6px;background:repeating-linear-gradient(90deg,var(--y) 0 46px,transparent 46px 84px);opacity:.55;transform:skewX(-20deg);animation:sdai-road 2.4s linear infinite}
+@keyframes sdai-road{to{background-position:84px 0}}
+.sdai-hero>*{position:relative;z-index:1}
+.sdai-kick{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);font-weight:800;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase}
+.sdai h2.sda-title{color:#fff;margin:16px 0 10px;font-size:clamp(2.1rem,5vw,3.6rem);line-height:1;font-weight:900;letter-spacing:-.025em}
+.sdai h2.sda-title span{color:var(--y)}
+.sdai-lead{max-width:62ch;font-size:clamp(1rem,1.6vw,1.15rem);line-height:1.6;color:rgba(255,255,255,.88);margin:0 0 22px}
+.sdai-stats{list-style:none;margin:0 0 30px;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+.sdai-stats li{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);font-weight:700;font-size:.95rem}
+.sdai-stats b{font-size:1.25rem;color:var(--y);font-weight:900}
+.sdai-ctas{display:flex;flex-wrap:wrap;gap:10px}
+.sdai-btn{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 22px;border-radius:999px;font-weight:800;text-decoration:none!important;transition:transform .2s,box-shadow .2s}
+.sdai-btn--y{background:var(--y);color:#15191d!important;box-shadow:0 10px 24px -10px rgba(255,194,14,.8)}
+.sdai-btn--o{color:#fff!important;box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
+.sdai-btn--g{background:var(--g);color:#fff!important}
+.sdai-btn:hover,.sdai-btn:focus-visible{transform:translateY(-2px)}
+.sdai-h{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 20px;margin:clamp(36px,6vw,64px) 0 18px}
+.sdai-h h3{margin:0;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:900;letter-spacing:-.02em}
+.sdai-h p{margin:0;color:#5b646d;max-width:52ch}
+.sdai-towns{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.sdai-town a{position:relative;display:flex;flex-direction:column;height:100%;padding:16px;border-radius:14px;background:var(--g);color:#fff!important;text-decoration:none!important;box-shadow:inset 0 0 0 3px var(--g),inset 0 0 0 5px #fff,0 18px 30px -22px rgba(0,60,30,.9);transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s}
+.sdai-town a:hover,.sdai-town a:focus-visible{transform:translateY(-4px) rotate(-.4deg);box-shadow:inset 0 0 0 3px var(--g),inset 0 0 0 5px var(--y),0 26px 40px -24px rgba(0,60,30,.95);outline:none}
+.sdai-town-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.sdai-town-name{margin:10px 0 12px;font-size:1.5rem;line-height:1.1;font-weight:900;letter-spacing:-.01em}
+.sdai-town-meta{display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,.3);font-size:.9rem;font-weight:700}
+.sdai-town-go{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#fff;color:var(--g);transition:transform .3s}
+.sdai-town a:hover .sdai-town-go{transform:translateX(4px);background:var(--y);color:#15191d}
+.sdai-town--home a{background:#15191d;box-shadow:inset 0 0 0 3px #15191d,inset 0 0 0 5px var(--y),0 18px 30px -22px rgba(0,0,0,.9)}
+.sdai-town--home .sdai-town-top{color:var(--y);opacity:1}
+.sdai-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;counter-reset:s}
+.sdai-steps li{position:relative;padding:22px 20px 20px;border-radius:18px;background:#fff;box-shadow:0 0 0 1px #e1e6ea,0 20px 40px -32px rgba(0,0,0,.5)}
+.sdai-steps li::before{counter-increment:s;content:counter(s);position:absolute;top:18px;right:18px;font-size:2.4rem;font-weight:900;line-height:1;color:#eef2ef}
+.sdai-steps .sda-ic{width:40px;height:40px;padding:9px;border-radius:12px;background:#e7f5ec;color:var(--g)}
+.sdai-steps h4{margin:14px 0 6px;font-size:1.1rem;font-weight:900}
+.sdai-steps p{margin:0;color:#5b646d;line-height:1.55}
+.sdai .sda-classes li{background:#fff;box-shadow:0 0 0 1px #e1e6ea}
+.sdai-end{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:clamp(36px,6vw,60px);padding:clamp(22px,4vw,34px);border-radius:22px;background:#fff8e1;box-shadow:inset 0 0 0 2px var(--y)}
+.sdai-end h3{margin:0 0 4px;font-size:1.4rem;font-weight:900}
+.sdai-end p{margin:0;color:#5b4a00}
+@media (prefers-reduced-motion:reduce){.sdai-hero::after{animation:none}.sdai-town a,.sdai-btn{transition:none}}
+</style>';
+	}
+
 	public static function index() {
+		$towns = self::areas();
+		$metro = count( array_filter( wp_list_pluck( $towns, 1 ) ) );
 		ob_start();
 		echo self::css(); // phpcs:ignore
+		echo self::index_css(); // phpcs:ignore
 		?>
-		<div class="sda">
-			<span class="sda-kicker">Montgomery County, MD</span>
-			<h2 class="sda-title">Areas we serve</h2>
-			<p class="sda-lead">Sam's Driving School is at 751 Rockville Pike in Rockville. The 30 hours of class are on Zoom, so students join from anywhere in Montgomery County, and we offer free pickup at Rockville Metro for driving lessons.</p>
-			<?php echo self::towns(); // phpcs:ignore ?>
-			<h2>Upcoming 36-hour classes</h2>
+		<div class="sdai">
+			<header class="sdai-hero">
+				<span class="sdai-kick"><?php echo self::ic( 'pin' ); // phpcs:ignore ?>Montgomery County, Maryland</span>
+				<h2 class="sda-title">Areas we <span>serve</span></h2>
+				<p class="sdai-lead">Sam's Driving School is at 751 Rockville Pike in Rockville. The 30 hours of class are on Zoom, so students join from anywhere in Montgomery County, and we offer free pickup at Rockville Metro for driving lessons.</p>
+				<ul class="sdai-stats">
+					<li><b><?php echo (int) count( $towns ); ?></b> communities</li>
+					<li><?php echo self::ic( 'zoom' ); // phpcs:ignore ?><b>30h</b> class on Zoom</li>
+					<li><?php echo self::ic( 'metro' ); // phpcs:ignore ?><b><?php echo (int) $metro; ?></b> on the Metro Red Line</li>
+					<li><?php echo self::ic( 'flag' ); // phpcs:ignore ?>Approved by MVA</li>
+				</ul>
+				<div class="sdai-ctas">
+					<a class="sdai-btn sdai-btn--y" href="<?php echo esc_url( home_url( '/#driver-ed' ) ); ?>">See class dates <?php echo self::ic( 'arrow' ); // phpcs:ignore ?></a>
+					<a class="sdai-btn sdai-btn--o" href="tel:+13017263030"><?php echo self::ic( 'phone' ); // phpcs:ignore ?>(301) 726-3030</a>
+				</div>
+			</header>
+
+			<div class="sdai-h"><h3>Pick your town</h3><p>Each page shows how students from that town take the course with us and how to get to the school.</p></div>
+			<ul class="sdai-towns">
+				<?php foreach ( $towns as $slug => $a ) : $home = 'rockville' === $slug; ?>
+					<li class="sdai-town<?php echo $home ? ' sdai-town--home' : ''; ?>">
+						<a href="<?php echo esc_url( self::url( $slug ) ); ?>">
+							<span class="sdai-town-top"><span><?php echo $home ? 'Our school is here' : 'Montgomery County'; ?></span><?php echo self::ic( $home ? 'pin' : 'wheel' ); // phpcs:ignore ?></span>
+							<span class="sdai-town-name"><?php echo esc_html( $a[0] ); ?></span>
+							<span class="sdai-town-meta">
+								<?php if ( $a[1] ) : ?><?php echo self::ic( 'metro' ); // phpcs:ignore ?><span>Red Line: <?php echo esc_html( $a[1] ); ?></span>
+								<?php else : ?><?php echo self::ic( 'zoom' ); // phpcs:ignore ?><span>Class on Zoom</span><?php endif; ?>
+								<span class="sdai-town-go" style="margin-left:auto"><?php echo self::ic( 'arrow' ); // phpcs:ignore ?></span>
+							</span>
+							<span class="screen-reader-text"> — driving school for <?php echo esc_html( $a[0] ); ?></span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+
+			<div class="sdai-h"><h3>From anywhere in the county</h3></div>
+			<ol class="sdai-steps">
+				<li><?php echo self::ic( 'zoom' ); // phpcs:ignore ?><h4>30 hours of class on Zoom</h4><p>Join the MVA 36-hour course from home, wherever you live in Montgomery County.</p></li>
+				<li><?php echo self::ic( 'wheel' ); // phpcs:ignore ?><h4>6 hours behind the wheel</h4><p>Two-hour lessons with a certified instructor in a dual-control car, with free pickup at Rockville Metro.</p></li>
+				<li><?php echo self::ic( 'flag' ); // phpcs:ignore ?><h4>Road test</h4><p>Take your MVA road test in our insured school car, and practise the route with us first.</p></li>
+			</ol>
+
+			<div class="sdai-h"><h3>Upcoming 36-hour classes</h3><p>Pick a date and enroll online.</p></div>
 			<?php echo self::classes_html(); // phpcs:ignore ?>
+
+			<div class="sdai-end">
+				<div><h3>Not sure which class fits?</h3><p>Call us and we will help you pick a date. English, Spanish and Farsi (Persian).</p></div>
+				<a class="sdai-btn sdai-btn--g" href="tel:+13017263030"><?php echo self::ic( 'phone' ); // phpcs:ignore ?>Call (301) 726-3030</a>
+			</div>
 		</div>
 		<?php
 		return ob_get_clean();
+	}
+
+	/**
+	 * "We're hiring" card that leads to the Join our team page. Used in the site footer (dark) and on Contact Us (light).
+	 */
+	public static function hiring_card( $variant = 'light' ) {
+		if ( ! get_page_by_path( self::JOIN ) ) { return ''; }
+		static $css = false;
+		$h = '';
+		if ( ! $css ) {
+			$css = true;
+			$h  .= '<style>
+.sdhire{--g:#00703c;--y:#ffc20e;position:relative;display:grid;gap:10px;padding:18px 18px 16px;border-radius:16px;font-family:Overpass,system-ui,sans-serif;text-align:left;isolation:isolate;overflow:hidden}
+.sdhire--dark{margin-top:22px;color:#eef3ef;background:linear-gradient(160deg,rgba(255,194,14,.14),rgba(0,112,60,.18));box-shadow:inset 0 0 0 1px rgba(255,194,14,.45)}
+.sdhire--light{max-width:1100px;margin:28px auto;padding:clamp(20px,4vw,34px);grid-template-columns:auto 1fr auto;align-items:center;gap:14px 24px;color:#15191d;background:linear-gradient(120deg,#fff8e1,#fff 60%);box-shadow:inset 0 0 0 2px var(--y),0 24px 40px -34px rgba(0,0,0,.6)}
+.sdhire-badge{display:inline-flex;align-items:center;gap:8px;width:max-content;padding:4px 11px;border-radius:999px;background:var(--y);color:#15191d;font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.sdhire-dot{width:8px;height:8px;border-radius:50%;background:#00703c;box-shadow:0 0 0 0 rgba(0,112,60,.7);animation:sdhire-p 1.8s infinite}
+@keyframes sdhire-p{70%{box-shadow:0 0 0 8px rgba(0,112,60,0)}100%{box-shadow:0 0 0 0 rgba(0,112,60,0)}}
+.sdhire-t{margin:0!important;font-size:1.15rem;line-height:1.2;font-weight:900;color:inherit}
+.sdhire--light .sdhire-t{font-size:clamp(1.3rem,2.6vw,1.7rem)}
+.sdhire-p{margin:0!important;font-size:.92rem;line-height:1.5;opacity:.85}
+.sdhire-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 0;padding:0;list-style:none}
+.sdhire-chips li{padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:700;background:rgba(0,112,60,.1);color:#004d29}
+.sdhire--dark .sdhire-chips li{background:rgba(255,255,255,.1);color:#eef3ef}
+.sdhire-ic{display:grid;place-items:center;width:64px;height:64px;border-radius:18px;background:#00703c;color:#fff}
+.sdhire-ic svg{width:36px;height:36px;animation:sdhire-w 6s ease-in-out infinite}
+@keyframes sdhire-w{0%,100%{transform:rotate(0)}40%{transform:rotate(-24deg)}70%{transform:rotate(14deg)}}
+.sdhire-btn{display:inline-flex;align-items:center;gap:8px;width:max-content;min-height:42px;padding:0 18px;border-radius:999px;background:var(--y);color:#15191d!important;font-weight:900;text-decoration:none!important;transition:transform .2s,box-shadow .2s;box-shadow:0 10px 22px -12px rgba(255,194,14,.9)}
+.sdhire--light .sdhire-btn{background:#00703c;color:#fff!important;min-height:48px;padding:0 24px;box-shadow:0 12px 24px -14px rgba(0,112,60,.9)}
+.sdhire-btn svg{width:16px;height:16px;transition:transform .25s}
+.sdhire-btn:hover,.sdhire-btn:focus-visible{transform:translateY(-2px);outline:none}
+.sdhire-btn:hover svg,.sdhire-btn:focus-visible svg{transform:translateX(4px)}
+@media (max-width:720px){.sdhire--light{grid-template-columns:1fr}.sdhire--light .sdhire-ic{display:none}}
+@media (prefers-reduced-motion:reduce){.sdhire-dot,.sdhire-ic svg{animation:none}}
+</style>';
+		}
+		$url   = home_url( '/' . self::JOIN . '/' );
+		$arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+		$badge = '<span class="sdhire-badge"><span class="sdhire-dot" aria-hidden="true"></span>We\'re hiring</span>';
+		if ( 'dark' === $variant ) {
+			return $h . '<div class="sdhire sdhire--dark">' . $badge
+				. '<p class="sdhire-t">Become a driving instructor</p>'
+				. '<p class="sdhire-p">Behind-the-wheel and Zoom classroom roles in Rockville.</p>'
+				. '<a class="sdhire-btn" href="' . esc_url( $url ) . '">Apply now ' . $arrow . '</a></div>';
+		}
+		return $h . '<section class="sdhire sdhire--light" aria-label="Jobs at Sam\'s Driving School">'
+			. '<span class="sdhire-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 14.5V21M9.6 11.2 3.4 9.6M14.4 11.2l6.2-1.6"/></svg></span>'
+			. '<div style="display:grid;gap:8px">' . $badge
+			. '<h2 class="sdhire-t">Teach Maryland\'s new drivers with us</h2>'
+			. '<p class="sdhire-p">We are looking for patient, calm driving instructors. Instructors who speak Spanish or Farsi (Persian) are especially welcome.</p>'
+			. '<ul class="sdhire-chips"><li>Behind-the-wheel instructor</li><li>Classroom instructor (Zoom)</li><li>Not licensed yet? Ask about the apprentice path</li></ul></div>'
+			. '<a class="sdhire-btn" href="' . esc_url( $url ) . '">Apply now ' . $arrow . '</a></section>';
 	}
 
 	/* ------------------------------------------------------------ join our team */

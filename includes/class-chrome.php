@@ -461,7 +461,6 @@ class SDSC_Chrome {
 		);
 		if ( get_page_by_path( 'register-course' ) ) { $learn[] = array( 'Register for a class', home_url( '/register-course/' ) ); }
 		if ( get_page_by_path( 'areas-we-serve' ) ) { $learn[] = array( 'Areas we serve', home_url( '/areas-we-serve/' ) ); }
-		if ( get_page_by_path( 'join-our-team' ) ) { $learn[] = array( 'Jobs: become an instructor', home_url( '/join-our-team/' ) ); }
 		$word = 'SAM\'S';
 		$d    = 0;
 		$dl   = function () use ( &$d ) { $d += 70; return '--bwf-d:' . $d . 'ms'; };
@@ -478,6 +477,7 @@ class SDSC_Chrome {
 						<li class="bwf-fade" style="<?php echo esc_attr( $dl() ); ?>"><a class="bwf-soc" href="<?php echo esc_url( self::MAPS ); ?>" data-sdsc-nav target="_blank" rel="noopener" aria-label="Directions"><?php echo self::icon( 'pin' ); // phpcs:ignore ?><span class="bwf-tip" aria-hidden="true">Directions</span></a></li>
 						<?php if ( $phones ) : ?><li class="bwf-fade" style="<?php echo esc_attr( $dl() ); ?>"><a class="bwf-soc" href="<?php echo esc_attr( self::tel( $phones[0] ) ); ?>" aria-label="Call <?php echo esc_attr( $phones[0] ); ?>"><?php echo self::icon( 'phone' ); // phpcs:ignore ?><span class="bwf-tip" aria-hidden="true">Call us</span></a></li><?php endif; ?>
 					</ul>
+					<?php if ( class_exists( 'SDSC_Areas' ) ) { echo '<div class="bwf-fade" style="' . esc_attr( $dl() ) . '">' . SDSC_Areas::hiring_card( 'dark' ) . '</div>'; } // phpcs:ignore -- escaped in hiring_card ?>
 					<div class="bwf-credits">
 						<p class="bwf-fade" style="<?php echo esc_attr( $dl() ); ?>"><a href="<?php echo esc_url( self::MAPS ); ?>" data-sdsc-nav target="_blank" rel="noopener"><?php echo esc_html( self::ADDRESS ); ?></a></p>
 						<p class="bwf-fade" style="<?php echo esc_attr( $dl() ); ?>">

@@ -66,7 +66,8 @@ class SDSC_Signs {
 			// On the homepage the service signs are shown once, after behind-the-wheel practice (see render_packages).
 			$items = self::parse_overview( $content );
 			if ( $items && get_option( 'sdsc_overview_items' ) !== $items ) { update_option( 'sdsc_overview_items', $items, false ); }
-			$out = is_front_page() ? '<!-- service signs are shown after the practice section -->' : self::render_overview( $items );
+			// Show "Our services" once per page: when the practice section already printed it, skip this copy.
+			$out = ( is_front_page() || self::$overview_done ) ? '<!-- service signs are shown after the practice section -->' : self::render_overview( $items );
 		} elseif ( 'ruzbahani_blog' === $name && class_exists( 'SDSC_Pages' ) && SDSC_Pages::on() ) {
 			self::enqueue();
 			$out = SDSC_Pages::blog( $content );
@@ -723,7 +724,12 @@ class SDSC_Signs {
 		return array( 'service', array( 'symbol' => 'info' ), $plq( $item['title'] ), $item['desc'], 'Call us', $tel );
 	}
 
+	/** True once "Our services" has been printed on this page, so it never shows twice. */
+	protected static $overview_done = false;
+
 	public static function render_overview( $items, $extra = array() ) {
+		if ( self::$overview_done ) { return ''; }
+		self::$overview_done = true;
 		if ( ! $items ) { $items = self::overview_defaults(); }
 		// "Drug & Alcohol" and "Driver Improvement" are one program, now called Driver Improvement (STOP sign).
 		$merged = array();

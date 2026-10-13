@@ -93,7 +93,8 @@ class SDSC_Map {
 		if ( ! is_object( $widget ) || ! method_exists( $widget, 'get_name' ) ) { return $content; }
 		if ( class_exists( '\Elementor\Plugin' ) && \Elementor\Plugin::$instance->editor && \Elementor\Plugin::$instance->editor->is_edit_mode() ) { return $content; }
 		if ( 'google_maps' === $widget->get_name() ) {
-			return self::block() . ( class_exists( 'SDSC_Holidays' ) ? SDSC_Holidays::calendar_html() : '' );
+			return self::block() . ( class_exists( 'SDSC_Holidays' ) ? SDSC_Holidays::calendar_html() : '' )
+				. ( class_exists( 'SDSC_Areas' ) ? SDSC_Areas::hiring_card( 'light' ) : '' ); // Contact Us: "We're hiring" band
 		}
 		if ( false !== strpos( $content, 'elementor-icon-box-description' ) ) {
 			$content = self::clickable( $content );
