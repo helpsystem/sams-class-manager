@@ -411,40 +411,190 @@ class SDSC_Areas {
 		update_option( 'sdsc_applicants_db', '1', false );
 	}
 
+	protected static function join_css() {
+		return '<style>
+.sdj{--g:#00703c;--gd:#003d20;--y:#ffc20e;max-width:1180px;margin:0 auto;padding:clamp(18px,3vw,36px) 16px clamp(40px,6vw,72px);font-family:Overpass,system-ui,sans-serif;color:#15191d}
+.sdj .sda-ic{width:1.15em;height:1.15em;flex:none}
+.sdj-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr);gap:28px;align-items:center;border-radius:28px;padding:clamp(28px,5vw,56px);color:#fff;background:radial-gradient(120% 140% at 100% 0%,rgba(255,194,14,.24),transparent 45%),linear-gradient(135deg,#00703c,#003d20 70%)}
+.sdj-hero::after{content:"";position:absolute;left:-5%;right:-5%;bottom:22px;height:6px;background:repeating-linear-gradient(90deg,var(--y) 0 46px,transparent 46px 84px);opacity:.5;transform:skewX(-20deg);animation:sdj-road 2.4s linear infinite}
+@keyframes sdj-road{to{background-position:84px 0}}
+.sdj-hero>*{position:relative;z-index:1}
+.sdj-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--y);color:#15191d;font-weight:900;font-size:.76rem;letter-spacing:.1em;text-transform:uppercase}
+.sdj-dot{width:8px;height:8px;border-radius:50%;background:var(--g);animation:sdj-p 1.8s infinite}
+@keyframes sdj-p{0%{box-shadow:0 0 0 0 rgba(0,112,60,.8)}70%,100%{box-shadow:0 0 0 9px rgba(0,112,60,0)}}
+.sdj h2.sda-title{color:#fff;margin:16px 0 12px;font-size:clamp(2.1rem,5vw,3.5rem);line-height:1.02;font-weight:900;letter-spacing:-.025em}
+.sdj h2.sda-title span{color:var(--y)}
+.sdj-lead{margin:0 0 24px;max-width:60ch;font-size:clamp(1rem,1.6vw,1.13rem);line-height:1.6;color:rgba(255,255,255,.9)}
+.sdj-ctas{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+.sdj-btn{display:inline-flex;align-items:center;gap:8px;min-height:50px;padding:0 24px;border:0;border-radius:999px;font:inherit;font-weight:900;text-decoration:none!important;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.sdj-btn--y{background:var(--y);color:#15191d!important;box-shadow:0 12px 26px -12px rgba(255,194,14,.9)}
+.sdj-btn--o{color:#fff!important;box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
+.sdj-btn--g{background:var(--g);color:#fff!important;box-shadow:0 12px 26px -14px rgba(0,112,60,.9)}
+.sdj-btn:hover,.sdj-btn:focus-visible{transform:translateY(-2px)}
+.sdj-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.sdj-chips li{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);font-weight:700;font-size:.9rem}
+.sdj-card{position:relative;padding:22px;border-radius:22px;background:#fff;color:#15191d;box-shadow:0 30px 60px -30px rgba(0,0,0,.6);transform:rotate(1.5deg)}
+.sdj-card::before{content:"";position:absolute;top:-10px;left:50%;width:70px;height:18px;margin-left:-35px;border-radius:6px;background:rgba(255,194,14,.85)}
+.sdj-card-k{margin:0 0 4px;font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--g)}
+.sdj-card-t{margin:0 0 14px;font-size:1.3rem;font-weight:900;line-height:1.15}
+.sdj-card ul{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:9px}
+.sdj-card li{display:flex;gap:9px;align-items:flex-start;line-height:1.4}
+.sdj-card li .sda-ic{color:var(--g);margin-top:2px}
+.sdj-h{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 20px;margin:clamp(40px,6vw,68px) 0 18px}
+.sdj-h h3{margin:0;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:900;letter-spacing:-.02em}
+.sdj-h p{margin:0;color:#5b646d;max-width:54ch}
+.sdj-roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.sdj-role{display:flex;flex-direction:column;gap:10px;padding:24px;border-radius:20px;background:#fff;box-shadow:0 0 0 1px #e1e6ea,0 24px 44px -34px rgba(0,0,0,.55);transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s}
+.sdj-role:hover{transform:translateY(-4px);box-shadow:0 0 0 2px var(--g),0 30px 50px -34px rgba(0,60,30,.7)}
+.sdj-role-ic{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:#e7f5ec;color:var(--g)}
+.sdj-role-ic .sda-ic{width:28px;height:28px}
+.sdj-role h4{margin:4px 0 0;font-size:1.2rem;font-weight:900}
+.sdj-role p{margin:0;color:#5b646d;line-height:1.55}
+.sdj-role a{margin-top:auto;font-weight:900;color:var(--g)!important;text-decoration:none!important}
+.sdj-role--new{background:#fff8e1;box-shadow:inset 0 0 0 2px var(--y)}
+.sdj-role--new .sdj-role-ic{background:var(--y);color:#15191d}
+.sdj-why{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.sdj-why li{display:flex;gap:14px;align-items:flex-start;padding:18px;border-radius:18px;background:#f4f8f5}
+.sdj-why .sda-ic{width:40px;height:40px;padding:9px;border-radius:12px;background:#fff;color:var(--g);box-shadow:0 0 0 1px #dfe8e2}
+.sdj-why b{display:block;margin-bottom:3px;font-size:1.02rem}
+.sdj-why span{color:#5b646d;line-height:1.5;font-size:.95rem}
+.sdj-path{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;counter-reset:p;position:relative}
+.sdj-path::before{content:"";position:absolute;left:30px;right:30px;top:26px;height:4px;background:repeating-linear-gradient(90deg,var(--y) 0 18px,transparent 18px 30px)}
+.sdj-path li{position:relative;padding-top:66px}
+.sdj-path li::before{counter-increment:p;content:counter(p);position:absolute;top:0;left:0;display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--g);color:#fff;font-size:1.4rem;font-weight:900;box-shadow:0 0 0 6px #fff,0 12px 22px -12px rgba(0,60,30,.9)}
+.sdj-path b{display:block;margin-bottom:4px;font-size:1.05rem}
+.sdj-path span{color:#5b646d;line-height:1.5;font-size:.95rem}
+.sdj-note{margin:16px 0 0;font-size:.92rem;color:#5b646d}
+.sdj-note a{color:var(--g)!important;font-weight:800}
+.sdj-apply{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);gap:clamp(18px,3vw,32px);margin-top:clamp(40px,6vw,68px);padding:clamp(18px,3vw,32px);border-radius:28px;background:linear-gradient(160deg,#f4f8f5,#fff);box-shadow:0 0 0 1px #e1e6ea}
+.sdj-apply-side{padding:clamp(20px,3vw,28px);border-radius:22px;background:linear-gradient(160deg,#00703c,#003d20);color:#fff;align-self:start;position:sticky;top:110px}
+.sdj-apply-side h3{margin:12px 0 10px;color:#fff;font-size:clamp(1.5rem,3vw,2rem);font-weight:900;line-height:1.1}
+.sdj-apply-side p{margin:0 0 16px;color:rgba(255,255,255,.88);line-height:1.55}
+.sdj-apply-side ol{margin:0 0 18px;padding-left:20px;display:grid;gap:8px;color:rgba(255,255,255,.92)}
+.sdj-apply-side a{color:var(--y)!important;font-weight:900}
+.sdj .sda-form{max-width:none;grid-template-columns:1fr 1fr;gap:14px}
+.sdj .sda-form .sdj-full{grid-column:1/-1}
+.sdj .sda-form label{font-size:.92rem}
+.sdj .sda-form input,.sdj .sda-form select,.sdj .sda-form textarea{width:100%;box-sizing:border-box;background:#fff;border-color:#cfd8dd;transition:border-color .2s,box-shadow .2s}
+.sdj .sda-form input:focus,.sdj .sda-form select:focus,.sdj .sda-form textarea:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 4px rgba(0,112,60,.15)}
+.sdj .sda-form fieldset label{position:relative;padding:9px 14px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px #cfd8dd;cursor:pointer;font-size:.9rem;transition:background .2s,box-shadow .2s}
+.sdj .sda-form fieldset input{width:auto;accent-color:#00703c}
+.sdj .sda-form fieldset label:has(input:checked){background:#e7f5ec;box-shadow:inset 0 0 0 2px var(--g)}
+.sdj .sda-form .sdj-btn{justify-self:start}
+.sdj .sda-ok{display:flex;gap:12px;align-items:center;padding:22px;font-size:1.1rem}
+@media (max-width:900px){.sdj-hero,.sdj-apply{grid-template-columns:1fr}.sdj-card{transform:none}.sdj-apply-side{position:static}.sdj-path{grid-template-columns:1fr 1fr;row-gap:24px}.sdj-path::before{display:none}}
+@media (max-width:560px){.sdj .sda-form{grid-template-columns:1fr}.sdj-path{grid-template-columns:1fr}.sdj-path li{padding:6px 0 0 72px;min-height:56px}}
+@media (prefers-reduced-motion:reduce){.sdj-hero::after,.sdj-dot{animation:none}.sdj-role,.sdj-btn{transition:none}}
+</style>';
+	}
+
 	public static function join() {
-		$st = isset( $_GET['sdsc_join'] ) ? sanitize_key( $_GET['sdsc_join'] ) : ''; // phpcs:ignore
+		$st  = isset( $_GET['sdsc_join'] ) ? sanitize_key( $_GET['sdsc_join'] ) : ''; // phpcs:ignore
+		$chk = '<svg class="sda-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+		$mva = 'https://mva.maryland.gov/your-mva-guide/businesses/drivers-education-providers/instructor-licensing-certification';
 		ob_start();
 		echo self::css(); // phpcs:ignore
+		echo self::join_css(); // phpcs:ignore
 		?>
-		<div class="sda">
-			<span class="sda-kicker">We're hiring · Rockville, MD</span>
-			<h2 class="sda-title">Teach Maryland's new drivers with us</h2>
-			<p class="sda-lead">Sam's Driving School is an MVA-approved driving school in Rockville. We are looking for patient, calm instructors for behind-the-wheel lessons and for our 36-hour driver's ed classes on Zoom. Instructors who speak Spanish or Farsi (Persian) are especially welcome.</p>
-			<div class="sda-grid">
-				<div class="sda-card"><h3>Behind-the-wheel instructor</h3><p>Two-hour lessons in our dual-control cars, road test practice, and nervous drivers.</p></div>
-				<div class="sda-card"><h3>Classroom instructor (Zoom)</h3><p>Teach the classroom part of the MVA 36-hour course online.</p></div>
-				<div class="sda-card"><h3>Not licensed yet?</h3><p>In Maryland, new instructors start with an apprentice instructor permit through a certified driver education school. Apply and tell us — we will talk about the path.</p></div>
+		<div class="sdj">
+			<header class="sdj-hero">
+				<div>
+					<span class="sdj-badge"><span class="sdj-dot" aria-hidden="true"></span>We're hiring · Rockville, MD</span>
+					<h2 class="sda-title">Teach Maryland's <span>new drivers</span> with us</h2>
+					<p class="sdj-lead">Sam's Driving School is an MVA-approved driving school in Rockville. We are looking for patient, calm instructors for behind-the-wheel lessons and for our 36-hour driver's ed classes on Zoom. Instructors who speak Spanish or Farsi (Persian) are especially welcome.</p>
+					<div class="sdj-ctas">
+						<a class="sdj-btn sdj-btn--y" href="#apply">Apply now <?php echo self::ic( 'arrow' ); // phpcs:ignore ?></a>
+						<a class="sdj-btn sdj-btn--o" href="tel:+13017263030"><?php echo self::ic( 'phone' ); // phpcs:ignore ?>(301) 726-3030</a>
+					</div>
+					<ul class="sdj-chips">
+						<li><?php echo self::ic( 'flag' ); // phpcs:ignore ?>MVA-approved school</li>
+						<li><?php echo self::ic( 'wheel' ); // phpcs:ignore ?>Dual-control cars</li>
+						<li><?php echo self::ic( 'zoom' ); // phpcs:ignore ?>Classroom on Zoom</li>
+					</ul>
+				</div>
+				<aside class="sdj-card" aria-label="Who we are looking for">
+					<p class="sdj-card-k">Who we're looking for</p>
+					<p class="sdj-card-t">Patient. Calm. Clear.</p>
+					<ul>
+						<li><?php echo $chk; // phpcs:ignore ?>You enjoy teaching new and nervous drivers</li>
+						<li><?php echo $chk; // phpcs:ignore ?>You hold a Maryland instructor license — or want to start the path</li>
+						<li><?php echo $chk; // phpcs:ignore ?>English, Spanish or Farsi (Persian) — more languages welcome</li>
+					</ul>
+					<a class="sdj-btn sdj-btn--g" href="#apply">Start your application</a>
+				</aside>
+			</header>
+
+			<div class="sdj-h"><h3>Open roles</h3><p>Choose one, or tell us you would like to do both.</p></div>
+			<div class="sdj-roles">
+				<article class="sdj-role">
+					<span class="sdj-role-ic"><?php echo self::ic( 'wheel' ); // phpcs:ignore ?></span>
+					<h4>Behind-the-wheel instructor</h4>
+					<p>Two-hour lessons in our dual-control cars, road test practice, and nervous drivers.</p>
+					<a href="#apply">Apply for this role &rarr;</a>
+				</article>
+				<article class="sdj-role">
+					<span class="sdj-role-ic"><?php echo self::ic( 'zoom' ); // phpcs:ignore ?></span>
+					<h4>Classroom instructor (Zoom)</h4>
+					<p>Teach the classroom part of the MVA 36-hour course online.</p>
+					<a href="#apply">Apply for this role &rarr;</a>
+				</article>
+				<article class="sdj-role sdj-role--new">
+					<span class="sdj-role-ic"><?php echo self::ic( 'flag' ); // phpcs:ignore ?></span>
+					<h4>Not licensed yet?</h4>
+					<p>In Maryland, new instructors start with an apprentice instructor permit through a certified driver education school. Apply and tell us — we will talk about the path.</p>
+					<a href="#apply">Tell us about you &rarr;</a>
+				</article>
 			</div>
-			<h2>What Maryland asks of instructors</h2>
-			<p>From the MVA's instructor licensing page: a high school diploma or equivalent, fingerprinting and a criminal background check, a valid driver's license, the instructor certification course through a certified school, and an MVA instructor license (apprentice permit first). <a href="https://mva.maryland.gov/your-mva-guide/businesses/drivers-education-providers/instructor-licensing-certification" target="_blank" rel="noopener">Read the MVA requirements</a>.</p>
-			<h2 id="apply">Apply in two minutes</h2>
-			<?php if ( 'ok' === $st ) : ?><p class="sda-ok">Thank you! We received your application and will call you soon.</p>
-			<?php else : ?>
-				<?php if ( 'bad' === $st ) : ?><p class="sda-bad">Please enter your name, a valid e-mail and a phone number.</p><?php endif; ?>
-				<form class="sda-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<input type="hidden" name="action" value="sdsc_join" />
-					<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-					<label>Full name <input type="text" name="name" maxlength="150" required autocomplete="name"></label>
-					<label>Phone <input type="tel" name="phone" maxlength="40" required autocomplete="tel"></label>
-					<label>E-mail <input type="email" name="email" maxlength="190" required autocomplete="email"></label>
-					<label>Position <select name="role"><option>Behind-the-wheel instructor</option><option>Classroom instructor (Zoom)</option><option>Both</option></select></label>
-					<label>Maryland instructor license <select name="license"><option>Licensed instructor</option><option>Apprentice permit</option><option>Not yet</option></select></label>
-					<fieldset><legend>Languages you teach in</legend><?php foreach ( array( 'English', 'Spanish', 'Farsi (Persian)', 'Other' ) as $l ) : ?><label><input type="checkbox" name="langs[]" value="<?php echo esc_attr( $l ); ?>"> <?php echo esc_html( $l ); ?></label><?php endforeach; ?></fieldset>
-					<fieldset><legend>When can you teach?</legend><?php foreach ( array( 'Weekday mornings', 'Weekday afternoons', 'Evenings', 'Weekends' ) as $l ) : ?><label><input type="checkbox" name="times[]" value="<?php echo esc_attr( $l ); ?>"> <?php echo esc_html( $l ); ?></label><?php endforeach; ?></fieldset>
-					<label>About you (experience, anything we should know) <textarea name="about" rows="4" maxlength="2000"></textarea></label>
-					<button class="sda-btn" type="submit">Send application</button>
-				</form>
-			<?php endif; ?>
+
+			<div class="sdj-h"><h3>Why teach with us</h3></div>
+			<ul class="sdj-why">
+				<li><?php echo self::ic( 'flag' ); // phpcs:ignore ?><div><b>An MVA-approved school</b><span>Teach the official 36-hour driver's ed course in Rockville.</span></div></li>
+				<li><?php echo self::ic( 'wheel' ); // phpcs:ignore ?><div><b>Dual-control cars</b><span>Every behind-the-wheel lesson is in a dual-control car.</span></div></li>
+				<li><?php echo self::ic( 'zoom' ); // phpcs:ignore ?><div><b>Classroom on Zoom</b><span>The 30 hours of class are taught online.</span></div></li>
+				<li><?php echo self::ic( 'pin' ); // phpcs:ignore ?><div><b>Students across the county</b><span>Students from all of Montgomery County, in English, Spanish and Farsi.</span></div></li>
+			</ul>
+
+			<div class="sdj-h"><h3>Your path to teaching in Maryland</h3><p>What the MVA asks of driving instructors.</p></div>
+			<ol class="sdj-path">
+				<li><b>The basics</b><span>A high school diploma or equivalent and a valid driver's license.</span></li>
+				<li><b>Background check</b><span>Fingerprinting and a criminal background check.</span></li>
+				<li><b>Certification course</b><span>The instructor certification course through a certified school.</span></li>
+				<li><b>MVA license</b><span>An apprentice permit first, then the MVA instructor license.</span></li>
+			</ol>
+			<p class="sdj-note">From the MVA's instructor licensing page. <a href="<?php echo esc_url( $mva ); ?>" target="_blank" rel="noopener">Read the MVA requirements</a>.</p>
+
+			<section class="sdj-apply" id="apply" aria-labelledby="sdj-apply-t">
+				<div class="sdj-apply-side">
+					<span class="sdj-badge"><span class="sdj-dot" aria-hidden="true"></span>Apply in two minutes</span>
+					<h3 id="sdj-apply-t">Ready to start?</h3>
+					<p>Send us a few details. No CV needed.</p>
+					<ol>
+						<li>Fill in this short form</li>
+						<li>We read your application</li>
+						<li>We call you to talk about the next steps</li>
+					</ol>
+					<p>Questions? Call <a href="tel:+13017263030">(301) 726-3030</a></p>
+				</div>
+				<div>
+					<?php if ( 'ok' === $st ) : ?><p class="sda-ok"><?php echo $chk; // phpcs:ignore ?>Thank you! We received your application and will call you soon.</p>
+					<?php else : ?>
+						<?php if ( 'bad' === $st ) : ?><p class="sda-bad">Please enter your name, a valid e-mail and a phone number.</p><?php endif; ?>
+						<form class="sda-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+							<input type="hidden" name="action" value="sdsc_join" />
+							<div style="position:absolute;left:-9999px" aria-hidden="true"><label>Leave empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+							<label class="sdj-full">Full name <input type="text" name="name" maxlength="150" required autocomplete="name"></label>
+							<label>Phone <input type="tel" name="phone" maxlength="40" required autocomplete="tel"></label>
+							<label>E-mail <input type="email" name="email" maxlength="190" required autocomplete="email"></label>
+							<label>Position <select name="role"><option>Behind-the-wheel instructor</option><option>Classroom instructor (Zoom)</option><option>Both</option></select></label>
+							<label>Maryland instructor license <select name="license"><option>Licensed instructor</option><option>Apprentice permit</option><option>Not yet</option></select></label>
+							<fieldset class="sdj-full"><legend>Languages you teach in</legend><?php foreach ( array( 'English', 'Spanish', 'Farsi (Persian)', 'Other' ) as $l ) : ?><label><input type="checkbox" name="langs[]" value="<?php echo esc_attr( $l ); ?>"> <?php echo esc_html( $l ); ?></label><?php endforeach; ?></fieldset>
+							<fieldset class="sdj-full"><legend>When can you teach?</legend><?php foreach ( array( 'Weekday mornings', 'Weekday afternoons', 'Evenings', 'Weekends' ) as $l ) : ?><label><input type="checkbox" name="times[]" value="<?php echo esc_attr( $l ); ?>"> <?php echo esc_html( $l ); ?></label><?php endforeach; ?></fieldset>
+							<label class="sdj-full">About you (experience, anything we should know) <textarea name="about" rows="4" maxlength="2000"></textarea></label>
+							<button class="sdj-btn sdj-btn--g sdj-full" type="submit">Send application <?php echo self::ic( 'arrow' ); // phpcs:ignore ?></button>
+						</form>
+					<?php endif; ?>
+				</div>
+			</section>
 		</div>
 		<?php
 		return ob_get_clean();

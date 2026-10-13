@@ -69,7 +69,15 @@ class SDSC_Pages {
 						$sdb_tp = class_exists( 'SDSC_Blog' ) ? SDSC_Blog::post_topic( get_the_ID() ) : null;
 						?>
 						<li class="sdp-slide"<?php echo $sdb_tp ? ' style="--tc:' . esc_attr( $sdb_tp['color'] ) . '"' : ''; ?>>
-							<?php if ( has_post_thumbnail() ) { the_post_thumbnail( 'large', array( 'class' => 'sdp-slide-img', 'loading' => $sdp_n > 2 ? 'lazy' : 'eager', 'alt' => '' ) ); } else { echo '<span class="sdp-slide-img sdp-slide-ph"></span>'; } ?>
+							<?php
+							if ( has_post_thumbnail() ) {
+								// Whole photo is shown (contain); a blurred copy fills the space around it.
+								echo '<span class="sdp-slide-bg" aria-hidden="true" style="background-image:url(\'' . esc_url( get_the_post_thumbnail_url( null, 'medium' ) ) . '\')"></span>';
+								the_post_thumbnail( 'large', array( 'class' => 'sdp-slide-img', 'loading' => $sdp_n > 2 ? 'lazy' : 'eager', 'alt' => '' ) );
+							} else {
+								echo '<span class="sdp-slide-img sdp-slide-ph"></span>';
+							}
+							?>
 							<span class="sdp-slide-mini" aria-hidden="true"><?php echo esc_html( $t ); ?></span>
 							<div class="sdp-slide-body">
 								<p class="sdp-slide-meta"><?php if ( $sdb_tp ) { echo SDSC_Blog::badge( $sdb_tp ); } // phpcs:ignore ?><span><?php echo esc_html( get_the_date( 'M j, Y' ) ); ?><?php echo class_exists( 'SDSC_Blog' ) ? ' · ' . (int) SDSC_Blog::minutes( get_the_ID() ) . ' min read' : ''; ?></span></p>
