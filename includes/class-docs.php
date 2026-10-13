@@ -368,8 +368,9 @@ class SDSC_Docs {
 	/* ------------------------------------------------------------ dashboard */
 
 	public static function tutor_nav( $items ) {
-		if ( ! is_array( $items ) || ! is_user_logged_in() ) { return $items; }
-		$items[ self::TAB ] = array( 'title' => self::is_office() ? 'Student documents' : 'My documents', 'icon' => 'notes', 'active_icon' => 'notes' );
+		// Always registered: Tutor builds its page addresses from this list (also when no one is signed in).
+		if ( ! is_array( $items ) ) { return $items; }
+		$items[ self::TAB ] = array( 'title' => is_user_logged_in() && self::is_office() ? 'Student documents' : 'My documents', 'icon' => 'notes', 'active_icon' => 'notes' );
 		return $items;
 	}
 
