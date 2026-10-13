@@ -177,6 +177,11 @@ class SDSC_TextQ {
 			}
 		}
 
+		/* ---- registrations still missing the parent part or the payment (SDSC_Followup) */
+		if ( class_exists( 'SDSC_Followup' ) ) {
+			foreach ( SDSC_Followup::text_items() as $it ) { $add( $it ); }
+		}
+
 		/* ---- texts added by other features (instructor links, one-hour reminders, …) */
 		foreach ( (array) get_option( self::EXTRA, array() ) as $k => $i ) {
 			if ( (int) $i['expires'] < $now ) { continue; }
@@ -230,7 +235,7 @@ class SDSC_TextQ {
 		wp_enqueue_script( 'sdsc-textq', SDSC_URL . 'assets/textq.js', array(), SDSC_VERSION, true );
 		wp_localize_script( 'sdsc-textq', 'SDSC_TQ', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'sdsc_tq' ) ) );
 		$items  = self::items();
-		$groups = array( 'lessons' => '🚗 Driving lessons', 'zoom' => '💻 Zoom classes', 'other' => '📨 Other texts', 'celebrate' => '🎉 Birthdays & anniversaries' );
+		$groups = array( 'registrations' => '📝 Registrations to finish', 'lessons' => '🚗 Driving lessons', 'zoom' => '💻 Zoom classes', 'other' => '📨 Other texts', 'celebrate' => '🎉 Birthdays & anniversaries' );
 		?>
 		<div class="wrap sdo sdl sdq">
 			<h1 class="sdo-title"><span class="sdo-title-ic" aria-hidden="true">💬</span> Texts to send <span class="sdo-n sdq-left"><?php echo count( $items ); ?></span></h1>

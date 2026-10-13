@@ -78,7 +78,9 @@
 		function updateMinor() {
 			var minor = isMinor();
 			root.classList.toggle('is-minor', minor);
-			form.querySelectorAll('[data-minor-required] input, input[data-minor-required]').forEach(function (el) { el.required = minor; });
+			// Parent fields are asked for, not forced: a missing parent part is followed up after the form is sent.
+			var young = (function () { var a = ageFrom(form.querySelector('.sdsc-dob').value); return a !== null && a < 16; })();
+			root.classList.toggle('is-young', young);
 		}
 
 		function showError(msg) {
@@ -108,14 +110,10 @@
 					ok = false; form.querySelector('.sdsc-dob').closest('.sdsc-field').classList.add('is-invalid');
 					showError('Please enter a valid date of birth.'); return false;
 				}
-				if (age < 16) {
-					form.querySelector('.sdsc-dob').closest('.sdsc-field').classList.add('is-invalid');
-					showError('In Maryland, students can register from age 16 with a parent’s signature. Please call us at (301) 726-3030 and we will help you plan.'); return false;
-				}
 			}
 			pads.forEach(function (p) {
 				if (!step.contains(p.wrap)) { return; }
-				var need = p.wrap.hasAttribute('data-required') || (p.wrap.hasAttribute('data-minor-required') && isMinor());
+				var need = p.wrap.hasAttribute('data-required');
 				if (need && p.pad.isEmpty()) { ok = false; p.wrap.classList.add('is-invalid'); }
 			});
 			if (!ok) {

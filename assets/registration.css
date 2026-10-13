@@ -301,3 +301,6 @@
 .sdsc-parent-form { display: grid; gap: 10px; margin-top: 10px; }
 .sdsc-sent { padding: 10px 12px; border-radius: 10px; background: #fff7df; color: #6b4a00; text-align: center; }
 .sdsc-sent.is-ok { background: #eaf6ef; color: #0b4f2c; }
+
+.sdsc-young-note { display: none; }
+.sdsc-reg.is-young .sdsc-young-note { display: block; color: #1d3d8f; background: #e8eefc; border: 1px solid #c9d6f6; border-radius: 10px; padding: 10px 12px; margin-top: 12px; }

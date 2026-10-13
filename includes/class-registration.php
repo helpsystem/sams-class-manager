@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * - WP-CLI: `wp sdsc import-forminator --form=526 [--dry-run]` imports old entries.
  */
 class SDSC_Registration {
-	const DB_VERSION   = '2';
+	const DB_VERSION   = '3';
 	const DB_OPTION    = 'sdsc_registration_db_version';
 	const REPORT_SOURCE = -1; // pseudo "form id" used by the reports portal
 	const MAX_SIG_BYTES = 400000;
@@ -70,6 +70,9 @@ class SDSC_Registration {
 			parent_phone varchar(40) NOT NULL DEFAULT '',
 			parent_email varchar(190) NOT NULL DEFAULT '',
 			parent_consent tinyint(1) NOT NULL DEFAULT 0,
+			follow_n tinyint(3) unsigned NOT NULL DEFAULT 0,
+			follow_at datetime DEFAULT NULL,
+			done_at datetime DEFAULT NULL,
 			street varchar(200) NOT NULL DEFAULT '',
 			apt varchar(100) NOT NULL DEFAULT '',
 			city varchar(100) NOT NULL DEFAULT '',
@@ -204,7 +207,7 @@ class SDSC_Registration {
 			. '</svg>';
 	}
 
-	protected static function field( $name, $label, $type = 'text', $req = false, $extra = '' ) {
+	public static function field( $name, $label, $type = 'text', $req = false, $extra = '' ) {
 		return '<label class="sdsc-field"><input type="' . esc_attr( $type ) . '" name="' . esc_attr( $name ) . '" placeholder=" " ' . ( $req ? 'required ' : '' ) . $extra . ' />'
 			. '<span>' . esc_html( $label ) . ( $req ? ' <b>*</b>' : '' ) . '</span></label>';
 	}
@@ -212,6 +215,10 @@ class SDSC_Registration {
 	public static function shortcode( $atts ) {
 		$atts = shortcode_atts( array( 'course' => '' ), $atts, 'sdsc_registration_form' );
 		wp_enqueue_style( 'sdsc-registration' );
+		if ( isset( $_GET['sdsc_parent'] ) && class_exists( 'SDSC_Followup' ) ) { // phpcs:ignore -- the parent's own link (token checked inside)
+			wp_enqueue_script( 'sdsc-registration' );
+			return SDSC_Followup::parent_form();
+		}
 		wp_enqueue_script( 'sdsc-registration' );
 
 		$result = isset( $_GET['sdsc_reg'] ) ? sanitize_key( $_GET['sdsc_reg'] ) : '';
@@ -344,11 +351,12 @@ class SDSC_Registration {
 							echo self::field( 'phone', 'Phone', 'tel', true, 'maxlength="40" autocomplete="tel"' );
 							?>
 						</div>
+						<p class="sdsc-young-note">In Maryland, students usually start driver's ed at 16. You can still send this form — we will call you to find the right class.</p>
 					</section>
 
 					<section class="sdsc-step" data-step="2">
 						<h3>Parent / guardian</h3>
-						<p class="sdsc-note sdsc-minor-note"><b>The student is under 18.</b> In Maryland a parent or guardian must fill in this step, read the policies and sign.</p>
+						<p class="sdsc-note sdsc-minor-note"><b>The student is under 18.</b> In Maryland a parent or guardian must fill in this step, read the policies and sign. <b>Parent not with you right now?</b> Press Continue — we will send them a secure link to finish it, and the seat is held meanwhile.</p>
 						<p class="sdsc-note sdsc-adult-note"><b>The student is 18 or older</b>, so this step is optional. We recommend adding a parent or emergency contact: we only use it in an emergency, for class reminders, or to send the payment link.</p>
 						<div class="sdsc-grid">
 							<?php
@@ -662,7 +670,6 @@ class SDSC_Registration {
 		if ( ! $d['first_name'] || ! $d['last_name'] ) { self::fail( $return, 'Please enter the student\'s first and last name.' ); }
 		$age = self::age_from_dob( $d['dob'] );
 		if ( null === $age || $age < 14 || $age > 100 ) { self::fail( $return, 'Please enter a valid date of birth.' ); }
-		if ( $age < 16 ) { self::fail( $return, 'In Maryland, students can register from age 16 with a parent\'s signature. Please call us at (301) 726-3030 and we will help you plan.' ); }
 		if ( $d['parent_email'] && ! is_email( $d['parent_email'] ) ) { self::fail( $return, 'Please enter a valid parent / guardian email, or leave it empty.' ); }
 		if ( ! is_email( $d['email'] ) ) { self::fail( $return, 'Please enter a valid email address.' ); }
 		if ( strlen( preg_replace( '/\D/', '', $d['phone'] ) ) < 10 ) { self::fail( $return, 'Please enter a valid phone number.' ); }
@@ -677,9 +684,8 @@ class SDSC_Registration {
 		$student_sig = self::decode_png( wp_unslash( $_POST['student_sig'] ?? '' ) );
 		$parent_sig  = self::decode_png( wp_unslash( $_POST['parent_sig'] ?? '' ) );
 		if ( ! $student_sig ) { self::fail( $return, 'Please add the student signature.' ); }
-		if ( $age < 18 && ( ! $d['parent_name'] || strlen( preg_replace( '/\D/', '', $d['parent_phone'] ) ) < 10 || ! is_email( $d['parent_email'] ) || ! $parent_sig || ! $d['parent_consent'] ) ) {
-			self::fail( $return, 'For students under 18, a parent or guardian must enter their name, phone and email, accept the policies and sign.' );
-		}
+		// Under 18 with the parent part missing, or under 16: the registration is still accepted and
+		// SDSC_Followup chases what is missing (parent link, e-mail reminders, texts for the office).
 
 		global $wpdb;
 		$row = array_merge( $d, array(
@@ -707,6 +713,7 @@ class SDSC_Registration {
 		}
 
 		self::notify_admin( $reg_id, $class_id, $d );
+		if ( class_exists( 'SDSC_Followup' ) ) { SDSC_Followup::on_registered( $reg_id ); }
 		do_action( 'sdsc_registered', $reg_id, $d, ! empty( $_POST['offers'] ) );
 
 		$q = array( 'sdsc_reg' => 'done', 'sdsc_class' => $class_id );
@@ -799,6 +806,8 @@ class SDSC_Registration {
 			if ( ! $r ) { echo '<p>Not found.</p></div>'; return; }
 			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1>';
 			if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) { echo '<p>' . SDSC_Docs::link( $r->email ) . '</p>'; } // phpcs:ignore -- escaped inside
+			if ( isset( $_GET['sdsc_reminded'] ) ) { echo '<div class="notice notice-success"><p>Reminder e-mail sent.</p></div>'; } // phpcs:ignore
+			if ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ) { echo SDSC_Followup::panel( $r->id ); } // phpcs:ignore -- escaped inside
 			echo '<table class="widefat striped" style="max-width:800px">';
 			$rows = array(
 				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
@@ -840,12 +849,12 @@ class SDSC_Registration {
 		echo '<p class="sdsc-lead" id="sdsc-reg-lead">Every sign-up from the website, newest first. Click a student’s name to see the whole form, the signed contract and the signatures.</p>';
 		if ( current_user_can( 'manage_options' ) ) { echo '<p class="description">Administrator note: the form is the <code>[sdsc_registration_form]</code> shortcode; add <code>?course=CODE</code> to a link to preselect a class.</p>'; }
 		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email or phone" aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
-		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th></tr></thead><tbody>';
+		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th><th>Follow-up</th></tr></thead><tbody>';
 		if ( ! $rows ) { echo '<tr><td colspan="7">No registrations yet.</td></tr>'; }
 		foreach ( $rows as $r ) {
 			$url  = admin_url( 'admin.php?page=sdsc-registrations&view=' . $r->id );
 			$code = $r->class_id ? get_post_meta( $r->class_id, '_sdsc_course_code', true ) : '';
-			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( array( 'native' => 'Website', 'forminator' => 'Website (old form)', 'demo' => 'Demo' )[ $r->source ] ?? ucfirst( (string) $r->source ) ) . '</td></tr>';
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( array( 'native' => 'Website', 'forminator' => 'Website (old form)', 'demo' => 'Demo' )[ $r->source ] ?? ucfirst( (string) $r->source ) ) . '</td><td>' . ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ? SDSC_Followup::badges( $r->id ) : '' ) . '</td></tr>'; // phpcs:ignore -- escaped in badges()
 		}
 		echo '</tbody></table>';
 		$pages = (int) ceil( $total / $per );
