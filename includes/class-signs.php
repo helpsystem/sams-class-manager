@@ -752,12 +752,14 @@ class SDSC_Signs {
 		$widths = array( 'school' => 132, 'reg' => 104, 'warning' => 140, 'service' => 120, 'guide' => 178, 'stop' => 132, 'yield' => 146 );
 		ob_start();
 		?>
-		<section class="sds-road sdsc3d sdsc3d--overview" id="services" aria-labelledby="sdsc3d-ov-h">
+		<?php $stack = is_front_page(); // homepage: the services as a stack of sign cards that flip away as you scroll ?>
+		<section class="<?php echo $stack ? 'sdsc3d sdsc3d--overview sdsc3d--stack' : 'sds-road sdsc3d sdsc3d--overview'; ?>" id="services" aria-labelledby="sdsc3d-ov-h">
 			<div class="sdsc3d-head">
 				<h2 id="sdsc3d-ov-h">Our services</h2>
 				<p>Everything we offer, in one place. Book the online course and the road-test car right here.</p>
 			</div>
-			<ul class="sds-signs sdsc3d-grid sdsc3d-grid--overview">
+			<?php if ( $stack ) : ?><div class="sds-stack" data-sds-stack style="--n:<?php echo count( $items ); ?>"><div class="sds-stack-pin"><?php endif; ?>
+			<ul class="<?php echo $stack ? 'sds-stack-cards' : 'sds-signs sdsc3d-grid sdsc3d-grid--overview'; ?>">
 				<?php foreach ( $items as $i => $it ) :
 					list( $type, $opts, $plaques, $blurb, $cta, $url ) = self::overview_sign( $it );
 					$t   = strtolower( $it['title'] );
@@ -765,7 +767,7 @@ class SDSC_Signs {
 					$x   = $key && isset( $extra[ $key ] ) ? $extra[ $key ] : null;
 					$id  = $x ? ( 'online' === $key ? 'online-course' : 'road-test-car' ) : '';
 					?>
-					<li class="sds-sign-slot sdsc3d-item"<?php echo $id ? ' id="' . esc_attr( $id ) . '"' : ''; ?> style="--i:<?php echo (int) $i; ?>">
+					<li class="<?php echo $stack ? 'sds-stack-card sds-stack-card--' . esc_attr( $type ) : 'sds-sign-slot sdsc3d-item'; ?>"<?php echo $id ? ' id="' . esc_attr( $id ) . '"' : ''; ?> style="--i:<?php echo (int) $i; ?>;z-index:<?php echo 50 - (int) $i; ?>">
 						<div class="sdsc3d-rise"><?php echo self::sign( $type, $opts, $plaques, $widths[ $type ] ); // phpcs:ignore -- escaped in sign() ?></div>
 						<div class="sdsc3d-card sds-sign-card">
 							<h3><?php echo esc_html( $it['title'] ); ?></h3>
@@ -780,10 +782,13 @@ class SDSC_Signs {
 					</li>
 				<?php endforeach; ?>
 			</ul>
+			<?php if ( $stack ) : ?><p class="sds-stack-hint" aria-hidden="true"><span></span>Scroll to see every service</p></div></div><?php endif; ?>
+			<?php if ( ! $stack ) : ?>
 			<div class="sds-asphalt" aria-hidden="true">
 				<span class="sds-lane"></span>
 				<?php echo SDSC_Brand::car( 'left', 'sds-road-car' ); // phpcs:ignore -- escaped in helper ?>
 			</div>
+			<?php endif; ?>
 		</section>
 		<?php
 		return ob_get_clean();

@@ -95,16 +95,75 @@
 			var id = a.hash.slice(1);
 			if (ids.indexOf(id) < 0 || !document.getElementById(id)) { return; }
 			e.preventDefault();
-			document.getElementById(id).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+			if (!(window.sdsStackTo && window.sdsStackTo(document.getElementById(id)))) {
+				document.getElementById(id).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+			}
 			if (history.replaceState) { history.replaceState(null, '', '#' + id); }
 			setTimeout(function () { glow(id); }, 450);
 		});
 		if (ids.indexOf(location.hash.slice(1)) > -1) {
 			// Opened straight on a section: settle again once images above it have loaded and moved it.
-			var go = function (g) { var el = document.getElementById(location.hash.slice(1)); if (el) { el.scrollIntoView(); if (g) { glow(el.id); } } };
+			var go = function (g) { var el = document.getElementById(location.hash.slice(1)); if (el) { if (!(window.sdsStackTo && window.sdsStackTo(el))) { el.scrollIntoView(); } if (g) { glow(el.id); } } };
 			setTimeout(function () { go(true); }, 300);
 			window.addEventListener('load', function () { setTimeout(function () { if (window.scrollY > 0) { go(false); } }, 150); });
 		}
+	}
+	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+})();
+
+/* v0.9.7 Our services stack (no libraries): pins the stack and, while you scroll, tips the front card
+   back and off while the next one comes forward. Short: about a fifth of the screen per card. */
+(function () {
+	function boot() {
+		var root = document.querySelector('[data-sds-stack]');
+		if (!root) { return; }
+		var cards = [].slice.call(root.querySelectorAll('.sds-stack-card'));
+		var n = cards.length;
+		var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (n < 2 || reduce || !('CSS' in window) || !CSS.supports('position', 'sticky')) { return; }
+		var seg = 160, top = 120, pin = 420;
+		function measure() {
+			var head = document.querySelector('.sdh'), bar = document.querySelector('[data-sds-jump]');
+			top = (head ? head.getBoundingClientRect().height : 70) + (bar ? 50 : 10) + 8;
+			var vh = window.innerHeight;
+			if (vh < 520) { root.classList.remove('is-live'); cards.forEach(function (c) { c.style.transform = c.style.opacity = ''; }); return false; }
+			var small = window.innerWidth < 700;
+			pin = Math.min(small ? 560 : 440, vh - top - 16);
+			seg = Math.max(140, Math.round(vh * (small ? 0.24 : 0.2)));
+			root.style.setProperty('--top', top + 'px');
+			root.style.setProperty('--pin', pin + 'px');
+			root.style.setProperty('--seg', seg + 'px');
+			root.classList.add('is-live');
+			return true;
+		}
+		function paint() {
+			if (!root.classList.contains('is-live')) { return; }
+			var p = Math.min(Math.max((top - root.getBoundingClientRect().top) / seg, 0), n - 1);
+			var a = Math.min(Math.floor(p), n - 1), f = p - a;
+			if (a === n - 1) { f = 0; }
+			cards.forEach(function (c, i) {
+				var t, o = 1;
+				if (i < a) { t = 'translate3d(0,-115%,0) rotateX(32deg)'; o = 0; }
+				else if (i === a) { t = 'translate3d(0,' + (-f * 115) + '%,0) rotateX(' + (f * 32) + 'deg)'; o = 1 - f * 0.9; }
+				else { var b = i - a - f; t = 'translate3d(0,' + (b * 14) + 'px,0) scale(' + (1 - b * 0.05) + ')'; o = b > 3 ? 0 : 1; }
+				c.style.transform = t; c.style.opacity = o;
+				c.setAttribute('aria-hidden', i < a ? 'true' : 'false');
+			});
+			root.classList.toggle('is-done', p >= n - 1.2);
+		}
+		var tick = false;
+		function onScroll() { if (!tick) { tick = true; requestAnimationFrame(function () { tick = false; paint(); }); } }
+		if (measure()) { paint(); }
+		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', function () { measure(); paint(); });
+		// Links to a card inside the stack (#online-course, #road-test-car) scroll to where that card is in front.
+		window.sdsStackTo = function (el) {
+			var i = cards.indexOf(el);
+			if (i < 0 || !root.classList.contains('is-live')) { return false; }
+			var y = window.scrollY + root.getBoundingClientRect().top - top + i * seg + 2;
+			window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+			return true;
+		};
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();
