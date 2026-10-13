@@ -63,10 +63,10 @@ class SDSC_Signs {
 		} elseif ( 'ruzbahani_why_us' === $name && class_exists( 'SDSC_WhyUs' ) ) {
 			$out = SDSC_WhyUs::render( $content );
 		} elseif ( 'ruzbahani_services' === $name ) {
-			// The service signs are shown once, under the intro box (see intro_and_services). Keep the theme's list for them.
+			// On the homepage the service signs are shown once, after behind-the-wheel practice (see render_packages).
 			$items = self::parse_overview( $content );
 			if ( $items && get_option( 'sdsc_overview_items' ) !== $items ) { update_option( 'sdsc_overview_items', $items, false ); }
-			$out = is_front_page() ? '<!-- service signs are shown under the intro -->' : self::render_overview( $items );
+			$out = is_front_page() ? '<!-- service signs are shown after the practice section -->' : self::render_overview( $items );
 		} elseif ( 'ruzbahani_blog' === $name && class_exists( 'SDSC_Pages' ) && SDSC_Pages::on() ) {
 			self::enqueue();
 			$out = SDSC_Pages::blog( $content );
@@ -93,7 +93,7 @@ class SDSC_Signs {
 
 	/** "All services" link at the end of a service section (homepage). */
 	protected static function back_link() {
-		return is_front_page() ? '<p class="sdsc3d-back"><a href="' . esc_url( self::anchor( 'services' ) ) . '">&uarr; All services</a></p>' : '';
+		return is_front_page() ? '<p class="sdsc3d-back"><a href="' . esc_url( self::anchor( 'services' ) ) . '">All services &darr;</a></p>' : '';
 	}
 
 	/**
@@ -134,12 +134,11 @@ class SDSC_Signs {
 		return str_replace( $ul[0], $ul[1] . $out . $ul[3], $html );
 	}
 
-	/** Intro box without its services list, followed by the service signs ("Our services"). */
+	/** Intro box without its services list (the service signs come after the practice section). */
 	public static function intro_and_services( $html ) {
 		$html = preg_replace( '/\s*To ensure a comfortable environment for everyone, we proudly provide male and female instructors who speak English, Spanish and Farsi \(Persian\)\./u', '', $html );
 		$html = preg_replace( '#<div[^>]*class="[^"]*sds-divider[^"]*"[^>]*>\s*</div>\s*<h3[^>]*sds-provide-title[^>]*>.*?</h3>\s*<ul[^>]*class="[^"]*sds-list[^"]*"[^>]*>.*?</ul>#s', '', $html );
-		$items = get_option( 'sdsc_overview_items' );
-		return $html . self::render_overview( is_array( $items ) ? $items : array() );
+		return $html;
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -616,9 +615,18 @@ class SDSC_Signs {
 					</li>
 				<?php endforeach; ?>
 			</ul>
-			<?php echo self::back_link(); // phpcs:ignore -- escaped in helper ?>
 		</section>
 		<?php endif; ?>
+		<?php
+		if ( $home ) {
+			// Homepage: the online course and the road-test car live inside "Our services", with their price and booking.
+			$extra = array();
+			foreach ( $featured as $f ) { $extra[ $f['key'] ] = $f; }
+			$items = get_option( 'sdsc_overview_items' );
+			echo self::render_overview( is_array( $items ) ? $items : array(), $extra ); // phpcs:ignore -- escaped in render_overview
+			$featured = array();
+		}
+		?>
 		<?php if ( $featured ) : ?>
 		<section class="sdsc3d sdsc3d--packages sdsc3d--more" aria-labelledby="sdsc3d-pk-<?php echo esc_attr( $widget ); ?>">
 			<div class="sdsc3d-head">
@@ -647,7 +655,6 @@ class SDSC_Signs {
 					</li>
 				<?php endforeach; ?>
 			</ul>
-			<?php echo self::back_link(); // phpcs:ignore -- escaped in helper ?>
 		</section>
 		<?php endif; ?>
 		<?php
@@ -708,16 +715,29 @@ class SDSC_Signs {
 			return array( 'guide', array( 'lines' => array( array( 65, 27, 15, 'ROAD TEST' ), array( 65, 47, 15, 'CAR RENTAL' ) ), 'arrow' => true ), $plq( 'For your', 'MVA test' ), 'Take your MVA road test in our insured school car.', 'See car rental', self::anchor( 'rental' ) );
 		}
 		if ( false !== strpos( $t, 'alcohol' ) || false !== strpos( $t, 'drug' ) ) {
-			return array( 'stop', array(), $plq( 'Alcohol & drug', '3-hour program' ), 'The 3-hour alcohol and drug education program the MVA requires.', 'Call us', $tel );
+			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The 3-hour program the MVA requires (formerly Alcohol & Drug), also for drivers assigned it by the MVA or a court.', 'Call us', $tel );
 		}
 		if ( false !== strpos( $t, 'improvement' ) ) {
-			return array( 'yield', array(), $plq( 'Driver', 'improvement' ), 'For drivers assigned the program by the MVA or a court.', 'Call us', $tel );
+			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'For drivers assigned the program by the MVA or a court.', 'Call us', $tel );
 		}
 		return array( 'service', array( 'symbol' => 'info' ), $plq( $item['title'] ), $item['desc'], 'Call us', $tel );
 	}
 
-	public static function render_overview( $items ) {
+	public static function render_overview( $items, $extra = array() ) {
 		if ( ! $items ) { $items = self::overview_defaults(); }
+		// "Drug & Alcohol" and "Driver Improvement" are one program, now called Driver Improvement (STOP sign).
+		$merged = array();
+		$seen   = false;
+		foreach ( $items as $it ) {
+			$t = strtolower( $it['title'] );
+			if ( false !== strpos( $t, 'alcohol' ) || false !== strpos( $t, 'drug' ) || false !== strpos( $t, 'improvement' ) ) {
+				if ( $seen ) { continue; }
+				$seen = true;
+				$it   = array( 'title' => 'Driver Improvement', 'desc' => '3 Hours program' );
+			}
+			$merged[] = $it;
+		}
+		$items = $merged;
 		// The online course has its own section on the homepage, so it gets a sign too, right after practice.
 		$has_online = false;
 		foreach ( $items as $it ) { if ( preg_match( '/online/i', $it['title'] ) ) { $has_online = true; } }
@@ -735,19 +755,27 @@ class SDSC_Signs {
 		<section class="sds-road sdsc3d sdsc3d--overview" id="services" aria-labelledby="sdsc3d-ov-h">
 			<div class="sdsc3d-head">
 				<h2 id="sdsc3d-ov-h">Our services</h2>
-				<p>Tap a sign to jump to that service: dates, prices and booking are right there.</p>
+				<p>Everything we offer, in one place. Book the online course and the road-test car right here.</p>
 			</div>
 			<ul class="sds-signs sdsc3d-grid sdsc3d-grid--overview">
 				<?php foreach ( $items as $i => $it ) :
 					list( $type, $opts, $plaques, $blurb, $cta, $url ) = self::overview_sign( $it );
+					$t   = strtolower( $it['title'] );
+					$key = false !== strpos( $t, 'online' ) ? 'online' : ( false !== strpos( $t, 'rental' ) ? 'rental' : '' );
+					$x   = $key && isset( $extra[ $key ] ) ? $extra[ $key ] : null;
+					$id  = $x ? ( 'online' === $key ? 'online-course' : 'road-test-car' ) : '';
 					?>
-					<li class="sds-sign-slot sdsc3d-item" style="--i:<?php echo (int) $i; ?>">
+					<li class="sds-sign-slot sdsc3d-item"<?php echo $id ? ' id="' . esc_attr( $id ) . '"' : ''; ?> style="--i:<?php echo (int) $i; ?>">
 						<div class="sdsc3d-rise"><?php echo self::sign( $type, $opts, $plaques, $widths[ $type ] ); // phpcs:ignore -- escaped in sign() ?></div>
 						<div class="sdsc3d-card sds-sign-card">
 							<h3><?php echo esc_html( $it['title'] ); ?></h3>
 							<p class="sdsc3d-tag"><?php echo esc_html( $it['desc'] ); ?></p>
-							<p><?php echo esc_html( $blurb ); ?></p>
-							<div class="sdsc3d-foot"><a class="sdsc3d-cta sdsc3d-cta--ghost" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $cta ); ?></a></div>
+							<p><?php echo esc_html( $x && '' !== trim( $x['desc'] ) ? str_replace( "\n", ' ', $x['desc'] ) : $blurb ); ?></p>
+							<?php if ( $x && $x['url'] ) : ?>
+								<div class="sdsc3d-foot"><?php echo self::price_html( $x ); // phpcs:ignore -- escaped in helper ?><a class="sdsc3d-cta" href="<?php echo esc_url( $x['url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( $x['cta'] ); ?></a></div>
+							<?php else : ?>
+								<div class="sdsc3d-foot"><a class="sdsc3d-cta sdsc3d-cta--ghost" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $cta ); ?></a></div>
+							<?php endif; ?>
 						</div>
 					</li>
 				<?php endforeach; ?>
