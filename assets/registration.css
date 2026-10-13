@@ -280,3 +280,11 @@
 .sdsc-due { font-size: 17px; }
 .sdsc-due-code { color: #00703c; font-size: 14px; }
 .sdsc-eb { display: block; margin-top: 2px; font-size: 12px; font-weight: 700; color: #00703c; white-space: nowrap; }
+
+/* v0.9.6: class picked on the homepage, and the payment step in the progress list */
+.sdsc-picked-note { margin: -4px 0 12px; color: #5b646d; }
+.sdsc-courses.is-picked .sdsc-course { box-shadow: 0 0 0 2px #00703c; }
+.sdsc-other-btn { margin: 10px 0 0; padding: 0; border: 0; background: none; color: #00703c; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.sdsc-steps-nav li.sdsc-step-pay span { background: #fff3cd; color: #7a5600; }
+.sdsc-steps-nav li.sdsc-step-pay.is-active span { background: #ffc20e; color: #15191d; }
+.sdsc-steps-nav--done { margin: 6px auto 14px; justify-content: center; }

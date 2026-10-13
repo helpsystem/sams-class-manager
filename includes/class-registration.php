@@ -227,6 +227,9 @@ class SDSC_Registration {
 		}
 		$error    = 'error' === $result && isset( $_GET['sdsc_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['sdsc_msg'] ) ) : '';
 		$steps    = array( 'Course', 'Student', 'Parent', 'Address', 'Sign' );
+		$paystep  = class_exists( 'SDSC_Pay' ) && SDSC_Pay::ready();
+		// Picked on the homepage (?course=…): show only that class, so nobody picks another one by mistake.
+		$picked   = $selected && in_array( (int) $selected, array_map( 'intval', wp_list_pluck( $classes, 'ID' ) ), true ) ? (int) $selected : 0;
 
 		ob_start();
 		?>
@@ -249,6 +252,7 @@ class SDSC_Registration {
 					<?php foreach ( $steps as $i => $s ) : ?>
 						<li data-step="<?php echo (int) $i; ?>" class="<?php echo 0 === $i ? 'is-active' : ''; ?>"><span><?php echo (int) $i + 1; ?></span><?php echo esc_html( $s ); ?></li>
 					<?php endforeach; ?>
+					<?php if ( $paystep ) : ?><li class="sdsc-step-pay" aria-label="Step <?php echo count( $steps ) + 1; ?>: payment, right after you submit"><span><?php echo count( $steps ) + 1; ?></span>Pay</li><?php endif; ?>
 				</ol>
 
 				<?php if ( $error ) : ?>
@@ -262,9 +266,10 @@ class SDSC_Registration {
 					<div class="sdsc-hp" aria-hidden="true"><label>Leave this empty <input type="text" name="sdsc_website" tabindex="-1" autocomplete="off" /></label></div>
 
 					<section class="sdsc-step is-active" data-step="0">
-						<h3>Choose your course</h3>
+						<h3><?php echo $picked ? 'Your class' : 'Choose your course'; ?></h3>
+						<?php if ( $picked ) : ?><p class="sdsc-picked-note">This is the class you chose. Check the dates, then press <b>Next</b>.</p><?php endif; ?>
 						<?php if ( $classes ) : ?>
-							<div class="sdsc-courses" role="radiogroup" aria-label="Course">
+							<div class="sdsc-courses<?php echo $picked ? ' is-picked' : ''; ?>" role="radiogroup" aria-label="Course">
 								<?php foreach ( $classes as $c ) :
 									$start = get_post_meta( $c->ID, '_sdsc_start', true );
 									$end   = get_post_meta( $c->ID, '_sdsc_end', true );
@@ -272,7 +277,7 @@ class SDSC_Registration {
 									$price = get_post_meta( $c->ID, '_sdsc_price', true );
 									$code  = self::public_code( $c->ID );
 									?>
-									<label class="sdsc-course">
+									<label class="sdsc-course"<?php echo $picked && (int) $c->ID !== $picked ? ' hidden data-other="1"' : ''; ?>>
 										<input type="radio" name="class_id" value="<?php echo esc_attr( $c->ID ); ?>" required <?php checked( $selected, $c->ID ); ?> />
 										<span class="sdsc-course-body">
 											<span class="sdsc-course-name"><?php echo esc_html( get_the_title( $c ) ); ?></span>
@@ -296,6 +301,9 @@ class SDSC_Registration {
 									</label>
 								<?php endforeach; ?>
 							</div>
+							<?php if ( $picked && count( $classes ) > 1 ) : ?>
+								<button type="button" class="sdsc-other-btn" onclick="var f=this.closest('form');[].forEach.call(f.querySelectorAll('.sdsc-course[data-other]'),function(l){l.hidden=false;});this.remove();">Choose a different class</button>
+							<?php endif; ?>
 							<?php if ( class_exists( 'SDSC_Promo' ) ) : ?>
 							<div class="sdsc-promo" data-rest="<?php echo esc_url( rest_url( 'sdsc/v1/promo' ) ); ?>">
 								<label class="sdsc-field"><input type="text" name="promo" maxlength="30" placeholder=" " autocomplete="off" autocapitalize="characters" spellcheck="false" value="<?php echo esc_attr( isset( $_GET['code'] ) ? SDSC_Promo::clean( wp_unslash( $_GET['code'] ) ) : '' ); // phpcs:ignore ?>" /><span>Discount code (optional)</span></label>
@@ -387,7 +395,7 @@ class SDSC_Registration {
 					<div class="sdsc-nav">
 						<button type="button" class="sdsc-btn sdsc-btn-ghost sdsc-prev" hidden>&larr; Back</button>
 						<button type="button" class="sdsc-btn sdsc-next">Continue &rarr;</button>
-						<button type="submit" class="sdsc-btn sdsc-submit" hidden>Submit registration</button>
+						<button type="submit" class="sdsc-btn sdsc-submit" hidden><?php echo $paystep ? 'Submit &amp; go to payment &rarr;' : 'Submit registration'; ?></button>
 					</div>
 				</form>
 			</div>
@@ -444,10 +452,16 @@ class SDSC_Registration {
 					<span class="sdsc-done-flag">🏁</span>
 				</div>
 				<?php echo SDSC_Brand::logo( 'stacked', 'sdsc-reg-logo sdsc-reg-logo--stacked', 110 ); // phpcs:ignore ?>
-				<h2 class="sdsc-reg-title">You're registered!</h2>
+				<?php if ( $pay ) : ?>
+					<ol class="sdsc-steps-nav sdsc-steps-nav--done" aria-label="Registration steps">
+						<?php foreach ( array( 'Course', 'Student', 'Parent', 'Address', 'Sign' ) as $i => $st ) : ?><li class="is-done"><span><?php echo (int) $i + 1; ?></span><?php echo esc_html( $st ); ?></li><?php endforeach; ?>
+						<li class="sdsc-step-pay is-active" aria-current="step"><span>6</span>Pay</li>
+					</ol>
+				<?php endif; ?>
+				<h2 class="sdsc-reg-title"><?php echo $pay ? 'Forms done — last step: payment' : 'You\'re registered!'; ?></h2>
 				<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
 				<?php if ( $pay ) : ?>
-					<p>One last step: complete your payment to confirm your seat.</p>
+					<p>Your seat is confirmed as soon as the payment goes through.</p>
 					<?php
 					if ( $rid && class_exists( 'SDSC_Promo' ) && SDSC_Pay::url( $rid, $class_id ) ) {
 						$due = SDSC_Promo::amount_for( $rid, $class_id );
