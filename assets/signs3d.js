@@ -99,7 +99,12 @@
 			if (history.replaceState) { history.replaceState(null, '', '#' + id); }
 			setTimeout(function () { glow(id); }, 450);
 		});
-		if (ids.indexOf(location.hash.slice(1)) > -1) { setTimeout(function () { var el = document.getElementById(location.hash.slice(1)); if (el) { el.scrollIntoView(); glow(el.id); } }, 300); }
+		if (ids.indexOf(location.hash.slice(1)) > -1) {
+			// Opened straight on a section: settle again once images above it have loaded and moved it.
+			var go = function (g) { var el = document.getElementById(location.hash.slice(1)); if (el) { el.scrollIntoView(); if (g) { glow(el.id); } } };
+			setTimeout(function () { go(true); }, 300);
+			window.addEventListener('load', function () { setTimeout(function () { if (window.scrollY > 0) { go(false); } }, 150); });
+		}
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();
