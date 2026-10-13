@@ -159,3 +159,5 @@
 	.sdp-blog .sdb-chips::-webkit-scrollbar { display: none; }
 	.sdp-blog .sdp-blog-grid { gap: 16px; }
 }
+/* the reviews box shadow was clipped by its section and left a hard line above the news */
+.sdp-reviews-box { box-shadow: 0 16px 36px -26px rgba(0,0,0,.35) !important; }
