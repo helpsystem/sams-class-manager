@@ -4,6 +4,7 @@
 .sdd h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; }
 .sdd-lead { max-width: 760px; margin: 0 0 18px; color: var(--mut); line-height: 1.6; }
 .sdd-loading, .sdd-empty { color: var(--mut); }
+.sdd-docs > .sdd-empty, .sdd-results > .sdd-empty { grid-column: 1 / -1; list-style: none; }
 .sdd-err { padding: 12px 14px; border-radius: 12px; background: #fdecea; color: #912018; }
 .sdd-privacy { margin: 22px 0 0; font-size: .86rem; color: var(--mut); }
 

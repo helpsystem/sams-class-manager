@@ -184,7 +184,7 @@ class SDSC_Docs {
 			'label'   => $r['label'],
 			'pdf'     => 'application/pdf' === $r['mime'],
 			'size'    => size_format( (int) $r['size'] ),
-			'when'    => wp_date( 'M j, Y g:i A', strtotime( $r['created'] ) ),
+			'when'    => mysql2date( 'M j, Y g:i A', $r['created'] ), // stored in school time
 			'by'      => 'student' === $r['source'] ? 'Student' : ( $by ? $by->display_name : '' ),
 			'source'  => $r['source'],
 			'status'  => $r['status'],

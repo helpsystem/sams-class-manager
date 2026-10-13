@@ -28,4 +28,4 @@
 .sws-deny { padding: 20px; border-radius: 16px; background: #fff6dc; }
 @media (max-width: 700px) { .sws-role { display: none; } .sws-panel { grid-template-columns: 1fr; } }
 /* Staff screens use the full width (Tutor keeps student pages at 944px). */
-.tutor-dashboard-page:has(.sws-screen), .tutor-dashboard-page:has(.sws-home), .tutor-dashboard-page:has(.srp), .tutor-dashboard-page:has(.szr) { max-width: min(1480px, 100%); }
+.tutor-dashboard-page:has(.sws-screen), .tutor-dashboard-page:has(.sws-home), .tutor-dashboard-page:has(.srp), .tutor-dashboard-page:has(.szr), .tutor-dashboard-page:has(.sdd--office) { max-width: min(1480px, 100%); }
