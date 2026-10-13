@@ -54,6 +54,7 @@ class SDSC_Chrome {
 			'pin'   => '<path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/>',
 			'fb'    => '<path d="M14 8h3V4h-3c-2.8 0-4.5 1.9-4.5 4.6V11H7v4h2.5v7h4v-7h3l.5-4h-3.5V8.8c0-.5.3-.8.5-.8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
 			'ig'    => '<g fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.1" cy="6.9" r=".6" fill="currentColor" stroke="none"/></g>',
+			'shield' => '<path d="M12 2.5 4.5 5.4v6.1c0 4.6 3.2 8.6 7.5 10 4.3-1.4 7.5-5.4 7.5-10V5.4z" fill="currentColor" opacity=".9"/><path d="m8.4 12.1 2.4 2.4 4.8-4.9" fill="none" stroke="#0b3d24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
 			'arrow' => '<path d="M2.5 9.5l7-7M4 2.5h5.5V8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
 		);
 		$vb = 'arrow' === $name ? '0 0 12 12' : '0 0 24 24';
@@ -94,7 +95,7 @@ class SDSC_Chrome {
 
 	public static function header() {
 		$phones = self::phones();
-		$enroll = home_url( '/services/' );
+		$enroll = self::enroll_url();
 		?>
 		<header class="sdh" data-sdh>
 			<a class="sdh-skip" href="#sdsc-main">Skip to content</a>
@@ -361,10 +362,27 @@ class SDSC_Chrome {
 		return $s . '</g></svg>';
 	}
 
+	/** "Enroll now" goes to the 36-hour Driver's Ed classes on the homepage (dates, price, Enroll per class). */
+	public static function enroll_url() {
+		return home_url( '/#driver-ed' );
+	}
+
+	/** Is a lower price really charged right now on an open class (early bird or site-wide sale)? */
+	protected static function deal_now() {
+		if ( ! class_exists( 'SDSC_Registration' ) || ! class_exists( 'SDSC_Pay' ) || ! class_exists( 'SDSC_Promo' ) ) { return false; }
+		foreach ( SDSC_Registration::open_classes() as $p ) {
+			$id  = is_object( $p ) ? (int) $p->ID : (int) $p;
+			$now = (int) SDSC_Pay::amount( $id );
+			if ( $now > 0 && $now < (int) SDSC_Promo::list_cents( $id ) ) { return true; }
+		}
+		return false;
+	}
+
 	public static function hero() {
-		$title  = trim( (string) get_theme_mod( 'ruzbahani_banner_title', 'Affordable driving lessons' ) );
-		$sub    = trim( (string) get_theme_mod( 'ruzbahani_banner_subtitle', 'Driving School Rockville – Book Today' ) );
+		$title  = 'Affordable driving school';
+		// The yellow badge (Appearance → Customize) only shows while a discount is really charged at checkout.
 		$badge  = trim( (string) get_theme_mod( 'ruzbahani_banner_subtitle2', '' ) );
+		$badge  = $badge && self::deal_now() ? $badge : '';
 		$phones = self::phones();
 		?>
 		<section class="mdh" data-mdh aria-labelledby="mdh-title">
@@ -394,15 +412,15 @@ class SDSC_Chrome {
 				</div>
 			</div>
 			<div class="mdh-copy">
-				<p class="mdh-kicker"><?php echo self::susan_svg( 22 ); // phpcs:ignore ?>Rockville, Maryland</p>
-				<h1 id="mdh-title" class="mdh-title"><?php echo esc_html( $title ? $title : 'Affordable driving lessons' ); ?> <span>in Rockville, Maryland</span></h1>
-				<p class="mdh-sub"><?php echo esc_html( $sub ); ?><?php if ( $badge ) : ?> <em class="mdh-badge"><?php echo esc_html( $badge ); ?></em><?php endif; ?></p>
+				<p class="mdh-kicker mdh-kicker--mva"><span class="mdh-mva"><?php echo self::icon( 'shield' ); // phpcs:ignore ?></span>Approved by MVA</p>
+				<h1 id="mdh-title" class="mdh-title"><?php echo esc_html( $title ); ?> <span>in Rockville, Maryland</span></h1>
+				<?php if ( $badge ) : ?><p class="mdh-sub"><em class="mdh-badge"><?php echo esc_html( $badge ); ?></em></p><?php endif; ?>
 				<div class="mdh-ctas">
-					<a class="mdh-btn mdh-btn--go" href="<?php echo esc_url( home_url( '/services/' ) ); ?>">See classes &amp; prices</a>
+					<a class="mdh-btn mdh-btn--go" href="<?php echo esc_url( self::enroll_url() ); ?>">Enroll now</a>
 					<?php if ( $phones ) : ?><a class="mdh-btn mdh-btn--ghost" href="<?php echo esc_attr( self::tel( $phones[0] ) ); ?>"><?php echo self::icon( 'phone' ); // phpcs:ignore ?>Call <?php echo esc_html( $phones[0] ); ?></a><?php endif; ?>
 				</div>
 				<ul class="mdh-facts">
-					<li>MVA 36-hour driver's ed</li>
+					<li>36-hour driver's ed: 10 evenings on Zoom + 6 hours behind the wheel</li>
 					<li>Male &amp; female instructors &middot; English, Spanish &amp; Farsi (Persian)</li>
 					<li>Free pickup at Rockville Metro</li>
 				</ul>
@@ -438,7 +456,7 @@ class SDSC_Chrome {
 		$ig     = get_theme_mod( 'ruzbahani_instagram' );
 		$svc    = home_url( '/services/' );
 		$learn  = array(
-			array( "Driver's Ed — 36 hours", $svc ),
+			array( "Driver's Ed — 36 hours", self::enroll_url() ),
 			array( 'Behind-the-wheel practice', $svc ),
 			array( 'Road test car rental', home_url( '/car-rentals/' ) ),
 			array( 'Online 3-hour course', $svc ),

@@ -431,7 +431,7 @@ class SDSC_Signs {
 		$style = self::sign_style();
 		ob_start();
 		?>
-		<section class="sdsc3d sdsc3d--courses" aria-labelledby="sdsc3d-courses-h">
+		<section class="sdsc3d sdsc3d--courses" id="driver-ed" aria-labelledby="sdsc3d-courses-h">
 			<div class="sdsc3d-head">
 				<p class="sdsc3d-kicker">36-hour course · Required by the MVA</p>
 				<h2 id="sdsc3d-courses-h"><?php echo esc_html( $title ); ?></h2>

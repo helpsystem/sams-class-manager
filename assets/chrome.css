@@ -572,3 +572,10 @@
 @media (min-width: 1241px) and (max-width: 1560px) { .sdh-bar .sdh-call, .sdh-bar .sdh-call-2 { display: none !important; } .sdh-bar .sdh-me-name { display: none; } .sdh-bar .sdh-me-btn { padding-right: 8px; } }
 .sdh.is-tight .sdh-bar .sdh-call, .sdh.is-tight .sdh-bar .sdh-call-2, .sdh.is-tight .sdh-bar .sdh-me-name, .sdh.is-tight .sdh-bar .sdh-signin span { display: none !important; }
 .sdh.is-tight .sdh-bar .sdh-signin { width: 46px; padding: 0; justify-content: center; }
+
+/* v0.9.5: hero — "Approved by MVA" label, title and badge on their own lines */
+.mdh-kicker--mva { gap: 8px; padding: 5px 14px 4px 6px; background: rgba(36,196,92,.16); box-shadow: inset 0 0 0 1px rgba(110,231,150,.45); color: #fff; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.mdh-mva { display: grid; place-items: center; width: 24px; height: 24px; color: #6ee796; }
+.mdh-mva svg { width: 22px; height: 22px; }
+.mdh-title + .mdh-ctas { margin-top: 22px; }
+#driver-ed { scroll-margin-top: 110px; }
