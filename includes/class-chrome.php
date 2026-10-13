@@ -420,7 +420,7 @@ class SDSC_Chrome {
 					<?php if ( $phones ) : ?><a class="mdh-btn mdh-btn--ghost" href="<?php echo esc_attr( self::tel( $phones[0] ) ); ?>"><?php echo self::icon( 'phone' ); // phpcs:ignore ?>Call <?php echo esc_html( $phones[0] ); ?></a><?php endif; ?>
 				</div>
 				<ul class="mdh-facts">
-					<li>36-hour driver's ed: 10 evenings on Zoom + 6 hours behind the wheel</li>
+					<li>36-hour driver's ed: 30 hours of class on Zoom + 6 hours behind the wheel</li>
 					<li>Male &amp; female instructors &middot; English, Spanish &amp; Farsi (Persian)</li>
 					<li>Free pickup at Rockville Metro</li>
 				</ul>
