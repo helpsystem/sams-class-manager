@@ -108,6 +108,10 @@
 					ok = false; form.querySelector('.sdsc-dob').closest('.sdsc-field').classList.add('is-invalid');
 					showError('Please enter a valid date of birth.'); return false;
 				}
+				if (age < 16) {
+					form.querySelector('.sdsc-dob').closest('.sdsc-field').classList.add('is-invalid');
+					showError('In Maryland, students can register from age 16 with a parent’s signature. Please call us at (301) 726-3030 and we will help you plan.'); return false;
+				}
 			}
 			pads.forEach(function (p) {
 				if (!step.contains(p.wrap)) { return; }

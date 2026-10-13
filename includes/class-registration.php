@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * - WP-CLI: `wp sdsc import-forminator --form=526 [--dry-run]` imports old entries.
  */
 class SDSC_Registration {
-	const DB_VERSION   = '1';
+	const DB_VERSION   = '2';
 	const DB_OPTION    = 'sdsc_registration_db_version';
 	const REPORT_SOURCE = -1; // pseudo "form id" used by the reports portal
 	const MAX_SIG_BYTES = 400000;
@@ -28,6 +28,8 @@ class SDSC_Registration {
 		add_shortcode( 'sdsc_registration_form', array( __CLASS__, 'shortcode' ) );
 		add_action( 'admin_post_nopriv_sdsc_register', array( __CLASS__, 'handle_submit' ) );
 		add_action( 'admin_post_sdsc_register', array( __CLASS__, 'handle_submit' ) );
+		add_action( 'admin_post_nopriv_sdsc_pay_parent', array( __CLASS__, 'pay_parent' ) );
+		add_action( 'admin_post_sdsc_pay_parent', array( __CLASS__, 'pay_parent' ) );
 		add_action( 'admin_post_sdsc_sig', array( __CLASS__, 'serve_signature' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 30 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'register_assets' ) );
@@ -66,6 +68,8 @@ class SDSC_Registration {
 			phone varchar(40) NOT NULL DEFAULT '',
 			parent_name varchar(200) NOT NULL DEFAULT '',
 			parent_phone varchar(40) NOT NULL DEFAULT '',
+			parent_email varchar(190) NOT NULL DEFAULT '',
+			parent_consent tinyint(1) NOT NULL DEFAULT 0,
 			street varchar(200) NOT NULL DEFAULT '',
 			apt varchar(100) NOT NULL DEFAULT '',
 			city varchar(100) NOT NULL DEFAULT '',
@@ -344,14 +348,19 @@ class SDSC_Registration {
 
 					<section class="sdsc-step" data-step="2">
 						<h3>Parent / guardian</h3>
-						<p class="sdsc-note sdsc-minor-note">Because the student is under 18, a parent or guardian needs to sign.</p>
-						<p class="sdsc-note sdsc-adult-note">The student is 18 or older, so this step is optional.</p>
+						<p class="sdsc-note sdsc-minor-note"><b>The student is under 18.</b> In Maryland a parent or guardian must fill in this step, read the policies and sign.</p>
+						<p class="sdsc-note sdsc-adult-note"><b>The student is 18 or older</b>, so this step is optional. We recommend adding a parent or emergency contact: we only use it in an emergency, for class reminders, or to send the payment link.</p>
 						<div class="sdsc-grid">
 							<?php
-							echo self::field( 'parent_name', 'Parent / guardian full name', 'text', false, 'maxlength="200" data-minor-required="1"' );
-							echo self::field( 'parent_phone', 'Parent / guardian phone', 'tel', false, 'maxlength="40" data-minor-required="1"' );
+							echo self::field( 'parent_name', 'Parent / guardian full name', 'text', false, 'maxlength="200" autocomplete="off" data-minor-required="1"' );
+							echo self::field( 'parent_phone', 'Parent / guardian phone', 'tel', false, 'maxlength="40" autocomplete="off" data-minor-required="1"' );
+							echo self::field( 'parent_email', 'Parent / guardian email', 'email', false, 'maxlength="190" autocomplete="off" data-minor-required="1"' );
 							?>
 						</div>
+						<label class="sdsc-consent sdsc-parent-consent">
+							<input type="checkbox" name="parent_consent" value="1" data-minor-required="1" />
+							<span>I am the student's parent or legal guardian. I have read the <a href="<?php echo esc_url( home_url( '/policy/' ) ); ?>" target="_blank" rel="noopener">policies, terms and conditions</a> and I agree to them for my child.<b class="sdsc-minor-star"> *</b></span>
+						</label>
 						<div class="sdsc-sig" data-name="parent_sig" data-minor-required="1">
 							<span class="sdsc-sig-label">Parent / guardian signature</span>
 							<div class="sdsc-sig-paper"><canvas class="sdsc-sig-pad" height="170"></canvas><span class="sdsc-sig-hint">Sign here with your finger or mouse</span></div>
@@ -470,6 +479,29 @@ class SDSC_Registration {
 					}
 					?>
 					<p><a class="sdsc-btn" href="<?php echo esc_url( $pay ); ?>">Continue to payment &rarr;</a></p>
+					<?php
+					if ( $rid && class_exists( 'SDSC_Pay' ) && SDSC_Pay::url( $rid, $class_id ) ) :
+						global $wpdb;
+						$pr   = $wpdb->get_row( $wpdb->prepare( 'SELECT parent_name, parent_phone, parent_email FROM ' . self::table() . ' WHERE id = %d', $rid ) );
+						$sent = isset( $_GET['sdsc_sent'] ) ? sanitize_key( $_GET['sdsc_sent'] ) : ''; // phpcs:ignore
+						$sms  = class_exists( 'SDSC_Sms' ) && SDSC_Sms::connected();
+						?>
+						<div class="sdsc-parent-pay">
+							<p class="sdsc-or"><span>or</span></p>
+							<h3>Is a parent paying?</h3>
+							<p>Send them a secure payment link<?php echo $sms ? ' by email and text message' : ' by email'; ?>. They can pay from their own phone or computer.</p>
+							<?php if ( 'ok' === $sent ) : ?><p class="sdsc-sent is-ok" role="status">✓ Sent. Your seat is confirmed as soon as the payment goes through.</p><?php elseif ( 'limit' === $sent ) : ?><p class="sdsc-sent" role="status">The link was already sent a few times. Please call us at (301) 726-3030 if it did not arrive.</p><?php elseif ( 'bad' === $sent ) : ?><p class="sdsc-sent" role="alert">Please enter a valid email address.</p><?php endif; ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sdsc-parent-form">
+								<input type="hidden" name="action" value="sdsc_pay_parent" />
+								<input type="hidden" name="r" value="<?php echo (int) $rid; ?>" />
+								<input type="hidden" name="t" value="<?php echo esc_attr( $rtok ); ?>" />
+								<input type="hidden" name="c" value="<?php echo (int) $class_id; ?>" />
+								<label class="sdsc-field"><input type="email" name="parent_email" maxlength="190" required placeholder=" " value="<?php echo esc_attr( $pr ? $pr->parent_email : '' ); ?>" /><span>Parent's email</span></label>
+								<?php if ( $sms ) : ?><label class="sdsc-field"><input type="tel" name="parent_phone" maxlength="40" placeholder=" " value="<?php echo esc_attr( $pr ? $pr->parent_phone : '' ); ?>" /><span>Parent's mobile (optional, for a text)</span></label><?php endif; ?>
+								<button type="submit" class="sdsc-btn sdsc-btn-ghost">Send payment link to my parent</button>
+							</form>
+						</div>
+					<?php endif; ?>
 				<?php else : ?>
 					<p>We've received your registration and will contact you shortly with payment and class details.</p>
 					<p><a class="sdsc-btn" href="tel:+13017263030">Call (301) 726-3030</a></p>
@@ -479,6 +511,51 @@ class SDSC_Registration {
 		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});</script>
 		<?php
 		return ob_get_clean();
+	}
+
+	/** "Send payment link to my parent": e-mail (and text, when Twilio is connected) the secure payment link. */
+	public static function pay_parent() {
+		$rid  = absint( $_POST['r'] ?? 0 );
+		$tok  = sanitize_text_field( wp_unslash( $_POST['t'] ?? '' ) );
+		$cid  = absint( $_POST['c'] ?? 0 );
+		$back = wp_get_referer() ? wp_get_referer() : home_url( '/' );
+		if ( 0 !== strpos( $back, home_url() ) ) { $back = home_url( '/' ); }
+		$back = remove_query_arg( 'sdsc_sent', $back );
+		if ( ! $rid || ! class_exists( 'SDSC_Pay' ) || ! hash_equals( SDSC_Pay::token( $rid ), $tok ) ) { wp_safe_redirect( home_url( '/' ) ); exit; }
+		global $wpdb;
+		$r = $wpdb->get_row( $wpdb->prepare( 'SELECT id, class_id, first_name, last_name, parent_name, parent_email, parent_phone FROM ' . self::table() . ' WHERE id = %d', $rid ) );
+		if ( ! $r || (int) $r->class_id !== $cid ) { wp_safe_redirect( home_url( '/' ) ); exit; }
+		$url = SDSC_Pay::url( $rid, $cid );
+		if ( ! $url ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'bad', $back ) . '#sdsc' ); exit; }
+		$email = sanitize_email( wp_unslash( $_POST['parent_email'] ?? '' ) );
+		if ( ! is_email( $email ) ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'bad', $back ) . '#sdsc' ); exit; }
+		$key = 'sdsc_payparent_' . $rid;
+		$n   = (int) get_transient( $key );
+		if ( $n >= 3 ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'limit', $back ) . '#sdsc' ); exit; }
+		set_transient( $key, $n + 1, DAY_IN_SECONDS );
+		$phone = sanitize_text_field( wp_unslash( $_POST['parent_phone'] ?? '' ) );
+		// Keep the parent's contact on the registration (only fills empty fields).
+		$upd = array();
+		if ( ! $r->parent_email ) { $upd['parent_email'] = $email; }
+		if ( ! $r->parent_phone && $phone ) { $upd['parent_phone'] = substr( $phone, 0, 40 ); }
+		if ( $upd ) { $wpdb->update( self::table(), $upd, array( 'id' => $rid ) ); }
+
+		$student = trim( $r->first_name . ' ' . $r->last_name );
+		$class   = self::class_label( $cid );
+		$due     = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::amount_for( $rid, $cid ) : SDSC_Pay::amount( $cid );
+		$amount  = '$' . number_format( $due / 100, 2 );
+		$subject = 'Payment link for ' . $student . ' — Sam\'s Driving School';
+		$html    = '<p>Hello' . ( $r->parent_name ? ' ' . esc_html( $r->parent_name ) : '' ) . ',</p>'
+			. '<p>' . esc_html( $student ) . ' has registered for <b>' . esc_html( $class ) . '</b> at Sam\'s Driving School and asked you to complete the payment.</p>'
+			. '<p>Amount due: <b>' . esc_html( $amount ) . '</b></p>'
+			. '<p><a href="' . esc_url( $url ) . '" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#00703c;color:#fff;font-weight:700;text-decoration:none">Pay securely</a></p>'
+			. '<p>The seat is confirmed as soon as the payment goes through. Questions? Call (301) 726-3030.</p>';
+		if ( class_exists( 'SDSC_Mailer' ) ) { SDSC_Mailer::send( $email, $subject, $html, 'info', array( 'Content-Type: text/html; charset=UTF-8' ) ); } else { wp_mail( $email, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) ); }
+		if ( $phone && class_exists( 'SDSC_Sms' ) && SDSC_Sms::connected() ) {
+			SDSC_Sms::send( $phone, 'Sam\'s Driving School: ' . $student . ' registered for ' . $class . '. Pay ' . $amount . ' securely here: ' . $url, 'reg:' . $rid . ':payparent' );
+		}
+		wp_safe_redirect( add_query_arg( 'sdsc_sent', 'ok', $back ) . '#sdsc' );
+		exit;
 	}
 
 	/* ============================= Submit ============================= */
@@ -573,6 +650,8 @@ class SDSC_Registration {
 			'phone'        => $p( 'phone', 40 ),
 			'parent_name'  => $p( 'parent_name', 200 ),
 			'parent_phone' => $p( 'parent_phone', 40 ),
+			'parent_email' => sanitize_email( wp_unslash( $_POST['parent_email'] ?? '' ) ),
+			'parent_consent' => empty( $_POST['parent_consent'] ) ? 0 : 1,
 			'street'       => $p( 'street', 200 ),
 			'apt'          => $p( 'apt', 100 ),
 			'city'         => $p( 'city', 100 ),
@@ -583,6 +662,8 @@ class SDSC_Registration {
 		if ( ! $d['first_name'] || ! $d['last_name'] ) { self::fail( $return, 'Please enter the student\'s first and last name.' ); }
 		$age = self::age_from_dob( $d['dob'] );
 		if ( null === $age || $age < 14 || $age > 100 ) { self::fail( $return, 'Please enter a valid date of birth.' ); }
+		if ( $age < 16 ) { self::fail( $return, 'In Maryland, students can register from age 16 with a parent\'s signature. Please call us at (301) 726-3030 and we will help you plan.' ); }
+		if ( $d['parent_email'] && ! is_email( $d['parent_email'] ) ) { self::fail( $return, 'Please enter a valid parent / guardian email, or leave it empty.' ); }
 		if ( ! is_email( $d['email'] ) ) { self::fail( $return, 'Please enter a valid email address.' ); }
 		if ( strlen( preg_replace( '/\D/', '', $d['phone'] ) ) < 10 ) { self::fail( $return, 'Please enter a valid phone number.' ); }
 		if ( ! $d['street'] || ! $d['city'] || ! $d['zip'] ) { self::fail( $return, 'Please complete the address.' ); }
@@ -596,8 +677,8 @@ class SDSC_Registration {
 		$student_sig = self::decode_png( wp_unslash( $_POST['student_sig'] ?? '' ) );
 		$parent_sig  = self::decode_png( wp_unslash( $_POST['parent_sig'] ?? '' ) );
 		if ( ! $student_sig ) { self::fail( $return, 'Please add the student signature.' ); }
-		if ( $age < 18 && ( ! $d['parent_name'] || strlen( preg_replace( '/\D/', '', $d['parent_phone'] ) ) < 10 || ! $parent_sig ) ) {
-			self::fail( $return, 'For students under 18, the parent/guardian name, phone and signature are required.' );
+		if ( $age < 18 && ( ! $d['parent_name'] || strlen( preg_replace( '/\D/', '', $d['parent_phone'] ) ) < 10 || ! is_email( $d['parent_email'] ) || ! $parent_sig || ! $d['parent_consent'] ) ) {
+			self::fail( $return, 'For students under 18, a parent or guardian must enter their name, phone and email, accept the policies and sign.' );
 		}
 
 		global $wpdb;
@@ -713,7 +794,7 @@ class SDSC_Registration {
 		$view = absint( $_GET['view'] ?? 0 );
 		echo '<div class="wrap" dir="ltr" style="text-align:left">';
 		if ( $view ) {
-			$r = $wpdb->get_row( $wpdb->prepare( "SELECT id, created_at, source, source_entry_id, class_id, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, street, apt, city, state, zip, consent, signed_date, notes, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM $t WHERE id = %d", $view ) );
+			$r = $wpdb->get_row( $wpdb->prepare( "SELECT id, created_at, source, source_entry_id, class_id, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, parent_email, parent_consent, street, apt, city, state, zip, consent, signed_date, notes, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM $t WHERE id = %d", $view ) );
 			echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations' ) ) . '">&larr; All registrations</a></p>';
 			if ( ! $r ) { echo '<p>Not found.</p></div>'; return; }
 			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1>';
@@ -726,7 +807,7 @@ class SDSC_Registration {
 				'Gender'          => $r->gender,
 				'Email'           => $r->email,
 				'Phone'           => $r->phone,
-				'Parent/guardian' => trim( $r->parent_name . ' ' . $r->parent_phone ),
+				'Parent/guardian' => trim( $r->parent_name . ' ' . $r->parent_phone . ' ' . ( $r->parent_email ?? '' ) ) . ( ! empty( $r->parent_consent ) ? ' — accepted the policies' : '' ),
 				'Address'         => trim( "$r->street $r->apt, $r->city $r->state $r->zip", ' ,' ),
 				'Consent'         => $r->consent ? 'Yes — signed ' . $r->signed_date : 'No',
 				'Notes'           => $r->notes,

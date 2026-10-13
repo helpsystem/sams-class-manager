@@ -288,3 +288,16 @@
 .sdsc-steps-nav li.sdsc-step-pay span { background: #fff3cd; color: #7a5600; }
 .sdsc-steps-nav li.sdsc-step-pay.is-active span { background: #ffc20e; color: #15191d; }
 .sdsc-steps-nav--done { margin: 6px auto 14px; justify-content: center; }
+
+.sdsc-reg .sdsc-adult-note { color: #0b4f2c; background: #eaf6ef; border: 1px solid #c6e6d3; border-radius: 10px; padding: 10px 12px; }
+.sdsc-parent-consent { margin-top: 14px; }
+.sdsc-minor-star { display: none; color: var(--sd-red); }
+.sdsc-reg.is-minor .sdsc-minor-star { display: inline; }
+.sdsc-parent-pay { max-width: 460px; margin: 18px auto 0; text-align: left; }
+.sdsc-parent-pay h3 { margin: 4px 0 4px; font-size: 1.15rem; text-align: center; }
+.sdsc-parent-pay > p { text-align: center; color: #5b646d; }
+.sdsc-or { display: flex; align-items: center; gap: 10px; color: #8a939b; font-size: .85rem; text-transform: uppercase; letter-spacing: .1em; }
+.sdsc-or::before, .sdsc-or::after { content: ""; flex: 1; height: 1px; background: #e1e6ea; }
+.sdsc-parent-form { display: grid; gap: 10px; margin-top: 10px; }
+.sdsc-sent { padding: 10px 12px; border-radius: 10px; background: #fff7df; color: #6b4a00; text-align: center; }
+.sdsc-sent.is-ok { background: #eaf6ef; color: #0b4f2c; }
