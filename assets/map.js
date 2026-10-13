@@ -131,8 +131,29 @@
 		if (lastFocus && lastFocus.focus) { lastFocus.focus(); }
 	}
 
+	/* Google centres the embedded map on the pin only when the map loads. If the box changes size
+	   afterwards (fonts, the info card growing, rotating a phone), the pin drifts off-centre. Reload
+	   the map once its box has settled at a new size so the pin is always in the middle. */
+	function keepCentred(frame) {
+		var ifr = frame.querySelector('iframe');
+		if (!ifr || !window.ResizeObserver) { return; }
+		var src = ifr.getAttribute('src'), loaded = null, t;
+		function size() { return Math.round(frame.clientWidth) + 'x' + Math.round(frame.clientHeight); }
+		ifr.addEventListener('load', function () { loaded = size(); });
+		new ResizeObserver(function () {
+			clearTimeout(t);
+			t = setTimeout(function () {
+				if (loaded && size() !== loaded) {
+					var a = loaded.split('x'), b = size().split('x');
+					if (Math.abs(a[0] - b[0]) > 24 || Math.abs(a[1] - b[1]) > 24) { loaded = null; ifr.setAttribute('src', src); }
+				}
+			}, 400);
+		}).observe(frame);
+	}
+
 	function boot() {
 		[].forEach.call(document.querySelectorAll('.sdmap'), block);
+		[].forEach.call(document.querySelectorAll('.sdmap-frame'), keepCentred);
 		if (!D.google) { return; }
 		document.addEventListener('click', function (e) {
 			var a = e.target.closest && e.target.closest('a[data-sdsc-nav]');
