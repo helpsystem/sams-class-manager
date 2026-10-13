@@ -173,3 +173,39 @@
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();
+
+/* v0.9.7 posts slider: moves the queue of articles (no libraries). Only the article in front is
+   readable by screen readers and reachable with Tab; arrows and the ← → keys move it. */
+(function () {
+	function boot() {
+		[].forEach.call(document.querySelectorAll('[data-sdp-slider]'), function (root) {
+			var list = root.querySelector('.sdp-slides');
+			if (!list || list.children.length < 2) { return; }
+			root.classList.add('is-live');
+			// The first item is the backdrop; start with the newest article in front (second place).
+			list.insertBefore(list.lastElementChild, list.firstElementChild);
+			function mark() {
+				[].forEach.call(list.children, function (li, i) {
+					var on = i === 1;
+					li.setAttribute('aria-hidden', on ? 'false' : 'true');
+					[].forEach.call(li.querySelectorAll('a,button'), function (a) { if (on) { a.removeAttribute('tabindex'); } else { a.setAttribute('tabindex', '-1'); } });
+				});
+			}
+			function go(dir) {
+				if (dir === 'next') { list.appendChild(list.firstElementChild); } else { list.insertBefore(list.lastElementChild, list.firstElementChild); }
+				mark();
+			}
+			[].forEach.call(root.querySelectorAll('.sdp-slider-btn'), function (b) { b.addEventListener('click', function () { go(b.getAttribute('data-dir')); }); });
+			root.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { go('next'); } else if (e.key === 'ArrowLeft') { go('prev'); } });
+			// Tapping a waiting card brings it to the front.
+			list.addEventListener('click', function (e) {
+				var li = e.target.closest('.sdp-slide');
+				if (!li) { return; }
+				var i = [].indexOf.call(list.children, li);
+				if (i > 1) { e.preventDefault(); for (var k = 1; k < i; k++) { list.appendChild(list.firstElementChild); } mark(); }
+			});
+			mark();
+		});
+	}
+	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+})();

@@ -33,7 +33,7 @@ class SDSC_Pages {
 
 	/** Homepage "Latest News": three newest posts as cards. */
 	public static function blog( $html ) {
-		$q = new WP_Query( array( 'post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => 3, 'ignore_sticky_posts' => true, 'no_found_rows' => true ) );
+		$q = new WP_Query( array( 'post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => 6, 'ignore_sticky_posts' => true, 'no_found_rows' => true ) );
 		if ( ! $q->have_posts() ) { return ''; }
 		$fix = class_exists( 'SDSC_WhyUs' ) ? array( 'SDSC_WhyUs', 'fix_name' ) : 'trim';
 		ob_start();
@@ -53,32 +53,40 @@ class SDSC_Pages {
 					<?php foreach ( $sdb_t as $t ) : ?><a class="sdb-chip" href="<?php echo esc_url( $t['url'] ); ?>" style="--tc:<?php echo esc_attr( $t['color'] ); ?>"><?php if ( $t['icon'] ) : ?><img src="<?php echo esc_url( SDSC_Blog::icon_url( $t['icon'] ) ); ?>" alt="" width="22" height="22" loading="lazy"><?php endif; ?><span><?php echo esc_html( $t['name'] ); ?></span><b><?php echo (int) $t['count']; ?></b></a><?php endforeach; ?>
 				</nav>
 			<?php endif; ?>
-			<ul class="sdp-blog-grid">
-				<?php
-				while ( $q->have_posts() ) :
-					$q->the_post();
-					$t = call_user_func( $fix, get_the_title() );
-					?>
-					<?php $sdb_tp = class_exists( 'SDSC_Blog' ) ? SDSC_Blog::post_topic( get_the_ID() ) : null; ?>
+			<?php
+			// Smooth slider: the photo of the article in front fills the frame, the next articles wait on
+			// the right as small cards. Arrows (or ← →) move the queue; only the article in front is readable
+			// and focusable. Without JavaScript the articles are a simple list.
+			$sdp_n = 0;
+			?>
+			<div class="sdp-slider" data-sdp-slider>
+				<ul class="sdp-slides">
 					<?php
-					// Wide photos fill the frame; tall ones (award plaques, flyers) are shown whole on a blurred copy.
-					$sdp_src = has_post_thumbnail() ? wp_get_attachment_image_src( get_post_thumbnail_id(), 'full' ) : null;
-					$sdp_tall = $sdp_src && ! empty( $sdp_src[1] ) && $sdp_src[2] / max( 1, $sdp_src[1] ) > 0.8;
-					?>
-					<li class="sdp-post<?php echo $sdp_tall ? ' is-tall' : ''; ?>"<?php echo $sdb_tp ? ' style="--tc:' . esc_attr( $sdb_tp['color'] ) . '"' : ''; ?>>
-						<a class="sdp-post-img" href="<?php the_permalink(); ?>" tabindex="-1" aria-hidden="true"<?php $bg = has_post_thumbnail() ? get_the_post_thumbnail_url( null, 'medium' ) : ''; echo $bg ? ' style="--sdp-bg:url(' . esc_url( $bg ) . ')"' : ''; ?>>
-							<?php if ( has_post_thumbnail() ) { the_post_thumbnail( 'medium_large', array( 'loading' => 'lazy', 'alt' => '' ) ); } else { echo '<span class="sdp-post-ph"></span>'; } ?>
-							<span class="sdp-post-date"><?php echo esc_html( get_the_date( 'M j, Y' ) ); ?></span>
-						</a>
-						<div class="sdp-post-body">
-							<?php if ( $sdb_tp ) : ?><div class="sdp-post-tags"><?php echo SDSC_Blog::badge( $sdb_tp ); // phpcs:ignore ?><span class="sdp-post-meta"><?php echo (int) SDSC_Blog::minutes( get_the_ID() ); ?> min read</span></div><?php endif; ?>
-							<h3><a href="<?php the_permalink(); ?>"><?php echo esc_html( $t ); ?></a></h3>
-							<p><?php echo esc_html( call_user_func( $fix, wp_trim_words( wp_strip_all_tags( get_the_excerpt() ), 22, '…' ) ) ); ?></p>
-							<a class="sdp-more" href="<?php the_permalink(); ?>">Read article<span aria-hidden="true"> &rarr;</span></a>
-						</div>
-					</li>
-				<?php endwhile; wp_reset_postdata(); ?>
-			</ul>
+					while ( $q->have_posts() ) :
+						$q->the_post();
+						$sdp_n++;
+						$t      = call_user_func( $fix, get_the_title() );
+						$sdb_tp = class_exists( 'SDSC_Blog' ) ? SDSC_Blog::post_topic( get_the_ID() ) : null;
+						?>
+						<li class="sdp-slide"<?php echo $sdb_tp ? ' style="--tc:' . esc_attr( $sdb_tp['color'] ) . '"' : ''; ?>>
+							<?php if ( has_post_thumbnail() ) { the_post_thumbnail( 'large', array( 'class' => 'sdp-slide-img', 'loading' => $sdp_n > 2 ? 'lazy' : 'eager', 'alt' => '' ) ); } else { echo '<span class="sdp-slide-img sdp-slide-ph"></span>'; } ?>
+							<span class="sdp-slide-mini" aria-hidden="true"><?php echo esc_html( $t ); ?></span>
+							<div class="sdp-slide-body">
+								<p class="sdp-slide-meta"><?php if ( $sdb_tp ) { echo SDSC_Blog::badge( $sdb_tp ); } // phpcs:ignore ?><span><?php echo esc_html( get_the_date( 'M j, Y' ) ); ?><?php echo class_exists( 'SDSC_Blog' ) ? ' · ' . (int) SDSC_Blog::minutes( get_the_ID() ) . ' min read' : ''; ?></span></p>
+								<h3><a href="<?php the_permalink(); ?>"><?php echo esc_html( $t ); ?></a></h3>
+								<p class="sdp-slide-text"><?php echo esc_html( call_user_func( $fix, wp_trim_words( wp_strip_all_tags( get_the_excerpt() ), 24, '…' ) ) ); ?></p>
+								<a class="sdp-btn" href="<?php the_permalink(); ?>">Read article<span aria-hidden="true"> &rarr;</span></a>
+							</div>
+						</li>
+					<?php endwhile; wp_reset_postdata(); ?>
+				</ul>
+				<?php if ( $sdp_n > 1 ) : ?>
+					<div class="sdp-slider-nav">
+						<button type="button" class="sdp-slider-btn" data-dir="prev" aria-label="Previous article"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+						<button type="button" class="sdp-slider-btn" data-dir="next" aria-label="Next article"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+					</div>
+				<?php endif; ?>
+			</div>
 		</section>
 		<?php
 		return ob_get_clean();
