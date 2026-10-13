@@ -74,11 +74,14 @@ sleep 2
 chk "first reminder e-mail went out (17: student)" 'grep -q "e2e-teen@example.com | Finish E2E-Test teen" $LOG'
 chk "first reminder e-mail to parent (15)" 'grep -q "e2e-young-mom@example.com | Finish" $LOG'
 chk "no reminder for 19 (nothing but payment)" '! grep -q "e2e-adult@example.com | Finish" $LOG'
+SINCE=$(q 'echo get_option("sdsc_followup_since");'); q 'update_option("sdsc_followup_since", wp_date("Y-m-d H:i:s", time()-6*HOUR_IN_SECONDS), false);'
 q "global \$wpdb; \$wpdb->query(\"UPDATE \".SDSC_Registration::table().\" SET created_at = DATE_SUB(created_at, INTERVAL 3 HOUR) WHERE email LIKE 'e2e-%@example.com'\");"
 TQ=$(q 'echo count(array_filter(SDSC_TextQ::items(),function($i){return $i["group"]==="registrations" && false!==strpos($i["name"],"E2E-Test");}));')
 chk "texts for Saghar on 'Texts to send' ($TQ cards)" '[[ "$TQ" -ge 2 ]]'
-ADM=$(q "wp_set_current_user(1); \$_GET['view']=$I1; ob_start(); SDSC_Registration::render_admin(); echo ob_get_clean();")
-chk "Registrations: Follow-up panel + reminder button" '[[ "$ADM" == *"Follow-up"* && "$ADM" == *"E-mail a reminder now"* ]]'
+q "echo '      sample text: '; \$i=array_values(array_filter(SDSC_TextQ::items(),function(\$i){return \$i['group']==='registrations';})); echo \$i?substr(\$i[0]['texts']['en'],0,150):'-', \"\n\";"
+q "update_option('sdsc_followup_since', '$SINCE', false);"
+ADM=$(q "\$a=get_users(array('role'=>'administrator','number'=>1,'fields'=>'ID')); wp_set_current_user((int)\$a[0]); \$_GET['view']=$I1; ob_start(); SDSC_Registration::render_admin(); echo ob_get_clean();")
+chk "Registrations: Follow-up panel + reminder button" '[[ "$ADM" == *"Follow-up"* && "$ADM" == *"E-mail a reminder now"* ]]' || echo "      admin output: $(echo "$ADM" | tr -s ' \n' ' ' | cut -c1-240)"
 echo "== Parent link"
 PU=$(q "echo SDSC_Followup::parent_url($I1);"); PT=$(q "echo SDSC_Followup::token($I1);")
 PG=$(curl -s "$PU&e2e=$RANDOM")
@@ -95,8 +98,8 @@ X=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$SITE/wp-admin/admin-post
 sleep 1
 chk "payment link sent to parent" '[[ "$X" == *"sdsc_sent=ok"* ]] && grep -q "e2e-parent@example.com | Payment link for E2E-Test" $LOG'
 PAY=$(q "echo SDSC_Pay::url($I1,$CID);")
-L=$(curl -s -o /dev/null -w '%{redirect_url}' "$PAY")
-chk "pay link opens Stripe checkout (test mode)" '[[ "$L" == https://checkout.stripe.com/* ]]'
+L=$(curl -s -o /tmp/e2e-pay.html -w '%{http_code} %{redirect_url}' "$PAY")
+chk "pay link opens Stripe checkout (test mode)" '[[ "$L" == *" https://checkout.stripe.com/"* ]]' || echo "      pay: $L $(sed 's/<[^>]*>/ /g' /tmp/e2e-pay.html | tr -s ' \n' ' ' | cut -c1-240)"
 echo "== Clean up test data"
 q "global \$wpdb; \$t=SDSC_Registration::table(); \$rows=\$wpdb->get_results(\"SELECT id, registrant_id FROM \$t WHERE email LIKE 'e2e-%@example.com'\"); foreach(\$rows as \$r){ if(\$r->registrant_id) wp_delete_post((int)\$r->registrant_id,true); \$wpdb->delete(\$t,array('id'=>\$r->id)); if(class_exists('SDSC_Pay')) \$wpdb->delete(SDSC_Pay::table(),array('reg_id'=>\$r->id)); delete_transient('sdsc_payparent_'.\$r->id); } echo 'removed '.count(\$rows).\" test registrations\n\";"
 rm -f $MU/zz-e2e-mail.php
