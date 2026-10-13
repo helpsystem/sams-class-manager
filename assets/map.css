@@ -64,15 +64,19 @@
 .sdmap-copy:focus-visible, .sdmap-call:focus-visible { outline: 3px solid var(--sdm-yel); outline-offset: 2px; }
 .sdmap-copy.is-done { background: #fff; color: var(--sdm-green) !important; }
 
-.sdmap-hours { margin-top: 4px; padding: 14px 16px; border-radius: 14px; background: rgba(0, 0, 0, .24); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .35); }
-.sdmap-hours-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px !important; font-weight: 900; font-size: .95rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sdm-yel) !important; }
+.sdmap-hours { margin-top: 4px; padding: 14px 16px 10px; border-radius: 14px; background: rgba(0, 0, 0, .26); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .32); }
+.sdmap-hours-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+.sdmap-hours-h { display: flex; align-items: center; gap: 8px; margin: 0 !important; font-weight: 900; font-size: .92rem; letter-spacing: .07em; text-transform: uppercase; color: var(--sdm-yel) !important; }
 .sdmap-hours-h svg { width: 18px; height: 18px; }
-.sdmap-hours ul { list-style: none; margin: 0 !important; padding: 0 !important; display: grid; gap: 6px; }
-.sdmap-hours li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); color: #fff; font-size: 1.05rem; }
-.sdmap-hours li b { font-weight: 900; }
-.sdmap-hours li span { font-weight: 700; white-space: nowrap; }
-.sdmap-hours li.is-today { background: var(--sdm-yel); color: #15191d; }
-.sdmap-hours li.is-today b::after { content: " · today"; font-weight: 700; font-size: .8em; }
+.sdmap-hours-now { padding: 4px 10px; border-radius: 999px; background: #ff5a4f; color: #fff; font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.sdmap-hours-now.is-open { background: #22c55e; color: #052e14; }
+.sdmap-hours-now.is-soon { background: #ffc20e; color: #15191d; }
+.sdmap-hours table { width: 100%; margin: 0 !important; border-collapse: separate; border-spacing: 0 3px; border: 0 !important; font-size: .98rem; }
+.sdmap-hours th, .sdmap-hours td { padding: 7px 10px !important; border: 0 !important; background: rgba(255, 255, 255, .06) !important; color: #fff !important; text-align: left; font-weight: 600; }
+.sdmap-hours th { border-radius: 9px 0 0 9px; }
+.sdmap-hours td { text-align: right; border-radius: 0 9px 9px 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sdmap-hours tr.is-today th, .sdmap-hours tr.is-today td { background: var(--sdm-yel) !important; color: #15191d !important; font-weight: 900; }
+.sdmap-hours tr.is-today th::after { content: "Today"; margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: #15191d; color: var(--sdm-yel); font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; vertical-align: 2px; }
 
 /* Map frame */
 .sdmap-frame {

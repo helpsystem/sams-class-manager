@@ -95,11 +95,49 @@ class SDSC_Map {
 		if ( 'google_maps' === $widget->get_name() ) {
 			return self::block() . ( class_exists( 'SDSC_Holidays' ) ? SDSC_Holidays::calendar_html() : '' );
 		}
+		if ( false !== strpos( $content, 'elementor-icon-box-description' ) ) {
+			$content = self::clickable( $content );
+		}
 		// Old directions links (the school's previous Twinbrook address) → current address + app chooser.
 		if ( false !== strpos( $content, 'google.com/maps/dir/' ) ) {
 			$content = preg_replace( '#href="https://www\.google\.com/maps/dir/[^"]*"#', 'href="' . esc_url( self::links()['google'] ) . '" data-sdsc-nav target="_blank" rel="noopener"', $content );
 		}
 		return $content;
+	}
+
+	const EMAIL_MAIN = 'info@samsdrivingschool.org';
+
+	/**
+	 * Contact icon boxes (Address / Phone / Email): every number, e-mail and the address become links,
+	 * and the school's own e-mail (info@) is listed above the Gmail address.
+	 */
+	public static function clickable( $content ) {
+		return preg_replace_callback( '#(<p class="elementor-icon-box-description"[^>]*>)(.*?)(</p>)#s', function ( $m ) {
+			$body = $m[2];
+			if ( false !== stripos( $body, '<a ' ) ) { return $m[0]; }
+			$link = 'style="color:inherit;text-decoration:underline;text-underline-offset:3px"';
+			// E-mail: info@ first, then the Gmail address.
+			if ( preg_match( '/[\w.+-]+@[\w-]+\.[\w.]+/', $body, $em ) ) {
+				$mail = function ( $e ) use ( $link ) { return '<a class="sdmap-mail" href="mailto:' . esc_attr( strtolower( $e ) ) . '" ' . $link . '>' . esc_html( $e ) . '</a>'; };
+				$body = preg_replace_callback( '/[\w.+-]+@[\w-]+\.[\w.]+/', function ( $x ) use ( $mail ) { return $mail( $x[0] ); }, $body );
+				if ( false === stripos( $body, self::EMAIL_MAIN ) ) {
+					$body = preg_replace( '#(<b[^>]*>)?(\s*<i [^>]*fa-envelope[^>]*></i>)?\s*<a class="sdmap-mail"#', '$1$2 ' . $mail( self::EMAIL_MAIN ) . '<br>$2 <a class="sdmap-mail"', $body, 1 );
+				}
+				return $m[1] . $body . $m[3];
+			}
+			// Phones: (301) 726-3030, (202)600-0889, 301-726-3030 …
+			if ( preg_match( '/\(?\d{3}\)?\s*[-.]?\s*\d{3}[-.\s]\d{4}/', $body ) ) {
+				$body = preg_replace_callback( '/\(?(\d{3})\)?\s*[-.]?\s*(\d{3})[-.\s](\d{4})/', function ( $x ) use ( $link ) {
+					return '<a href="tel:+1' . $x[1] . $x[2] . $x[3] . '" ' . $link . '>(' . $x[1] . ') ' . $x[2] . '-' . $x[3] . '</a>';
+				}, $body );
+				return $m[1] . $body . $m[3];
+			}
+			// Address → directions (the directions-link rewrite below adds the app chooser and new tab).
+			if ( false !== stripos( $body, 'Rockville Pike' ) ) {
+				return $m[1] . '<a href="' . esc_url( self::links()['google'] ) . '" ' . $link . '>' . trim( $body ) . '</a>' . $m[3];
+			}
+			return $m[0];
+		}, $content );
 	}
 
 	protected static function icon( $n ) {
@@ -151,20 +189,12 @@ class SDSC_Map {
 		$h .= '</div>';
 
 		if ( $hours ) {
-			// Always visible, grouped like a shop door: "Mon – Fri  8 AM – 7 PM". Today is highlighted.
-			$groups = array();
+			// Every day, always visible; today is highlighted and the live status sits in the header.
+			$h .= '<div class="sdmap-hours"><div class="sdmap-hours-top"><p class="sdmap-hours-h">' . self::icon( 'clock' ) . 'Office hours</p><span class="sdmap-hours-now" hidden></span></div><table>';
 			foreach ( $hours as $r ) {
-				$t = self::fmt( $r['open'] ) . ' – ' . self::fmt( $r['close'] );
-				$n = count( $groups );
-				if ( $n && $groups[ $n - 1 ]['t'] === $t ) { $groups[ $n - 1 ]['days'][] = $r['day']; } else { $groups[] = array( 't' => $t, 'days' => array( $r['day'] ) ); }
+				$h .= '<tr data-day="' . esc_attr( $r['day'] ) . '"><th scope="row">' . esc_html( $r['day'] ) . '</th><td>' . esc_html( self::fmt( $r['open'] ) . ' – ' . self::fmt( $r['close'] ) ) . '</td></tr>';
 			}
-			$h .= '<div class="sdmap-hours"><p class="sdmap-hours-h">' . self::icon( 'clock' ) . 'Office hours</p><ul>';
-			foreach ( $groups as $grp ) {
-				$d     = $grp['days'];
-				$label = substr( $d[0], 0, 3 ) . ( count( $d ) > 1 ? ' – ' . substr( end( $d ), 0, 3 ) : '' );
-				$h .= '<li data-days="' . esc_attr( implode( ' ', $d ) ) . '"><b>' . esc_html( $label ) . '</b><span>' . esc_html( $grp['t'] ) . '</span></li>';
-			}
-			$h .= '</ul></div>';
+			$h .= '</table></div>';
 		}
 		$h .= '</div></div>';
 

@@ -42,7 +42,8 @@
 		var by = {}; hours.forEach(function (h) { by[h.day] = h; });
 		var today = by[now.day], txt = '', open = false;
 		if (today && now.min >= toMin(today.open) && now.min < toMin(today.close)) {
-			open = true; txt = 'Open now · until ' + label(today.close);
+			open = true; txt = (toMin(today.close) - now.min <= 60 ? 'Closing soon · ' : 'Open now · until ') + label(today.close);
+			if (toMin(today.close) - now.min <= 60) { el.classList.add('is-soon'); }
 		} else if (today && now.min < toMin(today.open)) {
 			txt = 'Closed · opens ' + label(today.open);
 		} else {
@@ -57,8 +58,10 @@
 		el.classList.toggle('is-open', open);
 		el.hidden = false;
 		var box = el.closest('.sdmap');
-		var row = box && box.querySelector('.sdmap-hours [data-days~="' + now.day + '"]');
+		var row = box && box.querySelector('.sdmap-hours tr[data-day="' + now.day + '"]');
 		if (row) { row.classList.add('is-today'); }
+		var tag = box && box.querySelector('.sdmap-hours-now');
+		if (tag) { tag.textContent = txt; tag.className = 'sdmap-hours-now' + (open ? ' is-open' : '') + (el.classList.contains('is-soon') ? ' is-soon' : ''); tag.hidden = false; }
 	}
 
 	function block(s) {
