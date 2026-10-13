@@ -198,8 +198,8 @@ class SDSC_Preview {
 		$uid   = self::account( $key );
 		if ( ! $uid ) { wp_die( 'Could not prepare the preview account.' ); }
 		$token = wp_generate_password( 40, false, false );
-		update_user_meta( $uid, self::BACK, array( $admin, wp_hash_password( $token ), time() + 4 * HOUR_IN_SECONDS ) );
-		setcookie( self::COOKIE, $uid . '|' . $token, array( 'expires' => time() + 4 * HOUR_IN_SECONDS, 'path' => COOKIEPATH ? COOKIEPATH : '/', 'domain' => COOKIE_DOMAIN, 'secure' => is_ssl(), 'httponly' => true, 'samesite' => 'Lax' ) );
+		update_user_meta( $uid, self::BACK, array( $admin, wp_hash_password( $token ), time() + 12 * HOUR_IN_SECONDS ) );
+		setcookie( self::COOKIE, $uid . '|' . $token, array( 'expires' => time() + 12 * HOUR_IN_SECONDS, 'path' => COOKIEPATH ? COOKIEPATH : '/', 'domain' => COOKIE_DOMAIN, 'secure' => is_ssl(), 'httponly' => true, 'samesite' => 'Lax' ) );
 		wp_clear_auth_cookie();
 		wp_set_current_user( $uid );
 		wp_set_auth_cookie( $uid, false, is_ssl() );
@@ -213,6 +213,15 @@ class SDSC_Preview {
 		list( $cu, $tok ) = array_pad( explode( '|', $c, 2 ), 2, '' );
 		$b = get_user_meta( $uid, self::BACK, true );
 		if ( ! self::is_preview( $uid ) || (int) $cu !== $uid || ! is_array( $b ) || $b[2] < time() || ! wp_check_password( $tok, $b[1] ) || ! user_can( (int) $b[0], 'manage_options' ) ) {
+			// The way back is no longer valid (expired, or the cookie is gone). Never leave the person stuck in
+			// the preview account: sign the preview out and send them to the sign-in page for their own account.
+			if ( self::is_preview( $uid ) ) {
+				delete_user_meta( $uid, self::BACK );
+				setcookie( self::COOKIE, '', array( 'expires' => time() - 3600, 'path' => COOKIEPATH ? COOKIEPATH : '/', 'domain' => COOKIE_DOMAIN, 'secure' => is_ssl(), 'httponly' => true, 'samesite' => 'Lax' ) );
+				wp_logout();
+				wp_safe_redirect( wp_login_url( self::dash() ) . '&sdsc_preview_ended=1' );
+				exit;
+			}
 			wp_die( 'The preview has expired. Please sign in again.', 403 );
 		}
 		check_admin_referer( 'sdsc_preview_back' );
