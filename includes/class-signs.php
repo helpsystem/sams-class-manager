@@ -718,7 +718,7 @@ class SDSC_Signs {
 			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The 3-hour program the MVA requires (formerly Alcohol & Drug), also for drivers assigned it by the MVA or a court.', 'Call us', $tel );
 		}
 		if ( false !== strpos( $t, 'improvement' ) ) {
-			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'For drivers assigned the program by the MVA or a court.', 'Call us', $tel );
+			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The 3-hour alcohol and drug education program the MVA requires, also for drivers assigned it by the MVA or a court.', 'Call us', $tel );
 		}
 		return array( 'service', array( 'symbol' => 'info' ), $plq( $item['title'] ), $item['desc'], 'Call us', $tel );
 	}
