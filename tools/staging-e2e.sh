@@ -14,7 +14,7 @@ add_filter('pre_wp_mail',function($r,$a){ $to=is_array($a['to'])?implode(',',$a[
 PHP
 chown testsaman:testsaman $MU/zz-e2e-mail.php
 P=0; F=0
-chk(){ if eval "$2"; then echo "PASS  $1"; P=$((P+1)); else echo "FAIL  $1"; F=$((F+1)); fi; }
+chk(){ if eval "$2"; then echo "PASS  $1"; P=$((P+1)); else echo "FAIL  $1"; F=$((F+1)); return 1; fi; }
 q(){ $W eval "$1" 2>/dev/null; }
 PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 echo "== Homepage"
