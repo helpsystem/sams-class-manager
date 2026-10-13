@@ -49,3 +49,57 @@
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 })();
+
+/* v0.9.6 homepage: service jump bar (shows after the hero, highlights the section on screen),
+   and a short glow on the section a visitor jumps to. */
+(function () {
+	function boot() {
+		var bar = document.querySelector('[data-sds-jump]');
+		var hero = document.querySelector('.mdh');
+		var head = document.querySelector('.sdh');
+		var links = bar ? [].slice.call(bar.querySelectorAll('a[data-for]')) : [];
+		var targets = links.map(function (a) { return document.getElementById(a.getAttribute('data-for')); });
+		function place() {
+			if (!bar) { return; }
+			var top = head ? Math.max(0, head.getBoundingClientRect().bottom) : 0;
+			bar.style.top = top + 'px';
+			var show = !hero || hero.getBoundingClientRect().bottom < top + 10;
+			bar.classList.toggle('is-on', show);
+			var cur = -1, line = top + 90;
+			targets.forEach(function (t, i) { if (t && t.getBoundingClientRect().top <= line) { cur = i; } });
+			if (cur > -1 && targets[cur] && targets[cur].getBoundingClientRect().bottom < line) {
+				// past the section: only stay highlighted while some of it is still on screen
+				var next = targets[cur + 1];
+				if (!next || next.getBoundingClientRect().top > window.innerHeight) { cur = targets[cur].getBoundingClientRect().bottom > 0 ? cur : -1; }
+			}
+			links.forEach(function (a, i) { a.classList.toggle('is-here', i === cur); if (i === cur) { a.setAttribute('aria-current', 'true'); } else { a.removeAttribute('aria-current'); } });
+		}
+		if (bar && targets.some(Boolean)) {
+			bar.hidden = false;
+			var tick = false;
+			window.addEventListener('scroll', function () { if (!tick) { tick = true; requestAnimationFrame(function () { tick = false; place(); }); } }, { passive: true });
+			window.addEventListener('resize', place);
+			place();
+		} else if (bar) { bar.remove(); }
+
+		function glow(id) {
+			var el = id && document.getElementById(id);
+			if (!el) { return; }
+			el.classList.remove('is-arrived'); void el.offsetWidth; el.classList.add('is-arrived');
+			setTimeout(function () { el.classList.remove('is-arrived'); }, 1800);
+		}
+		var ids = ['driver-ed', 'practice', 'online-course', 'road-test-car', 'services'];
+		document.addEventListener('click', function (e) {
+			var a = e.target.closest && e.target.closest('a[href*="#"]');
+			if (!a || a.hostname !== location.hostname || a.pathname !== location.pathname) { return; }
+			var id = a.hash.slice(1);
+			if (ids.indexOf(id) < 0 || !document.getElementById(id)) { return; }
+			e.preventDefault();
+			document.getElementById(id).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+			if (history.replaceState) { history.replaceState(null, '', '#' + id); }
+			setTimeout(function () { glow(id); }, 450);
+		});
+		if (ids.indexOf(location.hash.slice(1)) > -1) { setTimeout(function () { var el = document.getElementById(location.hash.slice(1)); if (el) { el.scrollIntoView(); glow(el.id); } }, 300); }
+	}
+	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+})();

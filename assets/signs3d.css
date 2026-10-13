@@ -343,27 +343,37 @@
 /* v0.9.6: every service button jumps to its own section (not the top of the page) */
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-#driver-ed, #practice, #online-course, #road-test-car, #services { scroll-margin-top: 110px; }
+#driver-ed, #practice, #online-course, #road-test-car, #services { scroll-margin-top: 150px; }
 #online-course:target .sdsc3d-card, #road-test-car:target .sdsc3d-card { box-shadow: 0 0 0 3px #24c45c, 0 18px 40px -24px rgba(0,0,0,.45); transition: box-shadow .4s; }
 .sdsc3d-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .sdsc3d-tag { margin: -2px 0 8px !important; color: #00703c !important; font-weight: 700; font-size: .92rem; }
 
-/* behind-the-wheel packages: one clear table instead of 11 signs */
-.sdsc3d--btw .sdsc3d-head p:last-child { max-width: 640px; }
-.sdsc3d-btw-wrap { max-width: 760px; margin: 22px 0 0; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px #e1e6ea, 0 18px 40px -30px rgba(0,0,0,.45); overflow: hidden; }
-.sdsc3d-btw-t { width: 100%; margin: 0 !important; border: 0 !important; border-collapse: collapse; font-size: 1rem; }
-.sdsc3d-btw-t th, .sdsc3d-btw-t td { padding: 12px 18px !important; border: 0 !important; border-bottom: 1px solid #eef1f3 !important; text-align: left; vertical-align: middle; background: none !important; color: #15191d; }
-.sdsc3d-btw-t thead th { padding-top: 14px !important; padding-bottom: 10px !important; background: #f4f8f6 !important; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #5b646d; }
-.sdsc3d-btw-t tbody tr:last-child > * { border-bottom: 0 !important; }
-.sdsc3d-btw-t tbody tr:hover > * { background: #f7fbf8 !important; }
-.sdsc3d-btw-t tbody th { font-weight: 600; white-space: nowrap; }
-.sdsc3d-btw-t tbody th b { font-size: 1.25rem; font-weight: 900; color: #00703c; margin-right: 2px; }
-.sdsc3d-btw-t td:nth-child(2) { color: #5b646d; }
-.sdsc3d-btw-t td:last-child { text-align: right; }
-.sdsc3d-btw-t .sdsc3d-price { font-weight: 800; }
 .sdsc3d--more { padding-top: 10px; }
-@media (max-width: 560px) {
-	.sdsc3d-btw-t th, .sdsc3d-btw-t td { padding: 10px 10px !important; }
-	.sdsc3d-btw-t td:nth-child(2) { display: none; }
-	.sdsc3d-btw-t thead th:nth-child(2) { display: none; }
+
+
+/* jump bar under the header (homepage) */
+.sds-jump { position: fixed; left: 0; right: 0; z-index: 999; transform: translateY(-120%); opacity: 0; pointer-events: none; transition: transform .3s ease, opacity .3s ease; background: rgba(255,255,255,.96); backdrop-filter: saturate(1.4) blur(8px); box-shadow: 0 1px 0 #e1e6ea, 0 10px 24px -18px rgba(0,0,0,.45); font-family: "Overpass", "Lato", system-ui, sans-serif; }
+.sds-jump.is-on { transform: none; opacity: 1; pointer-events: auto; }
+.sds-jump-in { display: flex; gap: 8px; max-width: 1180px; margin: 0 auto; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; }
+.sds-jump-in::-webkit-scrollbar { display: none; }
+.sds-jump a { flex: none; display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 999px; background: #eef5f1; color: #0b3d24 !important; font-weight: 800; font-size: .9rem; text-decoration: none !important; white-space: nowrap; transition: background .2s, color .2s; }
+.sds-jump a:hover, .sds-jump a:focus-visible { background: #d7ecdf; outline: none; }
+.sds-jump a.is-here { background: #00703c; color: #fff !important; }
+.sds-jump a.sds-jump-call { margin-left: auto; background: #ffc20e; color: #15191d !important; }
+
+/* "All services" link at the end of each service section */
+.sdsc3d-back { margin: 26px 0 0 !important; }
+.sdsc3d-back a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: #f1f5f3; color: #005a30 !important; font-weight: 800; text-decoration: none !important; }
+.sdsc3d-back a:hover, .sdsc3d-back a:focus-visible { background: #dcefe4; outline: none; }
+
+/* short glow on the section a visitor jumped to */
+@keyframes sdsArrive { 0% { box-shadow: 0 0 0 0 rgba(36,196,92,.55); } 35% { box-shadow: 0 0 0 6px rgba(36,196,92,.35); } 100% { box-shadow: 0 0 0 0 rgba(36,196,92,0); } }
+.is-arrived > .sdsc3d-head, li.is-arrived > .sdsc3d-card { animation: sdsArrive 1.6s ease; border-radius: 18px; }
+@media (prefers-reduced-motion: reduce) { .is-arrived > .sdsc3d-head, li.is-arrived > .sdsc3d-card { animation: none; outline: 3px solid #24c45c; } }
+
+/* phones: service signs in one row you swipe */
+@media (max-width: 640px) {
+	.sdsc3d--overview .sdsc3d-grid--overview { display: flex !important; grid-template-columns: none !important; gap: 14px !important; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 16px 14px !important; margin: 0 -16px !important; scrollbar-width: thin; }
+	.sdsc3d--overview .sdsc3d-grid--overview > li { flex: 0 0 78%; scroll-snap-align: center; }
+	.sds-jump a { font-size: .84rem; padding: 0 12px; }
 }

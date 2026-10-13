@@ -28,6 +28,7 @@ class SDSC_Signs {
 
 	public static function init() {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'register_assets' ), 6 );
+		add_action( 'wp_footer', array( __CLASS__, 'jump_bar' ), 5 );
 		if ( '0' !== get_option( 'sdsc_sign3d', '1' ) ) {
 			add_filter( 'elementor/widget/render_content', array( __CLASS__, 'replace_widget' ), 20, 2 );
 		}
@@ -74,6 +75,25 @@ class SDSC_Signs {
 			$out = SDSC_Pages::reviews( $content );
 		}
 		return $out ? $out : $content;
+	}
+
+	/** Homepage only: a thin bar under the header that jumps to each service (shown after the hero). */
+	public static function jump_bar() {
+		if ( ! is_front_page() || '0' === get_option( 'sdsc_sign3d', '1' ) ) { return; }
+		$links = array( 'course' => '36-hour course', 'btw' => 'Practice', 'online' => 'Online course', 'rental' => 'Road test car' );
+		?>
+		<nav class="sds-jump" data-sds-jump aria-label="Our services" hidden>
+			<div class="sds-jump-in">
+				<?php foreach ( $links as $k => $label ) : ?><a href="<?php echo esc_url( self::anchor( $k ) ); ?>" data-for="<?php echo esc_attr( wp_parse_url( self::anchor( $k ), PHP_URL_FRAGMENT ) ); ?>"><?php echo esc_html( $label ); ?></a><?php endforeach; ?>
+				<a class="sds-jump-call" href="tel:+13017263030">Call</a>
+			</div>
+		</nav>
+		<?php
+	}
+
+	/** "All services" link at the end of a service section (homepage). */
+	protected static function back_link() {
+		return is_front_page() ? '<p class="sdsc3d-back"><a href="' . esc_url( self::anchor( 'services' ) ) . '">&uarr; All services</a></p>' : '';
 	}
 
 	/**
@@ -524,6 +544,7 @@ class SDSC_Signs {
 				<?php endforeach; ?>
 			</ul>
 			<?php echo $schema; // phpcs:ignore -- JSON built with wp_json_encode ?>
+			<?php echo self::back_link(); // phpcs:ignore -- escaped in helper ?>
 		</section>
 		<?php
 		return ob_get_clean();
@@ -595,6 +616,7 @@ class SDSC_Signs {
 					</li>
 				<?php endforeach; ?>
 			</ul>
+			<?php echo self::back_link(); // phpcs:ignore -- escaped in helper ?>
 		</section>
 		<?php endif; ?>
 		<?php if ( $featured ) : ?>
@@ -625,6 +647,7 @@ class SDSC_Signs {
 					</li>
 				<?php endforeach; ?>
 			</ul>
+			<?php echo self::back_link(); // phpcs:ignore -- escaped in helper ?>
 		</section>
 		<?php endif; ?>
 		<?php
