@@ -60,7 +60,12 @@ class SDSC_Pages {
 					$t = call_user_func( $fix, get_the_title() );
 					?>
 					<?php $sdb_tp = class_exists( 'SDSC_Blog' ) ? SDSC_Blog::post_topic( get_the_ID() ) : null; ?>
-					<li class="sdp-post"<?php echo $sdb_tp ? ' style="--tc:' . esc_attr( $sdb_tp['color'] ) . '"' : ''; ?>>
+					<?php
+					// Wide photos fill the frame; tall ones (award plaques, flyers) are shown whole on a blurred copy.
+					$sdp_src = has_post_thumbnail() ? wp_get_attachment_image_src( get_post_thumbnail_id(), 'full' ) : null;
+					$sdp_tall = $sdp_src && ! empty( $sdp_src[1] ) && $sdp_src[2] / max( 1, $sdp_src[1] ) > 0.8;
+					?>
+					<li class="sdp-post<?php echo $sdp_tall ? ' is-tall' : ''; ?>"<?php echo $sdb_tp ? ' style="--tc:' . esc_attr( $sdb_tp['color'] ) . '"' : ''; ?>>
 						<a class="sdp-post-img" href="<?php the_permalink(); ?>" tabindex="-1" aria-hidden="true"<?php $bg = has_post_thumbnail() ? get_the_post_thumbnail_url( null, 'medium' ) : ''; echo $bg ? ' style="--sdp-bg:url(' . esc_url( $bg ) . ')"' : ''; ?>>
 							<?php if ( has_post_thumbnail() ) { the_post_thumbnail( 'medium_large', array( 'loading' => 'lazy', 'alt' => '' ) ); } else { echo '<span class="sdp-post-ph"></span>'; } ?>
 							<span class="sdp-post-date"><?php echo esc_html( get_the_date( 'M j, Y' ) ); ?></span>

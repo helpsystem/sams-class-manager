@@ -134,3 +134,28 @@
 .sdp-post-img::before { content: ""; position: absolute; inset: -24px; background: var(--sdp-bg, none) center / cover no-repeat; filter: blur(18px) brightness(.55) saturate(1.15); transform: scale(1.1); }
 .sdp-post-img img { position: relative; z-index: 1; object-fit: contain !important; }
 .sdp-post-date { z-index: 2; }
+
+/* v0.9.5: News & driving tips — tidy header, real topic pills, even cards. */
+.sdp-blog .sdp-blog-head { align-items: flex-end; margin-bottom: 16px; }
+.sdp-blog .sdp-blog-head .sdsc3d-head { margin-bottom: 0 !important; }
+.sdp-blog .sdp-blog-head .sdsc3d-head p:last-child { margin-bottom: 0 !important; }
+.sdp-blog .sdp-blog-head .sdp-btn { flex: none; margin-bottom: 2px; }
+.sdp-blog .sdb-chips { margin: 0 0 22px !important; padding: 2px !important; gap: 10px; flex-wrap: wrap; }
+.sdp-blog .sdb-chip { background: #fff !important; box-shadow: inset 0 0 0 1px #e1ddd2, 0 10px 22px -18px rgba(0,0,0,.45) !important; padding: 7px 10px 7px 10px; line-height: 1.2; }
+.sdp-blog .sdb-chip:hover, .sdp-blog .sdb-chip:focus-visible { box-shadow: inset 0 0 0 2px var(--tc, #00703c), 0 14px 26px -18px rgba(0,0,0,.5) !important; outline: none; }
+.sdp-blog .sdb-chip img { width: 20px; height: 20px; }
+/* photos: wide ones fill the frame, tall ones stay whole on a blurred copy */
+.sdp-blog .sdp-post-img { aspect-ratio: 16 / 10; }
+.sdp-blog .sdp-post:not(.is-tall) .sdp-post-img::before { display: none; }
+.sdp-blog .sdp-post:not(.is-tall) .sdp-post-img img { object-fit: cover !important; }
+/* same rhythm in every card: title up to 3 lines, summary up to 3 lines, link at the bottom */
+.sdp-blog .sdp-post-body h3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.sdp-blog .sdp-post-body p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; flex: 0 0 auto; }
+.sdp-blog .sdp-more { margin-top: auto; padding-top: 4px; }
+@media (max-width: 900px) and (min-width: 601px) { .sdp-blog .sdp-blog-grid { grid-template-columns: 1fr 1fr; } .sdp-blog .sdp-post:nth-child(3) { grid-column: 1 / -1; flex-direction: row; } .sdp-blog .sdp-post:nth-child(3) .sdp-post-img { flex: 0 0 46%; aspect-ratio: auto; min-height: 220px; } }
+@media (max-width: 600px) {
+	.sdp-blog .sdp-blog-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+	.sdp-blog .sdb-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px !important; padding-right: 16px !important; }
+	.sdp-blog .sdb-chips::-webkit-scrollbar { display: none; }
+	.sdp-blog .sdp-blog-grid { gap: 16px; }
+}
