@@ -633,7 +633,9 @@ class SDSC_Registration {
 		$ip  = self::client_ip();
 		$key = 'sdsc_reg_rl_' . md5( $ip );
 		$n   = (int) get_transient( $key );
-		if ( $n >= 5 ) {
+		// Signed-in office staff (walk-in students on the office Wi-Fi) are not limited.
+		$staff = class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office();
+		if ( $n >= 5 && ! $staff ) {
 			self::fail( $return, 'Too many submissions from your network. Please try again later or call us.' );
 		}
 		set_transient( $key, $n + 1, HOUR_IN_SECONDS );

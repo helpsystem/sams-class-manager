@@ -55,6 +55,7 @@ sub(){ # $1 tag  $2 dob  $3 extra args
  --data-urlencode action=sdsc_register --data-urlencode sdsc_return=$SITE/register-course/ --data-urlencode sdsc_js=ok --data-urlencode class_id=$CID \
  --data-urlencode first_name=E2E-Test --data-urlencode last_name="$1" --data-urlencode dob="$2" --data-urlencode email="e2e-$1@example.com" --data-urlencode phone=3015550111 \
  --data-urlencode street='1 Test St' --data-urlencode city=Rockville --data-urlencode zip=20852 --data-urlencode consent=1 --data-urlencode student_sig="$PNG" $3; }
+q 'global $wpdb; $wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE \"_transient%sdsc_reg_rl_%\""); wp_cache_flush();'  # test runs from one IP: reset the 5-per-hour limit
 U1=$(sub teen "$(date -d '-17 years' +%F)")
 chk "17, no parent: accepted -> payment step" '[[ "$U1" == *"sdsc_reg=done"* ]]'
 S1=$(curl -s "$U1")
@@ -98,8 +99,8 @@ X=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$SITE/wp-admin/admin-post
 sleep 1
 chk "payment link sent to parent" '[[ "$X" == *"sdsc_sent=ok"* ]] && grep -q "e2e-parent@example.com | Payment link for E2E-Test" $LOG'
 PAY=$(q "echo SDSC_Pay::url($I1,$CID);")
-L=$(curl -s -o /tmp/e2e-pay.html -w '%{http_code} %{redirect_url}' "$PAY")
-chk "pay link opens Stripe checkout (test mode)" '[[ "$L" == *" https://checkout.stripe.com/"* ]]' || echo "      pay: $L $(sed 's/<[^>]*>/ /g' /tmp/e2e-pay.html | tr -s ' \n' ' ' | cut -c1-240)"
+L=$(curl -s -L --max-redirs 4 -o /tmp/e2e-pay.html -w '%{http_code} %{url_effective}' "$PAY")
+chk "pay link opens Stripe checkout (test mode)" '[[ "$L" == *"checkout.stripe.com/"* ]]' || echo "      pay: $L $(sed 's/<[^>]*>/ /g' /tmp/e2e-pay.html | tr -s ' \n' ' ' | cut -c1-240)"
 echo "== Clean up test data"
 q "global \$wpdb; \$t=SDSC_Registration::table(); \$rows=\$wpdb->get_results(\"SELECT id, registrant_id FROM \$t WHERE email LIKE 'e2e-%@example.com'\"); foreach(\$rows as \$r){ if(\$r->registrant_id) wp_delete_post((int)\$r->registrant_id,true); \$wpdb->delete(\$t,array('id'=>\$r->id)); if(class_exists('SDSC_Pay')) \$wpdb->delete(SDSC_Pay::table(),array('reg_id'=>\$r->id)); delete_transient('sdsc_payparent_'.\$r->id); } echo 'removed '.count(\$rows).\" test registrations\n\";"
 rm -f $MU/zz-e2e-mail.php
