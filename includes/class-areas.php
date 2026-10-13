@@ -112,7 +112,7 @@ class SDSC_Areas {
 		$done = true;
 		return '<style>
 .sda{max-width:1100px;margin:0 auto;padding:clamp(24px,4vw,48px) 16px;font-family:Overpass,system-ui,sans-serif;color:#15191d}
-.sda h1{font-size:clamp(2rem,4.6vw,3.2rem);line-height:1.05;font-weight:900;letter-spacing:-.02em;margin:10px 0 12px}
+.sda .sda-title{font-size:clamp(2rem,4.6vw,3.2rem);line-height:1.05;font-weight:900;letter-spacing:-.02em;margin:10px 0 12px}
 .sda h2{font-size:clamp(1.4rem,2.6vw,1.9rem);font-weight:900;margin:34px 0 12px}
 .sda p{line-height:1.6}
 .sda-kicker{display:inline-flex;gap:6px;align-items:center;padding:5px 12px;border-radius:999px;background:#e7f5ec;color:#005a30;font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}
@@ -169,7 +169,7 @@ class SDSC_Areas {
 		?>
 		<div class="sda">
 			<span class="sda-kicker">Approved by MVA · Montgomery County, MD</span>
-			<h1>Driving school for <?php echo esc_html( $town ); ?> students</h1>
+			<h2 class="sda-title">Driving school for <?php echo esc_html( $town ); ?> students</h2>
 			<p class="sda-lead"><?php echo $home ? 'Sam\'s Driving School is right here in Rockville, at 751 Rockville Pike.' : 'Sam\'s Driving School is in Rockville, at 751 Rockville Pike, and teaches students from ' . esc_html( $town ) . ' and all of Montgomery County.'; ?> MVA-approved 36-hour driver's ed, behind-the-wheel lessons and a car for your road test, with male and female instructors who speak English, Spanish and Farsi (Persian).</p>
 			<div class="sda-ctas"><a class="sda-btn" href="<?php echo esc_url( home_url( '/#driver-ed' ) ); ?>">See class dates</a><a class="sda-btn sda-btn--ghost" href="tel:+13017263030">Call (301) 726-3030</a></div>
 
@@ -217,7 +217,7 @@ class SDSC_Areas {
 		?>
 		<div class="sda">
 			<span class="sda-kicker">Montgomery County, MD</span>
-			<h1>Areas we serve</h1>
+			<h2 class="sda-title">Areas we serve</h2>
 			<p class="sda-lead">Sam's Driving School is at 751 Rockville Pike in Rockville. The 30 hours of class are on Zoom, so students join from anywhere in Montgomery County, and we offer free pickup at Rockville Metro for driving lessons.</p>
 			<?php echo self::towns(); // phpcs:ignore ?>
 			<h2>Upcoming 36-hour classes</h2>
@@ -259,7 +259,7 @@ class SDSC_Areas {
 		?>
 		<div class="sda">
 			<span class="sda-kicker">We're hiring · Rockville, MD</span>
-			<h1>Teach Maryland's new drivers with us</h1>
+			<h2 class="sda-title">Teach Maryland's new drivers with us</h2>
 			<p class="sda-lead">Sam's Driving School is an MVA-approved driving school in Rockville. We are looking for patient, calm instructors for behind-the-wheel lessons and for our 36-hour driver's ed classes on Zoom. Instructors who speak Spanish or Farsi (Persian) are especially welcome.</p>
 			<div class="sda-grid">
 				<div class="sda-card"><h3>Behind-the-wheel instructor</h3><p>Two-hour lessons in our dual-control cars, road test practice, and nervous drivers.</p></div>
@@ -322,7 +322,7 @@ class SDSC_Areas {
 		self::install();
 		global $wpdb;
 		$rows = $wpdb->get_results( 'SELECT * FROM ' . self::table() . ' ORDER BY id DESC LIMIT 200' );
-		echo '<div class="wrap"><h1>Instructor applications</h1><p>From the <a href="' . esc_url( home_url( '/' . self::JOIN . '/' ) ) . '" target="_blank">Join our team</a> page.</p>';
+		echo '<div class="wrap"><h2 class="sda-title">Instructor applications</h2><p>From the <a href="' . esc_url( home_url( '/' . self::JOIN . '/' ) ) . '" target="_blank">Join our team</a> page.</p>';
 		if ( ! $rows ) { echo '<p>No applications yet.</p></div>'; return; }
 		echo '<table class="widefat striped"><thead><tr><th>Date</th><th>Name</th><th>Phone</th><th>E-mail</th><th>Position</th><th>License</th><th>Languages</th><th>Times</th><th>About</th></tr></thead><tbody>';
 		foreach ( $rows as $r ) {
