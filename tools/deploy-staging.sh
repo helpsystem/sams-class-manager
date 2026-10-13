@@ -73,7 +73,7 @@ if "class-onboard.php" not in s:
     s=s[:m.end()]+m.group(0).replace("class-pay.php","class-onboard.php")+s[m.end():]
 if "SDSC_Onboard::init();" not in s:
     s=s.replace("SDSC_ZoomRoll::init();","SDSC_ZoomRoll::init(); SDSC_Onboard::init();",1)
-for f,c in (("class-notify.php","SDSC_Notify"),("class-chat.php","SDSC_Chat"),("class-carapp.php","SDSC_CarApp"),("class-promo.php","SDSC_Promo"),("class-tv.php","SDSC_TV"),("class-private.php","SDSC_Private")):
+for f,c in (("class-notify.php","SDSC_Notify"),("class-chat.php","SDSC_Chat"),("class-carapp.php","SDSC_CarApp"),("class-promo.php","SDSC_Promo"),("class-tv.php","SDSC_TV"),("class-private.php","SDSC_Private"),("class-docs.php","SDSC_Docs")):
     if f not in s:
         m=re.search(r"require_once[^\n]*includes/class-pay\.php[^\n]*\n",s)
         s=s[:m.end()]+m.group(0).replace("class-pay.php",f)+s[m.end():]

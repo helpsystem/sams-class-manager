@@ -403,6 +403,22 @@ class SDSC_Tours {
 				$o( '.srp-scroll', 'The report', 'The first 300 rows on screen; print or download for all.', 'top' ),
 				$o( '.srp-access', 'Who can open reports', 'The administrator and the school manager choose which reports front desk and instructors may open. Instructors only ever see their own classes and lessons.', 'top' ),
 			) ),
+			'documents' => array( 'Student documents', 'Scan, photograph, upload and check ID cards, permits and other papers.', array(
+				$s( '', 'Student documents', 'Every student has one file for their papers: ID card front and back, learner’s permit, licence, practice log, certificates. Files are stored encrypted and every opening is recorded.', 'center' ),
+				$o( '#sdd-q', 'Find the student', 'Type a name, e-mail or phone. Students from registrations, behind-the-wheel lessons and accounts are all found; the number shows how many documents are on file.', 'bottom' ),
+				$o( '.sdd-pend', 'From students — to check', 'Documents students added from their own dashboard. Look at each one and press <b>Mark checked</b>.', 'top' ),
+				$o( '.sdd-slots', 'ID card front and back', '<b>📷 Take photo</b> opens the phone camera. <b>⬆ Upload scan</b> picks the file the office scanner saved (PDF or image).', 'bottom' ),
+				$o( '.sdd-other', 'Any other document', 'Choose what it is, add a short note if useful, then take a photo or upload one or more files.', 'top' ),
+				$o( '.sdd-drop', 'Drop scans here', 'On the office computer, drag the scanned files from the scanner folder straight onto this box.', 'top' ),
+				$o( '.sdd-docs', 'On file', '<b>View</b> opens the document, <b>Download</b> saves it. The school manager can remove a wrong upload.', 'top' ),
+				$s( '', 'Privacy', 'Only the administrator, the school manager and the front desk can open these documents. Never e-mail or text them; share the file in person when needed.', 'center' ),
+			) ),
+			'my_documents' => array( 'My documents (students)', 'Where students add photos of their permit, practice log and other papers.', array(
+				$s( '', 'Your documents', 'Add the papers the school asks for. Only the school office can see them.', 'center' ),
+				$o( '.sdd-slots', 'ID card or permit', 'Take a photo of the front and of the back, or upload a scan. Lay the card on a dark table, fill the frame and avoid glare.', 'bottom' ),
+				$o( '.sdd-other', 'Other papers', 'Choose what it is — for example your practice log — and take a photo or upload a file.', 'top' ),
+				$o( '.sdd-docs', 'What the school has', 'Each document shows whether the office has checked it. You can remove your own upload until it is checked.', 'top' ),
+			) ),
 			'messages' => array( 'Messages', 'Conversations with the school, the office and instructors.', array(
 				$s( '', 'Messages', 'Every conversation in one place. New messages also show on the chat button at the bottom right; an e-mail follows if a message stays unread for ten minutes.', 'center' ),
 				$o( '.sdk-find', 'Find someone', 'Office: type a student’s or instructor’s name to open a conversation.', 'bottom' ),
@@ -424,7 +440,7 @@ class SDSC_Tours {
 
 	/** Dashboard tab => website tour key (staff pages of the school dashboard). */
 	protected static function tab_tours() {
-		return array( 'sdsc-zoom-attendance' => 'zoom_attendance', 'sdsc-reports' => 'reports_print', 'sdsc-messages' => 'messages' );
+		return array( 'sdsc-zoom-attendance' => 'zoom_attendance', 'sdsc-reports' => 'reports_print', 'sdsc-messages' => 'messages', 'sdsc-documents' => 'documents' );
 	}
 
 	/** Tour of a workspace screen (the screen is shown in a frame; the tour runs on the dashboard around it). */
@@ -459,6 +475,8 @@ class SDSC_Tours {
 			if ( $dash && is_page( $dash ) && ( '' === $tab || 'index' === $tab ) ) { return 'workspace'; }
 		} elseif ( 'sdsc-messages' === $tab ) {
 			return 'messages';
+		} elseif ( 'sdsc-documents' === $tab ) {
+			return 'my_documents';
 		}
 		if ( class_exists( 'SDSC_Lessons' ) && SDSC_Lessons::TAB === $tab ) { return 'student_lessons'; }
 		$p = get_post();
@@ -472,6 +490,8 @@ class SDSC_Tours {
 		if ( 'zoom_attendance' === $k ) { return class_exists( 'SDSC_ZoomRoll' ) && SDSC_ZoomRoll::allowed() ? SDSC_ZoomRoll::url() : ''; }
 		if ( 'reports_print' === $k ) { return class_exists( 'SDSC_Reports' ) && SDSC_Reports::mine() ? SDSC_Reports::url() : ''; }
 		if ( 'messages' === $k ) { return function_exists( 'tutor_utils' ) ? tutor_utils()->tutor_dashboard_url( 'sdsc-messages' ) : ''; }
+		if ( 'documents' === $k ) { return class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ? SDSC_Docs::url() : ''; }
+		if ( 'my_documents' === $k ) { return class_exists( 'SDSC_Docs' ) ? SDSC_Docs::url() : ''; }
 		if ( 'student_lessons' === $k ) { return class_exists( 'SDSC_Lessons' ) ? SDSC_Lessons::my_url() : ''; }
 		$df  = (array) get_option( 'driveflow_pro_settings', array() );
 		$ids = array( 'student_booking' => 'magic_booking_page_id', 'student_portal' => 'student_portal_page_id', 'instructor_app' => 'instructor_page_id', 'instructor_onboarding' => 'instructor_onboarding_page_id' );
@@ -632,7 +652,7 @@ class SDSC_Tours {
 			$url = $top && class_exists( 'SDSC_Workspace' ) ? add_query_arg( 'tour', $k, SDSC_Workspace::url( 'tours' ) ) : add_query_arg( 'sdsc_tour', $k, admin_url( $t[3] ) );
 			echo $card( $url, $t[1], $t[2], count( $t[5] ), in_array( $k, $seen, true ), 'start' === $k, $tgt ); // phpcs:ignore -- escaped in $card
 		}
-		$dash = array( 'workspace', 'zoom_attendance', 'reports_print', 'messages' );
+		$dash = array( 'workspace', 'documents', 'zoom_attendance', 'reports_print', 'messages' );
 		foreach ( $dash as $k ) {
 			$url = self::front_url( $k );
 			if ( ! $url ) { continue; }
@@ -660,7 +680,7 @@ class SDSC_Tours {
 			echo '</div>';
 		}
 		echo '<h2 class="sdsc-tours-h2">What students and instructors see</h2><p class="sdsc-lead">These tours run on the website pages of students and instructors (the <b>Take the tour</b> button). Open one to see exactly what they see.</p><div class="sdsc-tour-grid">';
-		foreach ( array( 'student_lessons', 'student_booking', 'student_portal', 'instructor_app', 'instructor_onboarding' ) as $k ) {
+		foreach ( array( 'student_lessons', 'my_documents', 'student_booking', 'student_portal', 'instructor_app', 'instructor_onboarding' ) as $k ) {
 			$url = self::front_url( $k );
 			if ( ! $url ) { continue; }
 			$t = self::front_tours()[ $k ];

@@ -112,6 +112,10 @@ class SDSC_Workspace {
 		if ( class_exists( 'SDSC_ZoomRoll' ) && SDSC_ZoomRoll::allowed() ) {
 			$out['lessons'][] = array( '✅', 'Zoom attendance', SDSC_ZoomRoll::url(), 'Take attendance for today’s Zoom class.' );
 		}
+		if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) {
+			$n = SDSC_Docs::pending();
+			$out['students'][] = array( '📎', 'Student documents' . ( $n ? ' (' . $n . ' to check)' : '' ), SDSC_Docs::url(), 'ID cards, permits, practice logs: scan, photograph, check.' );
+		}
 		if ( 'instructor' === self::kind() ) {
 			$app = get_posts( array( 'post_type' => 'page', 'post_status' => 'publish', 's' => '[driveflow_instructor_form', 'numberposts' => 1 ) );
 			if ( $app ) { $out['lessons'][] = array( '📱', 'In-car lesson app', get_permalink( $app[0] ), 'Start a lesson, evaluate, sign.' ); }
@@ -156,7 +160,7 @@ class SDSC_Workspace {
 		foreach ( $pick as $key => $p ) {
 			if ( ! empty( $s[ $key ][3] ) ) { $front[ 'sdsc-w-' . $key ] = array( 'title' => $p[0], 'icon' => $p[1], 'url' => self::url( $key ) ); }
 		}
-		foreach ( array( 'sdsc-messages', 'sdsc-zoom-attendance', 'sdsc-reports' ) as $key ) { if ( isset( $items[ $key ] ) ) { $front[ $key ] = $items[ $key ]; } }
+		foreach ( array( 'sdsc-documents', 'sdsc-messages', 'sdsc-zoom-attendance', 'sdsc-reports' ) as $key ) { if ( isset( $items[ $key ] ) ) { $front[ $key ] = $items[ $key ]; } }
 		$student_only = array( 'courses', 'enrolled-courses', 'notes', 'calendar', 'sdsc-lessons', 'wishlist', 'reviews', 'my-quiz-attempts', 'purchase_history', 'order-history' );
 		foreach ( $items as $key => $v ) {
 			if ( isset( $front[ $key ] ) || 'index' === $key ) { continue; }

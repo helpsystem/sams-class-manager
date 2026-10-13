@@ -702,7 +702,9 @@ class SDSC_Registration {
 			$r = $wpdb->get_row( $wpdb->prepare( "SELECT id, created_at, source, source_entry_id, class_id, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, street, apt, city, state, zip, consent, signed_date, notes, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM $t WHERE id = %d", $view ) );
 			echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations' ) ) . '">&larr; All registrations</a></p>';
 			if ( ! $r ) { echo '<p>Not found.</p></div>'; return; }
-			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1><table class="widefat striped" style="max-width:800px">';
+			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1>';
+			if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) { echo '<p>' . SDSC_Docs::link( $r->email ) . '</p>'; } // phpcs:ignore -- escaped inside
+			echo '<table class="widefat striped" style="max-width:800px">';
 			$rows = array(
 				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
 				'Course'          => $r->class_id ? self::class_label( $r->class_id, true ) : '—',
