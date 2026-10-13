@@ -58,11 +58,14 @@ class SDSC_Signs {
 		} elseif ( 'ruzbahani_packages' === $name || 'ruzbahani_rental' === $name ) {
 			$out = self::render_packages( $content, $name );
 		} elseif ( 'ruzbahani_training' === $name ) {
-			$out = self::fix_intro( $content );
+			$out = self::intro_and_services( $content );
 		} elseif ( 'ruzbahani_why_us' === $name && class_exists( 'SDSC_WhyUs' ) ) {
 			$out = SDSC_WhyUs::render( $content );
 		} elseif ( 'ruzbahani_services' === $name ) {
-			$out = self::render_overview( self::parse_overview( $content ) );
+			// The service signs are shown once, under the intro box (see intro_and_services). Keep the theme's list for them.
+			$items = self::parse_overview( $content );
+			if ( $items && get_option( 'sdsc_overview_items' ) !== $items ) { update_option( 'sdsc_overview_items', $items, false ); }
+			$out = is_front_page() ? '<!-- service signs are shown under the intro -->' : self::render_overview( $items );
 		} elseif ( 'ruzbahani_blog' === $name && class_exists( 'SDSC_Pages' ) && SDSC_Pages::on() ) {
 			self::enqueue();
 			$out = SDSC_Pages::blog( $content );
@@ -109,6 +112,14 @@ class SDSC_Signs {
 			$out .= $li;
 		}
 		return str_replace( $ul[0], $ul[1] . $out . $ul[3], $html );
+	}
+
+	/** Intro box without its services list, followed by the service signs ("Our services"). */
+	public static function intro_and_services( $html ) {
+		$html = preg_replace( '/\s*To ensure a comfortable environment for everyone, we proudly provide male and female instructors who speak English, Spanish and Farsi \(Persian\)\./u', '', $html );
+		$html = preg_replace( '#<div[^>]*class="[^"]*sds-divider[^"]*"[^>]*>\s*</div>\s*<h3[^>]*sds-provide-title[^>]*>.*?</h3>\s*<ul[^>]*class="[^"]*sds-list[^"]*"[^>]*>.*?</ul>#s', '', $html );
+		$items = get_option( 'sdsc_overview_items' );
+		return $html . self::render_overview( is_array( $items ) ? $items : array() );
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -566,25 +577,24 @@ class SDSC_Signs {
 		<?php if ( $btw ) : ?>
 		<section class="sdsc3d sdsc3d--packages sdsc3d--btw"<?php echo $home ? ' id="practice"' : ''; ?> aria-labelledby="sdsc3d-btw-<?php echo esc_attr( $widget ); ?>">
 			<div class="sdsc3d-head">
-				<p class="sdsc3d-kicker">Extra practice · 2 to 60 hours</p>
+				<p class="sdsc3d-kicker">Extra practice &middot; 2 to 60 hours</p>
 				<h2 id="sdsc3d-btw-<?php echo esc_attr( $widget ); ?>">Behind-the-wheel practice</h2>
 				<p>Two-hour lessons with a certified instructor in a dual-control car. Pick the number of hours you need.</p>
 			</div>
-			<div class="sdsc3d-btw-wrap">
-				<table class="sdsc3d-btw-t">
-					<thead><tr><th scope="col">Hours</th><th scope="col">Lessons</th><th scope="col">Price</th><th scope="col"><span class="sdsc3d-sr">Book</span></th></tr></thead>
-					<tbody>
-					<?php foreach ( $btw as $b ) : ?>
-						<tr>
-							<th scope="row"><b><?php echo (int) $b['hours']; ?></b> hours</th>
-							<td><?php echo (int) $b['lessons']; ?> lesson<?php echo 1 === (int) $b['lessons'] ? '' : 's'; ?></td>
-							<td><?php echo self::price_html( $b ); // phpcs:ignore -- escaped in helper ?></td>
-							<td><?php if ( $b['url'] ) : ?><a class="sdsc3d-cta sdsc3d-cta--sm" href="<?php echo esc_url( $b['url'] ); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr( sprintf( 'Book %d hours of behind-the-wheel practice', $b['hours'] ) ); ?>"><?php echo esc_html( $b['cta'] ); ?></a><?php endif; ?></td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
+			<ul class="sdsc3d-grid sdsc3d-grid--btw">
+				<?php foreach ( $btw as $b ) :
+					$big   = (string) $b['hours'];
+					$size  = strlen( $big ) > 1 ? 40 : 46;
+					$lines = array( array( 40, 22, 11.5, 'PRACTICE' ), array( 40, 64, $size, $big, null, '-1' ), array( 40, 84, 11.5, 'HOURS' ) );
+					$pl    = array( array( 'lines' => array( $b['lessons'] . ' ' . ( 1 === $b['lessons'] ? 'LESSON' : 'LESSONS' ), $b['now'] ), 'strong' => 1 ) );
+					?>
+					<li class="sdsc3d-item sdsc3d-item--btw">
+						<?php echo self::sign( 'reg', array( 'lines' => $lines ), $pl, 104 ); // phpcs:ignore -- escaped in sign() ?>
+						<?php if ( $b['d'] ) : ?><span class="sdsc3d-mini-sale"><s><?php echo esc_html( $b['d']['old'] ); ?></s> <?php echo esc_html( $b['d']['pct'] ); ?>% OFF</span><?php endif; ?>
+						<?php if ( $b['url'] ) : ?><a class="sdsc3d-cta sdsc3d-cta--sm" href="<?php echo esc_url( $b['url'] ); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr( sprintf( 'Book %d hours of behind-the-wheel practice for %s', $b['hours'], $b['now'] ) ); ?>"><?php echo esc_html( $b['cta'] ); ?></a><?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+			</ul>
 		</section>
 		<?php endif; ?>
 		<?php if ( $featured ) : ?>
@@ -660,7 +670,10 @@ class SDSC_Signs {
 			return array( 'school', array(), $plq( "Driver's Ed", '36 hours' ), '30 hours of class on Zoom plus 6 hours behind the wheel, for teens and adults.', 'See class dates', self::anchor( 'course' ) );
 		}
 		if ( false !== strpos( $t, 'btw' ) || false !== strpos( $t, 'practice' ) && false === strpos( $t, 'road test' ) ) {
-			return array( 'reg', array( 'lines' => array( array( 40, 26, 12, 'BEHIND' ), array( 40, 41, 12, 'THE' ), array( 40, 56, 12, 'WHEEL' ), array( 40, 79, 15, '2–60 H' ) ) ), $plq( 'Practice', 'lessons' ), 'Two-hour lessons in a dual-control car, from 1 to 30 lessons.', 'Choose hours', self::anchor( 'btw' ) );
+			return array( 'reg', array( 'lines' => array( array( 40, 26, 12, 'BEHIND' ), array( 40, 41, 12, 'THE' ), array( 40, 56, 12, 'WHEEL' ), array( 40, 79, 15, '2–60 H' ) ) ), $plq( 'Practice', 'lessons' ), 'Two-hour lessons in a dual-control car, from 1 to 30 lessons.', 'See hours & prices', self::anchor( 'btw' ) );
+		}
+		if ( false !== strpos( $t, 'online' ) ) {
+			return array( 'service', array( 'symbol' => 'laptop' ), $plq( 'Online', '3 hours' ), 'The 3-hour roadway safety education program, online at your own pace.', 'See the course', self::anchor( 'online' ) );
 		}
 		if ( false !== strpos( $t, 'road test' ) ) {
 			return array( 'warning', array( 'lines' => array( array( 50, 43, 14, 'ROAD' ), array( 50, 58, 14, 'TEST' ), array( 50, 70, 9.5, 'AHEAD' ) ) ), $plq( 'Road test', 'practice' ), 'We drive the MVA test route with you until it feels routine.', 'Call us', $tel );
@@ -682,6 +695,14 @@ class SDSC_Signs {
 
 	public static function render_overview( $items ) {
 		if ( ! $items ) { $items = self::overview_defaults(); }
+		// The online course has its own section on the homepage, so it gets a sign too, right after practice.
+		$has_online = false;
+		foreach ( $items as $it ) { if ( preg_match( '/online/i', $it['title'] ) ) { $has_online = true; } }
+		if ( ! $has_online ) {
+			$pos = 0;
+			foreach ( $items as $k => $it ) { if ( preg_match( '/btw|practice/i', $it['title'] ) && ! preg_match( '/road test/i', $it['title'] ) ) { $pos = $k + 1; } }
+			array_splice( $items, $pos, 0, array( array( 'title' => 'Online 3-hour course', 'desc' => 'Roadway safety' ) ) );
+		}
 		self::enqueue();
 		wp_enqueue_style( 'sdsc-services' );
 		wp_enqueue_script( 'sdsc-services' );
@@ -690,7 +711,8 @@ class SDSC_Signs {
 		?>
 		<section class="sds-road sdsc3d sdsc3d--overview" id="services" aria-labelledby="sdsc3d-ov-h">
 			<div class="sdsc3d-head">
-				<h2 id="sdsc3d-ov-h">Every road to your license</h2>
+				<h2 id="sdsc3d-ov-h">Our services</h2>
+				<p>Tap a sign to jump to that service: dates, prices and booking are right there.</p>
 			</div>
 			<ul class="sds-signs sdsc3d-grid sdsc3d-grid--overview">
 				<?php foreach ( $items as $i => $it ) :
