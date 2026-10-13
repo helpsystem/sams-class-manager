@@ -140,6 +140,10 @@
 		}
 		function paint() {
 			if (!root.classList.contains('is-live')) { return; }
+			// The header gets shorter once the page scrolls (top bar hides): keep the pin right under it.
+			var head = document.querySelector('.sdh');
+			var nt = (head ? Math.max(0, head.getBoundingClientRect().bottom) : 70) + 58;
+			if (Math.abs(nt - top) > 2) { top = nt; root.style.setProperty('--top', top + 'px'); pin = window.innerHeight - top - 12; root.style.setProperty('--pin', pin + 'px'); root.style.setProperty('--card', Math.min(window.innerWidth < 700 ? 520 : 400, pin - 70) + 'px'); }
 			var p = Math.min(Math.max((top - root.getBoundingClientRect().top) / seg, 0), n - 1);
 			var a = Math.min(Math.floor(p), n - 1), f = p - a;
 			if (a === n - 1) { f = 0; }
