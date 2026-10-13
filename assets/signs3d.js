@@ -128,7 +128,9 @@
 			var vh = window.innerHeight;
 			if (vh < 520) { root.classList.remove('is-live'); cards.forEach(function (c) { c.style.transform = c.style.opacity = ''; }); return false; }
 			var small = window.innerWidth < 700;
-			pin = Math.min(small ? 560 : 440, vh - top - 16);
+			pin = vh - top - 12;
+			var card = Math.min(small ? 520 : 400, pin - 70);
+			root.style.setProperty('--card', card + 'px');
 			seg = Math.max(140, Math.round(vh * (small ? 0.24 : 0.2)));
 			root.style.setProperty('--top', top + 'px');
 			root.style.setProperty('--pin', pin + 'px');
@@ -144,7 +146,7 @@
 			cards.forEach(function (c, i) {
 				var t, o = 1;
 				if (i < a) { t = 'translate3d(0,-115%,0) rotateX(32deg)'; o = 0; }
-				else if (i === a) { t = 'translate3d(0,' + (-f * 115) + '%,0) rotateX(' + (f * 32) + 'deg)'; o = 1 - f * 0.9; }
+				else if (i === a) { t = 'translate3d(0,' + (-f * 125) + '%,0) rotateX(' + (f * 38) + 'deg)'; o = Math.max(0, 1 - f * 1.8); }
 				else { var b = i - a - f; t = 'translate3d(0,' + (b * 14) + 'px,0) scale(' + (1 - b * 0.05) + ')'; o = b > 3 ? 0 : 1; }
 				c.style.transform = t; c.style.opacity = o;
 				c.setAttribute('aria-hidden', i < a ? 'true' : 'false');

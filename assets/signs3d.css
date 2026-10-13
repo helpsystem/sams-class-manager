@@ -412,9 +412,9 @@ html { scroll-behavior: smooth; }
 
 /* live (scroll-driven) */
 .sds-stack.is-live { position: relative; height: calc(var(--pin) + (var(--n) - 1) * var(--seg)); }
-.sds-stack.is-live .sds-stack-pin { position: sticky; top: var(--top, 120px); height: var(--pin); perspective: 1100px; }
+.sds-stack.is-live .sds-stack-pin { position: sticky; top: var(--top, 120px); height: var(--pin); perspective: 1100px; overflow: hidden; }
 .sds-stack.is-live .sds-stack-cards { display: block; position: relative; height: 100%; }
-.sds-stack.is-live .sds-stack-card { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--pin) - 46px); will-change: transform, opacity; }
+.sds-stack.is-live .sds-stack-card { position: absolute; left: 0; right: 0; top: calc((var(--pin) - var(--card)) / 2 - 22px); height: var(--card); will-change: transform, opacity; }
 .sds-stack.is-live .sds-stack-hint { display: flex; align-items: center; justify-content: center; gap: 8px; position: absolute; left: 0; right: 0; bottom: 0; margin: 0; color: #5b646d; font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; transition: opacity .3s; }
 .sds-stack-hint span { width: 18px; height: 28px; border: 2px solid currentColor; border-radius: 10px; position: relative; }
 .sds-stack-hint span::after { content: ""; position: absolute; left: 50%; top: 5px; width: 3px; height: 6px; margin-left: -1.5px; border-radius: 2px; background: currentColor; animation: sdsHint 1.4s ease-in-out infinite; }
