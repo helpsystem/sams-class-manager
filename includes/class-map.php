@@ -151,11 +151,20 @@ class SDSC_Map {
 		$h .= '</div>';
 
 		if ( $hours ) {
-			$h .= '<details class="sdmap-hours"><summary>Office hours</summary><table>';
+			// Always visible, grouped like a shop door: "Mon – Fri  8 AM – 7 PM". Today is highlighted.
+			$groups = array();
 			foreach ( $hours as $r ) {
-				$h .= '<tr data-day="' . esc_attr( $r['day'] ) . '"><th scope="row">' . esc_html( $r['day'] ) . '</th><td>' . esc_html( self::fmt( $r['open'] ) . ' – ' . self::fmt( $r['close'] ) ) . '</td></tr>';
+				$t = self::fmt( $r['open'] ) . ' – ' . self::fmt( $r['close'] );
+				$n = count( $groups );
+				if ( $n && $groups[ $n - 1 ]['t'] === $t ) { $groups[ $n - 1 ]['days'][] = $r['day']; } else { $groups[] = array( 't' => $t, 'days' => array( $r['day'] ) ); }
 			}
-			$h .= '</table></details>';
+			$h .= '<div class="sdmap-hours"><p class="sdmap-hours-h">' . self::icon( 'clock' ) . 'Office hours</p><ul>';
+			foreach ( $groups as $grp ) {
+				$d     = $grp['days'];
+				$label = substr( $d[0], 0, 3 ) . ( count( $d ) > 1 ? ' – ' . substr( end( $d ), 0, 3 ) : '' );
+				$h .= '<li data-days="' . esc_attr( implode( ' ', $d ) ) . '"><b>' . esc_html( $label ) . '</b><span>' . esc_html( $grp['t'] ) . '</span></li>';
+			}
+			$h .= '</ul></div>';
 		}
 		$h .= '</div></div>';
 

@@ -57,7 +57,7 @@
 		el.classList.toggle('is-open', open);
 		el.hidden = false;
 		var box = el.closest('.sdmap');
-		var row = box && box.querySelector('.sdmap-hours tr[data-day="' + now.day + '"]');
+		var row = box && box.querySelector('.sdmap-hours [data-days~="' + now.day + '"]');
 		if (row) { row.classList.add('is-today'); }
 	}
 

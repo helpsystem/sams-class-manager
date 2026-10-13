@@ -64,15 +64,15 @@
 .sdmap-copy:focus-visible, .sdmap-call:focus-visible { outline: 3px solid var(--sdm-yel); outline-offset: 2px; }
 .sdmap-copy.is-done { background: #fff; color: var(--sdm-green) !important; }
 
-.sdmap-hours { margin-top: 2px; border-top: 1px solid rgba(255, 255, 255, .25); padding-top: 10px; }
-.sdmap-hours summary { cursor: pointer; font-weight: 800; font-size: .9rem; list-style: none; display: flex; align-items: center; justify-content: space-between; }
-.sdmap-hours summary::-webkit-details-marker { display: none; }
-.sdmap-hours summary::after { content: "+"; font-size: 1.2rem; line-height: 1; }
-.sdmap-hours[open] summary::after { content: "–"; }
-.sdmap-hours table { width: 100%; margin: 8px 0 0 !important; border-collapse: collapse; border: 0 !important; font-size: .88rem; }
-.sdmap-hours th, .sdmap-hours td { padding: 4px 0 !important; border: 0 !important; background: none !important; color: rgba(255, 255, 255, .9) !important; text-align: left; font-weight: 600; }
-.sdmap-hours td { text-align: right; }
-.sdmap-hours tr.is-today th, .sdmap-hours tr.is-today td { color: var(--sdm-yel) !important; font-weight: 900; }
+.sdmap-hours { margin-top: 4px; padding: 14px 16px; border-radius: 14px; background: rgba(0, 0, 0, .24); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .35); }
+.sdmap-hours-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px !important; font-weight: 900; font-size: .95rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sdm-yel) !important; }
+.sdmap-hours-h svg { width: 18px; height: 18px; }
+.sdmap-hours ul { list-style: none; margin: 0 !important; padding: 0 !important; display: grid; gap: 6px; }
+.sdmap-hours li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 !important; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); color: #fff; font-size: 1.05rem; }
+.sdmap-hours li b { font-weight: 900; }
+.sdmap-hours li span { font-weight: 700; white-space: nowrap; }
+.sdmap-hours li.is-today { background: var(--sdm-yel); color: #15191d; }
+.sdmap-hours li.is-today b::after { content: " · today"; font-weight: 700; font-size: .8em; }
 
 /* Map frame */
 .sdmap-frame {
