@@ -30,6 +30,11 @@ class SDSC_Map {
 		return '0' !== get_option( 'sdsc_map', '1' );
 	}
 
+	/** Address used for the map pin: street and city without the unit number. */
+	public static function pin_address() {
+		return trim( preg_replace( '/,\s*(Unit|Suite|Ste\.?|#)\s*[\w-]+/i', '', self::STREET ) ) . ', ' . self::CITY;
+	}
+
 	public static function address() {
 		return self::STREET . ', ' . self::CITY;
 	}
@@ -43,7 +48,8 @@ class SDSC_Map {
 			'apple'  => 'https://maps.apple.com/?daddr=' . rawurlencode( $addr ) . '&q=' . rawurlencode( 'Sam\'s Driving School' ),
 			'waze'   => 'https://waze.com/ul?q=' . rawurlencode( $addr ) . '&navigate=yes',
 			'view'   => 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( $full ) . '&query_place_id=' . self::PLACE_ID,
-			'embed'  => 'https://maps.google.com/maps?q=' . rawurlencode( $full ) . '&z=15&output=embed',
+			// The street address alone (no business name, no unit number) always gets a pin, centred on the building.
+			'embed'  => 'https://maps.google.com/maps?q=' . rawurlencode( self::pin_address() ) . '&z=16&output=embed',
 		);
 	}
 

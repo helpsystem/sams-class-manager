@@ -481,7 +481,7 @@ class SDSC_Chrome {
 						<p class="bwf-fade" style="<?php echo esc_attr( $dl() ); ?>">
 							<span class="bwf-phones"><?php foreach ( $phones as $p ) { echo self::phone_chip( $p ); } // phpcs:ignore -- escaped in helper ?></span>
 						</p>
-						<p class="bwf-fade bwf-by" style="<?php echo esc_attr( $dl() ); ?>">Designed &amp; developed by <b>Saman Abyar</b></p>
+						<p class="bwf-fade bwf-by" style="<?php echo esc_attr( $dl() ); ?>">Designed &amp; developed by <a class="bwf-by-link" href="https://abyarsaman.com/" target="_blank" rel="noopener"><b>Saman Abyar</b></a></p>
 					</div>
 				</div>
 				<nav class="bwf-col" aria-label="Explore">
