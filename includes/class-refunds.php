@@ -336,8 +336,56 @@ class SDSC_Refunds {
 		$r['amount'] = round( max( 0, min( $max, $r['paid'] - $kept ) ), 2 );
 		if ( $r['amount'] <= 0 ) { self::back( 'new', array( 'email' => $email, 'err' => 'Nothing to refund: what was used is at least what was paid.' ) ); }
 		$tok = wp_generate_password( 20, false );
+		if ( 'manual' !== $r['source'] ) { $r = self::new_code( $r ); } // real money moves: needs the e-mailed code
 		set_transient( 'sdsc_rf_' . get_current_user_id() . '_' . $tok, $r, 30 * MINUTE_IN_SECONDS );
 		self::back( 'confirm', array( 't' => $tok ) );
+	}
+
+	/* ------------------------------------------------------------ approval code */
+
+	const CODE_TTL = 15; // minutes
+	const CODE_TRIES = 5;
+
+	/** Who must see the code: the site administrator e-mail and every School Manager (office). */
+	public static function approvers() {
+		$to = array( strtolower( (string) get_option( 'admin_email' ) ) );
+		if ( class_exists( 'SDSC_Access' ) ) {
+			foreach ( get_users( array( 'role' => SDSC_Access::MANAGER, 'fields' => array( 'user_email' ) ) ) as $u ) { $to[] = strtolower( $u->user_email ); }
+		}
+		return array_values( array_unique( array_filter( $to, 'is_email' ) ) );
+	}
+
+	protected static function code_hash( $code ) { return hash_hmac( 'sha256', (string) $code, wp_salt( 'nonce' ) . 'sdsc-refund' ); }
+
+	protected static function new_code( $r ) {
+		$code           = (string) random_int( 100000, 999999 );
+		$r['_code']     = self::code_hash( $code );
+		$r['_code_exp'] = time() + self::CODE_TTL * MINUTE_IN_SECONDS;
+		$r['_tries']    = 0;
+		$by             = wp_get_current_user();
+		$args = array(
+			'to'         => implode( ',', self::approvers() ),
+			'subject_en' => 'Refund approval code ' . $code . ' — $' . self::money( $r['amount'] ) . ' to ' . $r['name'],
+			'subject_fa' => 'کد تأیید بازپرداخت',
+			'title_en'   => 'Refund approval code: ' . $code,
+			'title_fa'   => 'کد تأیید بازپرداخت: ' . $code,
+			'lead_en'    => $by->display_name . ' asked to refund money on the website. The refund goes through only after this code is typed in. If you did not expect this, do not share the code.',
+			'lead_fa'    => $by->display_name . ' درخواست بازپرداخت پول را در سایت ثبت کرد. بازپرداخت فقط بعد از وارد کردن این کد انجام می‌شود. اگر انتظارش را نداشتید، کد را به کسی ندهید.',
+			'rows'       => array(
+				array( 'en' => 'Code', 'fa' => 'کد', 'v' => $code, 'ltr' => true ),
+				array( 'en' => 'Valid for', 'fa' => 'اعتبار', 'v' => self::CODE_TTL . ' minutes', 'v_fa' => self::CODE_TTL . ' دقیقه' ),
+				array( 'en' => 'Student', 'fa' => 'شاگرد', 'v' => $r['name'] . ' · ' . $r['email'], 'ltr' => true ),
+				array( 'en' => 'Paid', 'fa' => 'مبلغ پرداختی', 'v' => '$' . self::money( $r['paid'] ), 'ltr' => true ),
+				array( 'en' => 'Refund', 'fa' => 'مبلغ بازپرداخت', 'v' => '$' . self::money( $r['amount'] ), 'ltr' => true ),
+				array( 'en' => 'Goes back through', 'fa' => 'از طریق', 'v' => 'stripe' === $r['source'] ? 'Stripe — card (' . SDSC_Api::mode() . ' mode)' : 'Website order #' . $r['source_ref'], 'ltr' => true ),
+				array( 'en' => 'Asked by', 'fa' => 'درخواست‌دهنده', 'v' => $by->display_name . ' · ' . $by->user_email . ' · IP ' . sanitize_text_field( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) ), 'ltr' => true ), // phpcs:ignore
+				array( 'en' => 'Note', 'fa' => 'توضیح', 'v' => $r['note'], 'ltr' => true ),
+			),
+			'note_en'    => 'Never give this code over the phone to someone who calls you.',
+			'note_fa'    => 'این کد را هرگز تلفنی به کسی که با شما تماس می‌گیرد ندهید.',
+		);
+		if ( class_exists( 'SDSC_Mailer' ) ) { SDSC_Mailer::admin_report( $args ); } else { wp_mail( $args['to'], $args['subject_en'], $args['lead_en'] . "\n\nCode: " . $code ); }
+		return $r;
 	}
 
 	protected static function tab_confirm() {
@@ -360,6 +408,10 @@ class SDSC_Refunds {
 				<?php wp_nonce_field( 'sdsc_rf_do' ); ?><input type="hidden" name="action" value="sdsc_rf_do"><input type="hidden" name="t" value="<?php echo esc_attr( $tok ); ?>">
 				<label class="sdo-check"><input type="checkbox" name="mail" value="1" checked> E-mail the student a refund receipt</label>
 				<label class="sdo-check"><input type="checkbox" name="sure" value="1" required> I checked the amount and the student asked in writing</label>
+				<?php if ( ! empty( $r['_code'] ) ) : ?>
+					<?php if ( ! empty( $_GET['codeerr'] ) ) : // phpcs:ignore ?><p class="sdo-err" style="color:#b32d2e;font-weight:700"><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['codeerr'] ) ) ); // phpcs:ignore ?></p><?php endif; ?>
+					<label class="sdo-f" style="display:block;margin:10px 0"><span style="display:block;font-weight:700">Approval code</span><input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required style="font-size:1.4rem;letter-spacing:.3em;width:9em;padding:8px 10px"><small style="display:block;color:#555">A 6-digit code was e-mailed to the administrator and the school manager<?php echo esc_html( ' (' . count( self::approvers() ) . ' address' . ( 1 === count( self::approvers() ) ? '' : 'es' ) . ')' ); ?>. It works for <?php echo (int) self::CODE_TTL; ?> minutes and <?php echo (int) self::CODE_TRIES; ?> tries.</small></label>
+				<?php endif; ?>
 				<p><button class="sdo-btn sdo-btn--danger"><?php echo 'manual' === $r['source'] ? 'Record refund of $' : 'Refund $'; ?><?php echo esc_html( self::money( $r['amount'] ) ); ?></button> <a class="sdo-btn sdo-btn--ghost" href="<?php echo esc_url( self::url( 'new', array( 'email' => $r['email'] ) ) ); ?>">Change</a></p>
 			</form>
 		</section>
@@ -374,7 +426,21 @@ class SDSC_Refunds {
 		$key = 'sdsc_rf_' . get_current_user_id() . '_' . $tok;
 		$r   = get_transient( $key );
 		if ( ! is_array( $r ) || empty( $_POST['sure'] ) ) { self::back( 'new', array( 'err' => 'Not refunded: the review expired or was not confirmed.' ) ); }
+		if ( ! empty( $r['_code'] ) ) {
+			$given = preg_replace( '/\D/', '', (string) ( $_POST['code'] ?? '' ) );
+			if ( time() > (int) $r['_code_exp'] || (int) $r['_tries'] >= self::CODE_TRIES ) {
+				delete_transient( $key );
+				self::back( 'new', array( 'email' => $r['email'], 'err' => 'Not refunded: the approval code expired or had too many wrong tries. Start the refund again for a new code.' ) );
+			}
+			if ( ! hash_equals( (string) $r['_code'], self::code_hash( $given ) ) ) {
+				$r['_tries'] = (int) $r['_tries'] + 1;
+				set_transient( $key, $r, 30 * MINUTE_IN_SECONDS );
+				self::back( 'confirm', array( 't' => $tok, 'codeerr' => 'Wrong approval code — ' . ( self::CODE_TRIES - $r['_tries'] ) . ' tries left. Nothing was refunded.' ) );
+			}
+		}
 		delete_transient( $key );   // one use only
+		$r['note'] = trim( $r['note'] . ( ! empty( $r['_code'] ) ? ' [approved with e-mailed code]' : '' ) );
+		unset( $r['_code'], $r['_code_exp'], $r['_tries'] );
 		$row = array_merge( $r, array( 'status' => 'pending', 'by_user' => get_current_user_id(), 'created_at' => current_time( 'mysql' ) ) );
 		$wpdb->insert( self::table(), $row );
 		$id = (int) $wpdb->insert_id;
