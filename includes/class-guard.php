@@ -382,7 +382,7 @@ class SDSC_Guard {
 		if ( in_array( $domain, self::disposable(), true ) ) { return 'throwaway e-mail service'; }
 		if ( self::sub_domain( $domain ) ) { return 'e-mail on a sub-domain (bot pattern)'; }
 		if ( self::busy() && ! self::common( $domain ) ) { return 'many new accounts right now: only well-known e-mail providers for the next hour'; }
-		if ( ! self::domain_ok( $domain ) ) { return 'e-mail domain does not exist'; }
+		if ( ! self::common( $domain ) && ! self::domain_ok( $domain ) ) { return 'e-mail domain does not exist'; } // well-known providers and schools: no DNS lookup needed
 		return '';
 	}
 
