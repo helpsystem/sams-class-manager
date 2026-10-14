@@ -59,10 +59,45 @@
 					a.classList.add('falling');
 					set(a, 'falling1');
 					setTimeout(function () { set(a, 'falling2'); }, 400);
-					setTimeout(function () { location.href = go; }, 650);
+					var ms = drive(a);              // he lands on the road, the school car picks him up and drives off
+					setTimeout(function () { location.href = go; }, ms);
 				}, 400);
 			}, 300);
 		});
+	}
+	// The little scene under the button: fixed to the page, so menus that clip their content do not cut it.
+	var CAR =
+		'<svg class="sdlo-car" viewBox="0 0 120 56" aria-hidden="true" focusable="false">' +
+		'<rect class="sdlo-sign" x="47" y="2" width="26" height="9" rx="2"/>' +
+		'<path class="sdlo-body" d="M8 40c0-6 3-10 9-11l14-3 12-12c2-2 5-3 8-3h22c3 0 6 1 8 4l10 12 14 2c6 1 9 5 9 11v4c0 2-2 4-4 4H12c-2 0-4-2-4-4z"/>' +
+		'<path class="sdlo-glass" d="M46 17h14v11H35zM64 17h13c2 0 3 1 4 2l7 9H64z"/>' +
+		'<rect class="sdlo-stripe" x="12" y="34" width="96" height="3" rx="1.5"/>' +
+		'<g class="sdlo-wheel" style="transform-origin:30px 46px"><circle cx="30" cy="46" r="8"/><circle class="sdlo-hub" cx="30" cy="46" r="3"/><path class="sdlo-spoke" d="M30 39v14M23 46h14"/></g>' +
+		'<g class="sdlo-wheel" style="transform-origin:92px 46px"><circle cx="92" cy="46" r="8"/><circle class="sdlo-hub" cx="92" cy="46" r="3"/><path class="sdlo-spoke" d="M92 39v14M85 46h14"/></g>' +
+		'</svg>';
+	function drive(a) {
+		var r = a.getBoundingClientRect();
+		var vw = document.documentElement.clientWidth;
+		var w = Math.max(r.width, 240);
+		var left = Math.max(4, Math.min(r.left, vw - w - 4));
+		var top = Math.min(r.bottom + 2, window.innerHeight - 64);
+		var sc = document.createElement('div');
+		sc.className = 'sdlo-scene';
+		sc.style.left = left + 'px'; sc.style.top = top + 'px'; sc.style.width = w + 'px';
+		var fig = a.querySelector('.figure');
+		var man = fig ? fig.cloneNode(true) : document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		man.setAttribute('class', 'sdlo-man');
+		var stop = Math.max(10, Math.min(w - 70, r.right - left - 58)); // where the car stops: under the door
+		man.style.left = (stop + 22) + 'px';
+		sc.innerHTML = '<i class="sdlo-road"></i>' + CAR; // fixed markup from this file only
+		sc.appendChild(man);
+		var car = sc.querySelector('.sdlo-car');
+		car.style.setProperty('--stop', stop + 'px');
+		car.style.setProperty('--away', (vw - left + 40) + 'px');
+		document.body.appendChild(sc);
+		if (fig) { fig.style.opacity = '0'; }
+		requestAnimationFrame(function () { sc.classList.add('go'); });
+		return 2300;
 	}
 	function scan(root) {
 		var list = (root || document).querySelectorAll('a[href*="action=logout"]');

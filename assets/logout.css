@@ -33,7 +33,7 @@ a.sdlo.clicked .door { transform: rotateY(35deg); }
 a.sdlo.door-slammed .door { transform: none; transition: transform 100ms ease-in 250ms; }
 a.sdlo.falling { animation: sdlo-shake 200ms linear; }
 a.sdlo.falling .bang { animation: sdlo-flash 300ms linear; }
-a.sdlo.falling .figure { animation: sdlo-spin 1000ms infinite linear; bottom: -1080px; opacity: 0; right: 1px; z-index: 1;
+a.sdlo.falling .figure { animation: sdlo-spin 1000ms infinite linear; bottom: -40px; opacity: 0; right: 1px; z-index: 1;
 	transition: transform calc(var(--figure-duration) * 1ms) linear, bottom calc(var(--figure-duration) * 1ms) cubic-bezier(.7,.1,1,1) 100ms, opacity calc(var(--figure-duration) * .25ms) linear calc(var(--figure-duration) * .75ms); }
 a.sdlo .arm1, a.sdlo .wrist1, a.sdlo .arm2, a.sdlo .wrist2, a.sdlo .leg1, a.sdlo .calf1, a.sdlo .leg2, a.sdlo .calf2 { transition: transform calc(var(--walking-duration) * 1ms) ease-in-out; }
 a.sdlo .arm1 { transform: var(--transform-arm1); transform-origin: 52% 45%; }
@@ -47,6 +47,26 @@ a.sdlo .calf2 { transform: var(--transform-calf2); transform-origin: 41.5% 73%; 
 @keyframes sdlo-spin { from { transform: rotate(0) scale(.94); } to { transform: rotate(359deg) scale(.94); } }
 @keyframes sdlo-shake { 0% { transform: rotate(-1deg); } 50% { transform: rotate(2deg); } 100% { transform: rotate(-1deg); } }
 @keyframes sdlo-flash { 0% { opacity: .4; } 100% { opacity: 0; } }
+/* After the fall: he lands on a little road under the button, the school car picks him up and drives away. */
+.sdlo-scene { position: fixed; z-index: 2147483000; height: 60px; pointer-events: none; overflow: visible; }
+.sdlo-scene .sdlo-road { position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; border-radius: 4px;
+	background: repeating-linear-gradient(90deg, #ffc20e 0 14px, transparent 14px 24px), #2b2f33; opacity: 0; transition: opacity .2s; }
+.sdlo-scene.go .sdlo-road { opacity: 1; }
+.sdlo-scene .sdlo-man { position: absolute; bottom: 10px; width: 26px; height: 26px; fill: #00703c; opacity: 0; transform: translateY(-46px); }
+.sdlo-scene.go .sdlo-man { animation: sdlo-land 420ms cubic-bezier(.5,0,.9,.5) forwards, sdlo-board 300ms ease-in 1250ms forwards; }
+.sdlo-scene .sdlo-car { position: absolute; left: 0; bottom: 6px; width: 70px; height: 33px; transform: translateX(-90px); }
+.sdlo-scene.go .sdlo-car { animation: sdlo-in 650ms cubic-bezier(.2,.8,.3,1) 450ms forwards, sdlo-away 750ms cubic-bezier(.6,0,.9,.6) 1550ms forwards; }
+.sdlo-scene .sdlo-body { fill: #00703c; }
+.sdlo-scene .sdlo-glass { fill: #cfe9dc; }
+.sdlo-scene .sdlo-stripe, .sdlo-scene .sdlo-sign { fill: #ffc20e; }
+.sdlo-scene .sdlo-wheel circle { fill: #1d2125; } .sdlo-scene .sdlo-wheel .sdlo-hub { fill: #c9ced3; }
+.sdlo-scene .sdlo-spoke { stroke: #c9ced3; stroke-width: 1.6; }
+.sdlo-scene.go .sdlo-wheel { animation: sdlo-roll 300ms linear 450ms 2, sdlo-roll 220ms linear 1550ms infinite; }
+@keyframes sdlo-land { 0% { opacity: 1; transform: translateY(-46px) rotate(-30deg); } 70% { opacity: 1; transform: translateY(2px) rotate(8deg); } 85% { transform: translateY(-5px) rotate(0); } 100% { opacity: 1; transform: translateY(0) rotate(0); } }
+@keyframes sdlo-board { 0% { opacity: 1; transform: translate(0,0) scale(1); } 60% { opacity: 1; transform: translate(-8px,-12px) scale(.8); } 100% { opacity: 0; transform: translate(-14px,-2px) scale(.35); } }
+@keyframes sdlo-in { from { transform: translateX(-90px); } to { transform: translateX(var(--stop)); } }
+@keyframes sdlo-away { 0% { transform: translateX(var(--stop)); } 15% { transform: translateX(calc(var(--stop) - 4px)); } 100% { transform: translateX(var(--away)); } }
+@keyframes sdlo-roll { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 /* The header drawer has two buttons side by side: keep the pair tidy. */
 .sdh-acct-btns a.sdlo { margin: 0 !important; flex: 1 1 136px; }
 @media (prefers-reduced-motion: reduce) { a.sdlo .figure, a.sdlo .door { transition: none !important; animation: none !important; } }
