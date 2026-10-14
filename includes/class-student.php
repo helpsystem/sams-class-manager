@@ -39,7 +39,7 @@ class SDSC_Student {
 	public static function nav( $items ) {
 		if ( ! is_array( $items ) ) { return $items; }
 		if ( is_user_logged_in() && ! self::is_student() ) { return $items; } // logged out = building the page addresses: keep our page
-		foreach ( array( 'wishlist', 'reviews', 'purchase_history', 'my-profile', 'question-answer', 'my-quiz-attempts-legacy' ) as $k ) { unset( $items[ $k ] ); }
+		if ( is_user_logged_in() ) { foreach ( array( 'wishlist', 'reviews', 'purchase_history', 'my-profile', 'question-answer', 'my-quiz-attempts-legacy' ) as $k ) { unset( $items[ $k ] ); } }
 		$mine = array( 'title' => 'My payments', 'icon' => 'dollar', 'active_icon' => 'dollar' );
 		$out  = array();
 		$done = false;
