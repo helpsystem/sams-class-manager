@@ -21,6 +21,7 @@ class SDSC_Guard {
 		add_filter( 'xoo_el_process_registration_errors', array( __CLASS__, 'wc_errors' ), 20, 4 );
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 40 );
 		add_action( 'admin_post_sdsc_blocklist_save', array( __CLASS__, 'save' ) );
+		add_action( 'admin_post_sdsc_suspicious_csv', array( __CLASS__, 'suspicious_csv' ) );
 		// Honeypot ("bot trap"): hidden fields real visitors never see.
 		add_action( 'init', array( __CLASS__, 'trap_check' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'trap_page' ), 0 );
@@ -276,7 +277,6 @@ class SDSC_Guard {
 	public static function menu() {
 		add_submenu_page( 'sdsc-dashboard', 'Blocked sign-ups', 'Blocked sign-ups', 'sdsc_access_blocklist', 'sdsc-blocklist', array( __CLASS__, 'page' ) );
 		add_submenu_page( 'sdsc-dashboard', 'Suspicious accounts', 'Suspicious accounts', 'sdsc_access_blocklist', 'sdsc-suspicious', array( __CLASS__, 'suspicious_page' ) );
-		add_action( 'admin_post_sdsc_suspicious_csv', array( __CLASS__, 'suspicious_csv' ) );
 	}
 
 	/* ------------------------------------------------------------------ *
