@@ -39,8 +39,15 @@ class SDSC_Student {
 	public static function nav( $items ) {
 		if ( ! is_array( $items ) || ! self::is_student() ) { return $items; }
 		foreach ( array( 'wishlist', 'reviews', 'purchase_history', 'my-profile', 'question-answer', 'my-quiz-attempts-legacy' ) as $k ) { unset( $items[ $k ] ); }
-		$items[ self::TAB ] = array( 'title' => 'My payments', 'icon' => 'purchase', 'active_icon' => 'purchase' );
-		return $items;
+		$mine = array( 'title' => 'My payments', 'icon' => 'dollar', 'active_icon' => 'dollar' );
+		$out  = array();
+		$done = false;
+		foreach ( $items as $k => $v ) {
+			$out[ $k ] = $v;
+			if ( ! $done && in_array( $k, array( 'sdsc-documents', 'sdsc-lessons' ), true ) && ! isset( $items['sdsc-documents'] ) === ( 'sdsc-lessons' === $k ) ) { $out[ self::TAB ] = $mine; $done = true; }
+		}
+		if ( ! $done ) { $out[ self::TAB ] = $mine; }
+		return $out;
 	}
 
 	public static function template( $tpl ) {
