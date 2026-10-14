@@ -52,7 +52,7 @@ a.sdlo .calf2 { transform: var(--transform-calf2); transform-origin: 41.5% 73%; 
 .sdlo-scene .sdlo-road { position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; border-radius: 4px;
 	background: repeating-linear-gradient(90deg, #ffc20e 0 14px, transparent 14px 24px), #2b2f33; opacity: 0; transition: opacity .2s; }
 .sdlo-scene.go .sdlo-road { opacity: 1; }
-.sdlo-scene .sdlo-man { position: absolute; bottom: 10px; width: 26px; height: 26px; fill: #00703c; opacity: 0; transform: translateY(-46px); }
+.sdlo-scene .sdlo-man { position: absolute; bottom: 10px; width: 26px; height: 26px; fill: #1d2125; opacity: 0; transform: translateY(-46px); }
 .sdlo-scene.go .sdlo-man { animation: sdlo-land 420ms cubic-bezier(.5,0,.9,.5) forwards, sdlo-board 300ms ease-in 1250ms forwards; }
 .sdlo-scene .sdlo-car { position: absolute; left: 0; bottom: 6px; width: 70px; height: 33px; transform: translateX(-90px); }
 .sdlo-scene.go .sdlo-car { animation: sdlo-in 650ms cubic-bezier(.2,.8,.3,1) 450ms forwards, sdlo-away 750ms cubic-bezier(.6,0,.9,.6) 1550ms forwards; }
