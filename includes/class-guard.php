@@ -71,6 +71,10 @@ class SDSC_Guard {
 	protected static function common( $domain ) {
 		$big = array( 'gmail.com', 'googlemail.com', 'yahoo.com', 'ymail.com', 'rocketmail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'comcast.net', 'verizon.net', 'att.net', 'proton.me', 'protonmail.com', 'gmx.com', 'mail.com', 'zoho.com', 'yandex.com', 'mcpsmd.net', 'mcpsmd.org' );
 		if ( in_array( $domain, $big, true ) ) { return true; }
+		// Colleges, universities and school systems (also their student sub-domains, e.g. terpmail.umd.edu, students.pgcps.org).
+		$schools = array( 'mcpsmd.net', 'mcpsmd.org', 'pgcps.org', 'fcps.edu', 'hcpss.org', 'aacps.org', 'bcps.org', 'fcpsmd.org', 'ccps.org', 'wcps.k12.md.us', 'apsva.us', 'lcps.org', 'k12.dc.us', 'dc.gov', 'mymail.mc.edu', 'montgomerycollege.edu', 'umd.edu', 'umbc.edu', 'towson.edu', 'gwu.edu', 'georgetown.edu', 'howard.edu', 'american.edu', 'jhu.edu', 'gmu.edu', 'udc.edu', 'catholic.edu', 'nvcc.edu', 'pgcc.edu', 'aacc.edu', 'ccbcmd.edu', 'hcc.edu', 'frederick.edu' );
+		foreach ( $schools as $sd ) { if ( $domain === $sd || substr( $domain, -strlen( '.' . $sd ) ) === '.' . $sd ) { return true; } }
+		if ( preg_match( '/\.(edu|ac|k12|sch|school)\.[a-z]{2}$|\.k12\.[a-z]{2}\.us$/', $domain ) ) { return true; } // edu.au, ac.uk, k12.md.us ...
 		if ( preg_match( '/^(yahoo|hotmail|outlook|live)\.(co|com)\.[a-z]{2}$|^(yahoo|hotmail|outlook|live|gmail)\.[a-z]{2}$/', $domain ) ) { return true; }
 		return (bool) preg_match( '/\.(edu|gov|mil|us)$/', $domain );
 	}
