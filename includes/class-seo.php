@@ -21,6 +21,7 @@ class SDSC_Seo {
 		add_filter( 'rank_math/opengraph/facebook/og_title', array( __CLASS__, 'title' ), 20 );
 		add_filter( 'rank_math/frontend/robots', array( __CLASS__, 'robots' ), 20 );
 		add_filter( 'rank_math/sitemap/exclude_post_type', array( __CLASS__, 'sitemap_exclude' ), 20, 2 );
+		add_filter( 'rank_math/sitemap/posts_to_exclude', array( __CLASS__, 'private_ids' ), 20 );
 		add_action( 'wp_head', array( __CLASS__, 'local_business' ), 30 );
 		add_action( 'template_redirect', array( __CLASS__, 'one_description' ), 0 );
 	}
@@ -31,10 +32,23 @@ class SDSC_Seo {
 
 	/** Quiz pages are short test screens, not content for Google. */
 	public static function robots( $r ) {
-		if ( is_singular( array( 'tutor_quiz', 'tutor_assignments' ) ) ) {
+		if ( is_singular( array( 'tutor_quiz', 'tutor_assignments' ) ) || ( is_page() && in_array( get_queried_object_id(), self::private_ids( array() ), true ) ) ) {
 			$r['index'] = 'noindex';
 		}
 		return $r;
+	}
+
+	/** Account, cart and checkout pages: nothing for Google there (they only redirect or ask to log in). */
+	public static function private_ids( $ids ) {
+		$out = array();
+		foreach ( array( 'checkout', 'cart', 'my-account', 'dashboard', 'student-driving-portal', 'instructor-portal' ) as $slug ) {
+			$p = get_page_by_path( $slug );
+			if ( $p ) { $out[] = (int) $p->ID; }
+		}
+		if ( function_exists( 'wc_get_page_id' ) ) {
+			foreach ( array( 'cart', 'checkout', 'myaccount' ) as $k ) { $id = (int) wc_get_page_id( $k ); if ( $id > 0 ) { $out[] = $id; } }
+		}
+		return array_values( array_unique( array_merge( array_map( 'intval', (array) $ids ), $out ) ) );
 	}
 
 	public static function sitemap_exclude( $exclude, $type ) {

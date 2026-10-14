@@ -198,6 +198,8 @@ class SDSC_Board {
 		check_ajax_referer( 'sdsc_board', 'nonce' );
 	}
 
+	public static function note( $txt ) { self::log( $txt ); }
+
 	protected static function log( $txt ) {
 		$l = (array) get_option( self::LOG, array() );
 		array_unshift( $l, array( 'at' => current_time( 'mysql' ), 'by' => wp_get_current_user()->display_name, 't' => $txt ) );
@@ -478,6 +480,7 @@ class SDSC_Board {
 							<?php else : ?>
 								<p class="sdb-when">Registrations of the last <?php echo (int) self::days(); ?> days with no class (the old form did not ask). Drag each one into its class.</p>
 							<?php endif; ?>
+							<?php if ( $c && class_exists( 'SDSC_ZoomAuto' ) ) { echo SDSC_ZoomAuto::board_html( $cid ); } // phpcs:ignore ?>
 							<button type="button" class="button sdb-add">+ Add student</button>
 						</header>
 						<div class="sdb-list">
@@ -552,6 +555,7 @@ class SDSC_Board {
 			.sdb-dlg{border:0;border-radius:12px;padding:18px 22px;max-width:420px;width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 			.sdb-dlg label{display:block;margin:8px 0}.sdb-dlg input,.sdb-dlg select{display:block;width:100%;margin-top:2px}
 			.sdb-err{color:#d63638;font-weight:600}
+			.sdb-zoom{margin:0 0 8px;font-size:12px}.sdb-zlink{margin-left:4px}
 			#sdb-msg{margin-left:8px;font-weight:600}
 			.sdb-card[hidden]{display:none}
 		</style>
