@@ -106,3 +106,9 @@
 #tutor-registration-wrap .sdsc-auth-side a.sdsc-auth-help, .sdsc-auth .sdsc-auth-side a.sdsc-auth-help { color: #fff !important; text-decoration: none !important; }
 #tutor-registration-wrap .sdsc-auth-side .sdsc-auth-note a, .sdsc-auth .sdsc-auth-side .sdsc-auth-note a { color: #ffc20e !important; }
 @media (max-width: 900px) { #tutor-registration-wrap .sdsc-auth-side .sdsc-auth-title, .sdsc-auth .sdsc-auth-side .sdsc-auth-title { font-size: 26px !important; } }
+/* Terms tick: Tutor draws its own box (appearance:none) and the tick did not show — use the real checkbox, green and bigger */
+.tutor-login-wrap input[type=checkbox], #tutor-registration-form input[type=checkbox], input.tutor-checkbox[type=checkbox] {
+	-webkit-appearance: checkbox !important; appearance: auto !important; background: none !important; border: 0 !important;
+	width: 20px !important; height: 20px !important; min-width: 20px; margin: 0 8px 0 0 !important; accent-color: #00703c; cursor: pointer; flex: none;
+}
+#tutor-registration-form label[for=tutor-terms-conditions], .tutor-login-wrap label { cursor: pointer; }

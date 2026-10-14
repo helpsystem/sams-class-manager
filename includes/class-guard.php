@@ -28,6 +28,101 @@ class SDSC_Guard {
 			add_action( $h, array( __CLASS__, 'trap_fields' ) );
 		}
 		add_action( 'wp_footer', array( __CLASS__, 'trap_js' ), 99 );
+		// The old WPCode snippet "Block Spam Registrations" (allow-list of e-mail providers) refused real Gmail
+		// sign-ups on the Tutor form and silently deleted students with school/work e-mails. This guard replaces it.
+		add_action( 'init', array( __CLASS__, 'retire_snippet' ), 999 );
+		add_action( 'wp_loaded', array( __CLASS__, 'retire_snippet' ), 1 );
+		add_action( 'user_register', array( __CLASS__, 'after_signup' ), 5 );
+		// Hide the user list from outsiders (bots collect user names from ?author=1 and the REST API).
+		add_action( 'template_redirect', array( __CLASS__, 'no_author_scan' ), 1 );
+		add_filter( 'rest_endpoints', array( __CLASS__, 'hide_users_api' ) );
+	}
+
+	public static function retire_snippet() {
+		if ( function_exists( 'sds_block_spam_domains' ) ) {
+			remove_filter( 'registration_errors', 'sds_block_spam_domains', 10 );
+			remove_filter( 'woocommerce_registration_errors', 'sds_block_spam_domains', 10 );
+		}
+		if ( function_exists( 'sds_remove_spam_domain_user' ) ) { remove_action( 'user_register', 'sds_remove_spam_domain_user', 1 ); }
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Limits: sign-ups per network address, too-fast forms, fake domains
+	 * ------------------------------------------------------------------ */
+
+	const PER_HOUR  = 3;   // accounts from one network address per hour
+	const PER_DAY   = 6;   // ... per day
+	const MIN_SECS  = 3;   // a person needs at least this long to fill the form
+	const SURGE     = 20;  // e-mail the school when this many accounts are made in one day
+
+	protected static function ip() { return sanitize_text_field( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) ); } // phpcs:ignore
+
+	protected static function ip_count( $span ) { return (int) get_transient( 'sdsc_su_' . $span . '_' . md5( self::ip() ) ); }
+
+	/** Throwaway inbox services (sign-ups only; real students do not use these). */
+	protected static function disposable() {
+		return array( 'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'sharklasers.com', '10minutemail.com', 'temp-mail.org', 'tempmail.com', 'tempmail.net', 'yopmail.com', 'trashmail.com', 'getnada.com', 'dispostable.com', 'maildrop.cc', 'throwawaymail.com', 'fakeinbox.com', 'mohmal.com', 'emailondeck.com', 'mintemail.com', 'spamgourmet.com', 'mailnesia.com', 'tempinbox.com', 'burnermail.io', 'moakt.com', 'tmail.ws', 'tmpmail.org', 'mail.tm', '1secmail.com', 'linshiyouxiang.net' );
+	}
+
+	/** The e-mail domain must exist and accept mail (fake domains are refused). Cached for a day. */
+	protected static function domain_ok( $domain ) {
+		if ( in_array( $domain, array( 'gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'aol.com', 'live.com', 'msn.com', 'me.com', 'ymail.com', 'protonmail.com', 'proton.me', 'comcast.net', 'verizon.net' ), true ) ) { return true; }
+		if ( ! function_exists( 'checkdnsrr' ) ) { return true; }
+		$k = 'sdsc_mx_' . md5( $domain );
+		$v = get_transient( $k );
+		if ( false === $v ) {
+			$v = ( checkdnsrr( $domain . '.', 'MX' ) || checkdnsrr( $domain . '.', 'A' ) ) ? 'y' : 'n';
+			set_transient( $k, $v, DAY_IN_SECONDS );
+		}
+		return 'y' === $v;
+	}
+
+	/** Extra checks for a sign-up happening right now (on top of the e-mail checks). */
+	protected static function request_reason() {
+		if ( is_user_logged_in() && current_user_can( 'list_users' ) ) { return ''; } // staff adding a student
+		if ( self::ip_count( 'h' ) >= self::PER_HOUR || self::ip_count( 'd' ) >= self::PER_DAY ) { return 'too many sign-ups from one network'; }
+		if ( isset( $_POST['sdsc_hp_t'] ) && (int) $_POST['sdsc_hp_t'] < self::MIN_SECS ) { return 'form sent too fast (bot)'; } // phpcs:ignore
+		return '';
+	}
+
+	/** After an account is made: count it, catch forms that skip the checks, warn the school on a surge. */
+	public static function after_signup( $user_id ) {
+		if ( is_user_logged_in() && current_user_can( 'list_users' ) ) { return; }
+		if ( defined( 'WP_CLI' ) && WP_CLI ) { return; }
+		foreach ( array( 'h' => HOUR_IN_SECONDS, 'd' => DAY_IN_SECONDS ) as $span => $ttl ) {
+			$k = 'sdsc_su_' . $span . '_' . md5( self::ip() );
+			set_transient( $k, (int) get_transient( $k ) + 1, $ttl );
+		}
+		$u = get_userdata( $user_id );
+		$why = $u ? self::reason( $u->user_email ) : '';
+		if ( $why ) { // a form that bypassed the sign-up checks: remove the account it just made
+			self::log( $u->user_email, $why . ' (removed after sign-up)' );
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+			wp_delete_user( $user_id );
+			return;
+		}
+		$day = current_time( 'Y-m-d' );
+		$c   = get_option( 'sdsc_signups_day', array() );
+		$c   = ( is_array( $c ) && ( $c['d'] ?? '' ) === $day ) ? $c : array( 'd' => $day, 'n' => 0, 'mailed' => 0 );
+		$c['n']++;
+		if ( $c['n'] >= self::SURGE && ! $c['mailed'] ) {
+			$c['mailed'] = 1;
+			wp_mail( get_option( 'admin_email' ), 'Unusual number of new accounts today', $c['n'] . " accounts were created on the website today. If you did not expect this, check Users and Class Manager → Blocked sign-ups.\n\n" . admin_url( 'users.php?orderby=registered&order=desc' ) );
+		}
+		update_option( 'sdsc_signups_day', $c, false );
+	}
+
+	public static function no_author_scan() {
+		if ( is_user_logged_in() ) { return; }
+		if ( isset( $_GET['author'] ) || is_author() ) { wp_safe_redirect( home_url( '/' ), 301 ); exit; } // phpcs:ignore
+	}
+
+	public static function hide_users_api( $endpoints ) {
+		if ( is_user_logged_in() ) { return $endpoints; }
+		foreach ( array_keys( $endpoints ) as $route ) {
+			if ( 0 === strpos( $route, '/wp/v2/users' ) ) { unset( $endpoints[ $route ] ); }
+		}
+		return $endpoints;
 	}
 
 	/* ------------------------------------------------------------------ *
@@ -55,7 +150,7 @@ class SDSC_Guard {
 	public static function trap_js() {
 		if ( is_user_logged_in() ) { return; }
 		?>
-		<script>(function(){var B=<?php echo wp_json_encode( self::HP_BOX ); ?>,T=<?php echo wp_json_encode( self::HP_TEXT ); ?>;function add(f){if(f.querySelector('[name="'+B+'"]'))return;var d=document.createElement('div');d.className='sdsc-hpot';d.setAttribute('aria-hidden','true');d.style.cssText='position:absolute!important;left:-9999px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important;';d.innerHTML='<label>I\'m not a robot <input type="checkbox" name="'+B+'" value="1" tabindex="-1" autocomplete="off"></label><label>Your website <input type="text" name="'+T+'" value="" tabindex="-1" autocomplete="off"></label>';f.appendChild(d);}function scan(){[].forEach.call(document.querySelectorAll('form'),function(f){if(f.querySelector('input[type=password],input[name*=email i],input[type=email]'))add(f);});}scan();if(window.MutationObserver){new MutationObserver(function(){clearTimeout(scan.t);scan.t=setTimeout(scan,300);}).observe(document.body,{childList:true,subtree:true});}})();</script>
+		<script>(function(){var B=<?php echo wp_json_encode( self::HP_BOX ); ?>,T=<?php echo wp_json_encode( self::HP_TEXT ); ?>;function add(f){if(f.querySelector('[name="'+B+'"]'))return;var d=document.createElement('div');d.className='sdsc-hpot';d.setAttribute('aria-hidden','true');d.style.cssText='position:absolute!important;left:-9999px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important;';d.innerHTML='<label>I\'m not a robot <input type="checkbox" name="'+B+'" value="1" tabindex="-1" autocomplete="off"></label><label>Your website <input type="text" name="'+T+'" value="" tabindex="-1" autocomplete="off"></label><input type="hidden" name="sdsc_hp_t" value="'+S+'">';f.appendChild(d);}var S=0;setInterval(function(){S++;[].forEach.call(document.querySelectorAll('input[name=sdsc_hp_t]'),function(i){i.value=S;});},1000);function scan(){[].forEach.call(document.querySelectorAll('form'),function(f){if(f.querySelector('input[type=password],input[name*=email i],input[type=email]'))add(f);});}scan();if(window.MutationObserver){new MutationObserver(function(){clearTimeout(scan.t);scan.t=setTimeout(scan,300);}).observe(document.body,{childList:true,subtree:true});}})();</script>
 		<?php
 	}
 
@@ -129,10 +224,18 @@ class SDSC_Guard {
 		if ( in_array( $domain, array( 'gmail.com', 'googlemail.com' ), true ) && substr_count( preg_replace( '/\+.*/', '', $local ), '.' ) >= 4 ) {
 			return 'gmail dot trick';
 		}
+		if ( in_array( $domain, self::disposable(), true ) ) { return 'throwaway e-mail service'; }
+		if ( ! self::domain_ok( $domain ) ) { return 'e-mail domain does not exist'; }
 		return '';
 	}
 
 	protected static function refuse( $err, $email ) {
+		$why = self::request_reason();
+		if ( $why ) {
+			self::log( $email ? $email : '(no email)', $why . ( self::ip() ? ' · IP ' . self::ip() : '' ) );
+			if ( is_wp_error( $err ) ) { $err->add( 'sdsc_limit', 'We could not create the account right now. Please try again later or call us at (301) 726-3030.' ); }
+			return $err;
+		}
 		$why = self::reason( $email );
 		if ( ! $why ) { return $err; }
 		self::log( $email, $why );
