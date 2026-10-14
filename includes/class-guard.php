@@ -67,6 +67,32 @@ class SDSC_Guard {
 	protected static function ip_count( $span ) { return (int) get_transient( 'sdsc_su_' . $span . '_' . md5( self::ip() ) ); }
 
 	/** Throwaway inbox services (sign-ups only; real students do not use these). */
+	/** Well-known providers and school / government addresses: always welcome. */
+	protected static function common( $domain ) {
+		$big = array( 'gmail.com', 'googlemail.com', 'yahoo.com', 'ymail.com', 'rocketmail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'comcast.net', 'verizon.net', 'att.net', 'proton.me', 'protonmail.com', 'gmx.com', 'mail.com', 'zoho.com', 'yandex.com', 'mcpsmd.net', 'mcpsmd.org' );
+		if ( in_array( $domain, $big, true ) ) { return true; }
+		if ( preg_match( '/^(yahoo|hotmail|outlook|live)\.(co|com)\.[a-z]{2}$|^(yahoo|hotmail|outlook|live|gmail)\.[a-z]{2}$/', $domain ) ) { return true; }
+		return (bool) preg_match( '/\.(edu|gov|mil|us)$/', $domain );
+	}
+
+	/** name@x.something.com — real people almost never use an address on a sub-domain; bot waves do. */
+	protected static function sub_domain( $domain ) {
+		if ( self::common( $domain ) ) { return false; }
+		$p = explode( '.', $domain );
+		$n = count( $p );
+		$base = ( $n >= 3 && 2 === strlen( $p[ $n - 1 ] ) && in_array( $p[ $n - 2 ], array( 'co', 'com', 'org', 'net', 'ac', 'gov', 'edu' ), true ) ) ? 3 : 2; // example.co.uk
+		return $n > $base;
+	}
+
+	/** Four or more new accounts in 30 minutes = a wave: for one hour only well-known providers may sign up. */
+	protected static function busy() {
+		if ( get_transient( 'sdsc_signup_busy' ) ) { return true; }
+		global $wpdb;
+		$n = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s", gmdate( 'Y-m-d H:i:s', time() - 30 * MINUTE_IN_SECONDS ) ) );
+		if ( $n >= 4 ) { set_transient( 'sdsc_signup_busy', 1, HOUR_IN_SECONDS ); return true; }
+		return false;
+	}
+
 	protected static function disposable() {
 		return array( 'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'sharklasers.com', '10minutemail.com', 'temp-mail.org', 'tempmail.com', 'tempmail.net', 'yopmail.com', 'trashmail.com', 'getnada.com', 'dispostable.com', 'maildrop.cc', 'throwawaymail.com', 'fakeinbox.com', 'mohmal.com', 'emailondeck.com', 'mintemail.com', 'spamgourmet.com', 'mailnesia.com', 'tempinbox.com', 'burnermail.io', 'moakt.com', 'tmail.ws', 'tmpmail.org', 'mail.tm', '1secmail.com', 'linshiyouxiang.net' );
 	}
@@ -350,6 +376,8 @@ class SDSC_Guard {
 			return 'gmail dot trick';
 		}
 		if ( in_array( $domain, self::disposable(), true ) ) { return 'throwaway e-mail service'; }
+		if ( self::sub_domain( $domain ) ) { return 'e-mail on a sub-domain (bot pattern)'; }
+		if ( self::busy() && ! self::common( $domain ) ) { return 'many new accounts right now: only well-known e-mail providers for the next hour'; }
 		if ( ! self::domain_ok( $domain ) ) { return 'e-mail domain does not exist'; }
 		return '';
 	}
