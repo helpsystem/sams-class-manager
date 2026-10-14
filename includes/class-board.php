@@ -104,8 +104,8 @@ class SDSC_Board {
 
 	protected static function rt() { return SDSC_Registration::table(); }
 
-	/** How far back "No class yet" looks: 30 days, or 120 with ?older=1. */
-	protected static function days() { return empty( $_GET['older'] ) ? 30 : 120; } // phpcs:ignore
+	/** How far back "No class yet" looks: older forms belong to classes that are already over. */
+	protected static function days() { return 30; }
 
 	protected static function offline_for( $reg_id, $registrant_id ) {
 		global $wpdb;
@@ -129,8 +129,13 @@ class SDSC_Board {
 			$pay[] = array( 'k' => 'offline', 'id' => (int) $o['id'], 't' => self::method_label( $o['method'] ) . ( $o['ref'] ? ' #' . $o['ref'] : '' ) . ' $' . number_format( $o['amount'] / 100, 2 ) . ( $o['paid_on'] ? ' · ' . wp_date( 'M j', strtotime( $o['paid_on'] . ' 12:00' ) ) : '' ) );
 		}
 		if ( ! $pay && $pid && get_post_meta( $pid, '_sdsc_paid', true ) ) { $pay[] = array( 'k' => 'marked', 't' => 'Marked paid' ); }
-		if ( ! $pay && class_exists( 'SDSC_Gate' ) && $email && ( SDSC_Gate::opened( $email ) || ( $r && $r->parent_email && SDSC_Gate::opened( $r->parent_email ) ) ) ) {
-			$pay[] = array( 'k' => 'opened', 't' => 'Course access opened' );
+		if ( ! $pay && class_exists( 'SDSC_Gate' ) ) { // paid on another registration of the same e-mail, or opened from the Stripe list
+			$pe = $r ? (string) $r->parent_email : '';
+			if ( ( $email && SDSC_Gate::paid_email( $email ) ) || ( $pe && SDSC_Gate::paid_email( $pe ) ) ) {
+				$pay[] = array( 'k' => 'marked', 't' => 'Paid' );
+			} elseif ( ( $email && SDSC_Gate::opened( $email ) ) || ( $pe && SDSC_Gate::opened( $pe ) ) ) {
+				$pay[] = array( 'k' => 'opened', 't' => 'Paid (Stripe link)' );
+			}
 		}
 		return array(
 			'key'   => $r ? 'r' . (int) $r->id : 'p' . $pid,
@@ -471,7 +476,7 @@ class SDSC_Board {
 									<i class="sdb-bar"><i></i></i>
 								</div>
 							<?php else : ?>
-								<p class="sdb-when">Registrations of the last <?php echo (int) self::days(); ?> days with no class (the old form did not ask). Drag each one into its class. <a href="<?php echo esc_url( self::days() > 30 ? admin_url( 'admin.php?page=' . self::PAGE ) : admin_url( 'admin.php?page=' . self::PAGE . '&older=1' ) ); ?>"><?php echo self::days() > 30 ? 'Last 30 days only' : 'Show 120 days'; ?></a></p>
+								<p class="sdb-when">Registrations of the last <?php echo (int) self::days(); ?> days with no class (the old form did not ask). Drag each one into its class.</p>
 							<?php endif; ?>
 							<button type="button" class="button sdb-add">+ Add student</button>
 						</header>
