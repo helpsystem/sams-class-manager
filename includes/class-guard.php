@@ -275,6 +275,74 @@ class SDSC_Guard {
 
 	public static function menu() {
 		add_submenu_page( 'sdsc-dashboard', 'Blocked sign-ups', 'Blocked sign-ups', 'sdsc_access_blocklist', 'sdsc-blocklist', array( __CLASS__, 'page' ) );
+		add_submenu_page( 'sdsc-dashboard', 'Suspicious accounts', 'Suspicious accounts', 'sdsc_access_blocklist', 'sdsc-suspicious', array( __CLASS__, 'suspicious_page' ) );
+		add_action( 'admin_post_sdsc_suspicious_csv', array( __CLASS__, 'suspicious_csv' ) );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Suspicious accounts: student-type accounts that never did anything
+	 * (no class registration, no course, no quiz, no order) — a review list only, nothing is deleted here.
+	 * ------------------------------------------------------------------ */
+
+	public static function suspicious() {
+		global $wpdb;
+		$reg   = class_exists( 'SDSC_Registration' ) ? SDSC_Registration::table() : '';
+		$has   = function ( $t ) use ( $wpdb ) { return (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ); };
+		$where = array(
+			"NOT EXISTS (SELECT 1 FROM {$wpdb->posts} e WHERE e.post_type = 'tutor_enrolled' AND e.post_author = u.ID)",
+			"NOT EXISTS (SELECT 1 FROM {$wpdb->posts} p WHERE p.post_author = u.ID AND p.post_type NOT IN ('tutor_enrolled','revision'))",
+		);
+		if ( $has( $wpdb->prefix . 'tutor_quiz_attempts' ) ) { $where[] = "NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}tutor_quiz_attempts a WHERE a.user_id = u.ID)"; }
+		if ( $reg && $has( $reg ) ) { $where[] = "NOT EXISTS (SELECT 1 FROM $reg r WHERE LOWER(r.email) = LOWER(u.user_email) OR LOWER(r.parent_email) = LOWER(u.user_email))"; }
+		if ( $has( $wpdb->prefix . 'wc_orders' ) ) { $where[] = "NOT EXISTS (SELECT 1 FROM {$wpdb->prefix}wc_orders o WHERE o.customer_id = u.ID)"; }
+		$where[] = "NOT EXISTS (SELECT 1 FROM {$wpdb->postmeta} m WHERE m.meta_key = '_customer_user' AND m.meta_value = u.ID)";
+		$rows = $wpdb->get_results( "SELECT u.ID, u.user_login, u.user_email, u.display_name, u.user_registered FROM {$wpdb->users} u WHERE " . implode( ' AND ', $where ) . ' ORDER BY u.user_registered DESC' ); // phpcs:ignore
+		$days = $wpdb->get_results( "SELECT DATE(user_registered) d, COUNT(*) n FROM {$wpdb->users} GROUP BY d HAVING n >= 10", OBJECT_K ); // phpcs:ignore
+		$out  = array();
+		foreach ( $rows as $r ) {
+			$u = get_userdata( $r->ID );
+			if ( ! $u || array_diff( (array) $u->roles, array( 'subscriber', 'customer', 'tutor_student' ) ) || user_can( $u, 'edit_posts' ) ) { continue; } // staff and other roles are never listed
+			$flags = array();
+			$why   = self::reason( $r->user_email );
+			if ( $why ) { $flags[] = $why; }
+			$d = substr( $r->user_registered, 0, 10 );
+			if ( isset( $days[ $d ] ) ) { $flags[] = 'made on a day with ' . (int) $days[ $d ]->n . ' new accounts'; }
+			if ( preg_match( '/^[a-z]{2,}[0-9]{4,}$|^[a-z0-9]{14,}$/i', $r->user_login ) ) { $flags[] = 'random-looking user name'; }
+			$out[] = array( 'id' => (int) $r->ID, 'login' => $r->user_login, 'email' => $r->user_email, 'name' => $r->display_name, 'registered' => $r->user_registered, 'flags' => $flags );
+		}
+		return $out;
+	}
+
+	public static function suspicious_page() {
+		if ( ! SDSC_Access::can( 'blocklist' ) ) { return; }
+		$list   = self::suspicious();
+		$strong = count( array_filter( $list, function ( $x ) { return ! empty( $x['flags'] ); } ) );
+		echo '<div class="wrap"><h1>Suspicious accounts</h1>';
+		echo '<p>Student-type accounts that have <b>never done anything</b> on the website: no class registration, no online course, no quiz, no order. Staff and instructors are never listed. Nothing is deleted from this page — review first.</p>';
+		echo '<p><b>' . count( $list ) . '</b> accounts with no activity · <b>' . (int) $strong . '</b> of them also have a warning sign (see the last column).</p>';
+		echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_suspicious_csv' ), 'sdsc_suspicious_csv' ) ) . '">Download as CSV (Excel)</a></p>';
+		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>Warning signs</th></tr></thead><tbody>';
+		foreach ( $list as $x ) {
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td></tr>';
+		}
+		echo '</tbody></table></div>';
+	}
+
+	public static function suspicious_csv() {
+		if ( ! SDSC_Access::can( 'blocklist' ) ) { wp_die( 'Not allowed.' ); }
+		check_admin_referer( 'sdsc_suspicious_csv' );
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="suspicious-accounts-' . current_time( 'Y-m-d' ) . '.csv"' );
+		$f = fopen( 'php://output', 'w' );
+		fputcsv( $f, array( 'User ID', 'User name', 'E-mail', 'Name', 'Created', 'Warning signs' ) );
+		foreach ( self::suspicious() as $x ) {
+			$cells = array( $x['id'], $x['login'], $x['email'], $x['name'], $x['registered'], implode( ' · ', $x['flags'] ) );
+			$cells = array_map( function ( $c ) { $c = (string) $c; return preg_match( '/^[=+\-@]/', $c ) ? "'" . $c : $c; }, $cells ); // no spreadsheet formulas
+			fputcsv( $f, $cells );
+		}
+		fclose( $f );
+		exit;
 	}
 
 	public static function save() {
