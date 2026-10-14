@@ -242,7 +242,8 @@ class SDSC_Overview {
 			$r = '<ul class="sov-list">';
 			foreach ( $recent as $x ) {
 				$paid = class_exists( 'SDSC_Pay' ) && SDSC_Pay::paid_row( (int) $x['id'] );
-				$r   .= '<li><span class="sov-what"><b>' . esc_html( trim( $x['first_name'] . ' ' . $x['last_name'] ) ) . '</b><small>' . esc_html( ( $x['class_id'] ? SDSC_Schedule::class_name( (int) $x['class_id'], true ) . ' · ' : '' ) . human_time_diff( strtotime( get_gmt_from_date( $x['created_at'] ) . ' UTC' ) ) . ' ago' ) . '</small></span><span class="sov-chip ' . ( $paid ? 'sov-chip--done' : 'sov-chip--due' ) . '">' . ( $paid ? 'Paid' : 'Not paid yet' ) . '</span></li>';
+				$refd = ! $paid && class_exists( 'SDSC_Pay' ) && method_exists( 'SDSC_Pay', 'refunded_row' ) && SDSC_Pay::refunded_row( (int) $x['id'] );
+				$r   .= '<li><span class="sov-what"><b>' . esc_html( trim( $x['first_name'] . ' ' . $x['last_name'] ) ) . '</b><small>' . esc_html( ( $x['class_id'] ? SDSC_Schedule::class_name( (int) $x['class_id'], true ) . ' · ' : '' ) . human_time_diff( strtotime( get_gmt_from_date( $x['created_at'] ) . ' UTC' ) ) . ' ago' ) . '</small></span><span class="sov-chip ' . ( $paid ? 'sov-chip--done' : 'sov-chip--due' ) . '">' . ( $paid ? 'Paid' : ( $refd ? 'Refunded' : 'Not paid yet' ) ) . '</span></li>';
 			}
 			$r .= '</ul>';
 		}

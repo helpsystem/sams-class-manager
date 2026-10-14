@@ -463,6 +463,10 @@ class SDSC_Refunds {
 			if ( is_wp_error( $res ) ) { $ok = false; $err = $res->get_error_message(); } else { $ref = 'refund #' . $res->get_id(); }
 		}
 		$wpdb->update( self::table(), array( 'status' => $ok ? 'done' : 'failed', 'refund_ref' => $ref, 'err' => substr( $err, 0, 255 ) ), array( 'id' => $id ) );
+		if ( $ok && 'stripe' === $r['source'] && class_exists( 'SDSC_Pay' ) ) {
+			$total = (float) $wpdb->get_var( $wpdb->prepare( 'SELECT COALESCE(SUM(amount),0) FROM ' . self::table() . " WHERE source = 'stripe' AND source_ref = %s AND status = 'done'", $r['source_ref'] ) ); // phpcs:ignore
+			SDSC_Pay::mark_refunded( $r['source_ref'], (int) round( $total * 100 ) );
+		}
 		if ( ! $ok ) { self::back( 'list', array( 'err' => 'The refund did not go through: ' . $err . ' Nothing was refunded; the attempt is kept in the list.' ) ); }
 		if ( ! empty( $_POST['mail'] ) ) { self::mail( self::row( $id ) ); }
 		self::back( 'list', array( 'msg' => ( 'manual' === $r['source'] ? 'Refund recorded: $' : 'Refunded $' ) . self::money( $r['amount'] ) . ' to ' . $r['name'] . '.' ) );

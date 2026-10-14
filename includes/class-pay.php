@@ -101,6 +101,22 @@ class SDSC_Pay {
 		return $wpdb->get_row( $wpdb->prepare( 'SELECT id, class_id, first_name, last_name, email, phone FROM ' . SDSC_Registration::table() . ' WHERE id = %d', $reg_id ), ARRAY_A ); // phpcs:ignore
 	}
 
+	/** The latest payment of a registration that was fully refunded (or null). */
+	public static function refunded_row( $reg_id ) {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . " WHERE reg_id = %d AND status = 'refunded' ORDER BY id DESC LIMIT 1", $reg_id ), ARRAY_A ); // phpcs:ignore
+	}
+
+	/** A payment was refunded: when the refunds cover the whole amount the payment shows as "Refunded" everywhere (and the course locks again). */
+	public static function mark_refunded( $payment_intent, $refunded_cents ) {
+		global $wpdb;
+		if ( '' === (string) $payment_intent ) { return; }
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT id, amount FROM ' . self::table() . " WHERE payment_intent = %s AND status = 'paid' ORDER BY id DESC LIMIT 1", $payment_intent ), ARRAY_A ); // phpcs:ignore
+		if ( $row && (int) $refunded_cents >= (int) $row['amount'] ) {
+			$wpdb->update( self::table(), array( 'status' => 'refunded' ), array( 'id' => (int) $row['id'] ) );
+		}
+	}
+
 	public static function paid_row( $reg_id ) {
 		global $wpdb;
 		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::table() . " WHERE reg_id = %d AND status = 'paid' ORDER BY id DESC LIMIT 1", $reg_id ), ARRAY_A ); // phpcs:ignore
@@ -379,6 +395,9 @@ class SDSC_Pay {
 		$e = json_decode( $body, true );
 		if ( in_array( $e['type'] ?? '', array( 'checkout.session.completed', 'checkout.session.async_payment_succeeded' ), true ) ) {
 			self::settle( $e['data']['object'] ?? array() );
+		} elseif ( 'charge.refunded' === ( $e['type'] ?? '' ) ) { // refunds made on the website or in the Stripe dashboard
+			$ch = $e['data']['object'] ?? array();
+			self::mark_refunded( (string) ( $ch['payment_intent'] ?? '' ), (int) ( $ch['amount_refunded'] ?? 0 ) );
 		}
 		return new WP_REST_Response( array( 'ok' => true ), 200 );
 	}

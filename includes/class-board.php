@@ -123,12 +123,13 @@ class SDSC_Board {
 		if ( $r && class_exists( 'SDSC_Pay' ) ) {
 			$online = SDSC_Pay::paid_row( (int) $r->id );
 			if ( $online ) { $pay[] = array( 'k' => 'online', 't' => 'Paid online $' . number_format( $online['amount'] / 100, 2 ) ); }
+			if ( ! $online && method_exists( 'SDSC_Pay', 'refunded_row' ) ) { $rf = SDSC_Pay::refunded_row( (int) $r->id ); if ( $rf ) { $refunded = 'Refunded $' . number_format( $rf['amount'] / 100, 2 ); } }
 		}
 		$off = self::offline_for( $r ? (int) $r->id : 0, $pid );
 		foreach ( $off as $o ) {
 			$pay[] = array( 'k' => 'offline', 'id' => (int) $o['id'], 't' => self::method_label( $o['method'] ) . ( $o['ref'] ? ' #' . $o['ref'] : '' ) . ' $' . number_format( $o['amount'] / 100, 2 ) . ( $o['paid_on'] ? ' · ' . wp_date( 'M j', strtotime( $o['paid_on'] . ' 12:00' ) ) : '' ) );
 		}
-		if ( ! $pay && $pid && get_post_meta( $pid, '_sdsc_paid', true ) ) { $pay[] = array( 'k' => 'marked', 't' => 'Marked paid' ); }
+		if ( ! $pay && $pid && get_post_meta( $pid, '_sdsc_paid', true ) && empty( $refunded ) ) { $pay[] = array( 'k' => 'marked', 't' => 'Marked paid' ); }
 		if ( ! $pay && class_exists( 'SDSC_Gate' ) ) { // paid on another registration of the same e-mail, or opened from the Stripe list
 			$pe = $r ? (string) $r->parent_email : '';
 			if ( ( $email && SDSC_Gate::paid_email( $email ) ) || ( $pe && SDSC_Gate::paid_email( $pe ) ) ) {
@@ -138,6 +139,7 @@ class SDSC_Board {
 			}
 		}
 		return array(
+			'refunded' => $refunded ?? '',
 			'key'   => $r ? 'r' . (int) $r->id : 'p' . $pid,
 			'reg'   => $r ? (int) $r->id : 0,
 			'pid'   => $pid,
@@ -437,7 +439,7 @@ class SDSC_Board {
 			if ( 'offline' === $p['k'] ) { $h .= ' <button type="button" class="sdb-void" data-id="' . (int) $p['id'] . '" title="Cancel this recorded payment">×</button>'; }
 			$h .= '</span>';
 		}
-		if ( ! $paid ) { $h .= '<span class="sdb-tag sdb-tag--due">Not paid</span>'; }
+		if ( ! $paid ) { $h .= ! empty( $d['refunded'] ) ? '<span class="sdb-tag sdb-tag--dup">' . esc_html( $d['refunded'] ) . '</span>' : '<span class="sdb-tag sdb-tag--due">Not paid</span>'; }
 		$src = array( 'native' => 'Website form', 'forminator' => 'Old form', 'office' => 'Added by office' );
 		$h .= '<span class="sdb-tag sdb-tag--src">' . esc_html( $src[ $d['src'] ] ?? ucfirst( $d['src'] ) ) . '</span>';
 		if ( ! empty( $d['dup'] ) ) { $h .= '<span class="sdb-tag sdb-tag--dup" title="The same e-mail is on another card">Twice</span>'; }

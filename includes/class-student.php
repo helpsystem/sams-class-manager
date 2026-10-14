@@ -118,7 +118,7 @@ class SDSC_Student {
 		$in    = $regs ? implode( ',', $regs ) : '0';
 		$items = array();
 		if ( class_exists( 'SDSC_Pay' ) ) {
-			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Pay::table() . " WHERE status = 'paid' AND mode = 'live' AND ( LOWER(email) = %s OR reg_id IN ($in) ) ORDER BY paid_at DESC", $email ), ARRAY_A ) as $p ) { // phpcs:ignore
+			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Pay::table() . " WHERE status IN ('paid','refunded') AND mode = 'live' AND ( LOWER(email) = %s OR reg_id IN ($in) ) ORDER BY paid_at DESC", $email ), ARRAY_A ) as $p ) { // phpcs:ignore
 				$items[] = array( 't' => strtotime( (string) $p['paid_at'] ), 'what' => self::cname( (int) $p['class_id'] ), 'how' => $p['card'] ? $p['card'] : 'Card', 'amt' => $p['amount'] / 100, 'pill' => 'Paid', 'url' => $p['receipt_url'] );
 			}
 		}
