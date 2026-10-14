@@ -978,7 +978,10 @@ class SDSC_Registration {
 			$path = '';
 			if ( is_array( $v ) && isset( $v['file'] ) ) {
 				$path = $v['file']['file_path'] ?? '';
-				if ( ( ! $path || ! is_readable( $path ) ) && ! empty( $v['file']['file_url'] ) ) {
+				$base = realpath( $uploads['basedir'] );
+				$rp   = $path ? realpath( $path ) : false;
+				// Use the stored path only when it is inside this site's uploads; otherwise (entries copied from another site) use the file URL.
+				if ( ( ! $rp || ! is_readable( $rp ) || 0 !== strpos( $rp, $base ) ) && ! empty( $v['file']['file_url'] ) ) {
 					$rel  = preg_replace( '#^https?://[^/]+/wp-content/uploads/#', '', $v['file']['file_url'] );
 					$path = trailingslashit( $uploads['basedir'] ) . $rel;
 				}
