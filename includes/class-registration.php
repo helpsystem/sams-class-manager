@@ -287,15 +287,17 @@ class SDSC_Registration {
 									$days  = get_post_meta( $c->ID, '_sdsc_days_time', true );
 									$price = get_post_meta( $c->ID, '_sdsc_price', true );
 									$code  = self::public_code( $c->ID );
+									$full  = class_exists( 'SDSC_Board' ) && SDSC_Board::is_full( $c->ID );
 									?>
 									<label class="sdsc-course"<?php echo $picked && (int) $c->ID !== $picked ? ' hidden data-other="1"' : ''; ?>>
-										<input type="radio" name="class_id" value="<?php echo esc_attr( $c->ID ); ?>" required <?php checked( $selected, $c->ID ); ?> />
+										<input type="radio" name="class_id" value="<?php echo esc_attr( $c->ID ); ?>" required <?php checked( $selected, $c->ID ); ?><?php disabled( $full ); ?> />
 										<span class="sdsc-course-body">
 											<span class="sdsc-course-name"><?php echo esc_html( get_the_title( $c ) ); ?></span>
 											<span class="sdsc-course-meta">
 												<?php if ( $start ) : ?><span>📅 <?php echo esc_html( date_i18n( 'D, M j', strtotime( $start ) ) . ( $end ? ' – ' . date_i18n( 'M j, Y', strtotime( $end ) ) : '' ) ); ?></span><?php endif; ?>
 												<?php if ( $days ) : ?><span>🕘 <?php echo esc_html( $days ); ?></span><?php endif; ?>
 												<?php if ( $code ) : ?><span class="sdsc-code"><?php echo esc_html( $code ); ?></span><?php endif; ?>
+												<?php if ( $full ) : ?><span class="sdsc-full" style="color:#b32d2e;font-weight:700">Class full</span><?php endif; ?>
 											</span>
 										</span>
 										<?php
@@ -648,6 +650,9 @@ class SDSC_Registration {
 		$open_ids = wp_list_pluck( self::open_classes( true ), 'ID' );
 		if ( ! $class_id || ! in_array( $class_id, array_map( 'intval', $open_ids ), true ) ) {
 			self::fail( $return, 'Please choose a course.' );
+		}
+		if ( class_exists( 'SDSC_Board' ) && SDSC_Board::is_full( $class_id ) ) {
+			self::fail( $return, 'Sorry, this class is full. Please choose another class or call us at (301) 726-3030.' );
 		}
 
 		$d = array(
