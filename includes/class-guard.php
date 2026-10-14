@@ -251,6 +251,19 @@ class SDSC_Guard {
 		$n = 0;
 		if ( 'pause' === $do ) { $n = (int) self::pause( $uid, 'paused by the office' ); }
 		elseif ( 'release' === $do ) { $n = (int) self::release( $uid ); }
+		elseif ( 'delete' === $do || 'delete_paused' === $do ) {
+			if ( ! current_user_can( 'delete_users' ) ) { wp_die( 'Only the administrator can delete accounts.', '', array( 'response' => 403 ) ); }
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+			$ids = array();
+			foreach ( self::suspicious() as $x ) { $ids[ (int) $x['id'] ] = 1; } // only accounts with no course, registration, payment or order
+			foreach ( array_keys( $ids ) as $id ) {
+				if ( ( 'delete' === $do && $id !== $uid ) || ( 'delete_paused' === $do && ! self::paused( $id ) ) ) { continue; }
+				$u = get_userdata( $id );
+				if ( ! $u || self::protected_user( $u ) ) { continue; }
+				self::log( $u->user_email, 'account deleted by ' . wp_get_current_user()->display_name );
+				if ( wp_delete_user( $id ) ) { $n++; }
+			}
+		}
 		elseif ( 'pause_wave' === $do || 'pause_all' === $do ) {
 			foreach ( self::suspicious() as $x ) {
 				if ( self::paused( $x['id'] ) ) { continue; }
@@ -520,16 +533,16 @@ class SDSC_Guard {
 			. '</ul></div>';
 		if ( isset( $_GET['sdsc_done'] ) ) { // phpcs:ignore
 			$n = (int) ( $_GET['sdsc_n'] ?? 0 ); // phpcs:ignore
-			echo '<div class="notice notice-success"><p>' . ( 'release' === $_GET['sdsc_done'] ? 'Account released — it can sign in again.' : esc_html( $n . ' account' . ( 1 === $n ? '' : 's' ) . ' paused — they cannot sign in until released.' ) ) . '</p></div>'; // phpcs:ignore
+			echo '<div class="notice notice-success"><p>' . ( 'release' === $_GET['sdsc_done'] ? 'Account released — it can sign in again.' : ( 0 === strpos( (string) $_GET['sdsc_done'], 'delete' ) ? esc_html( $n . ' account' . ( 1 === $n ? '' : 's' ) . ' deleted.' ) : esc_html( $n . ' account' . ( 1 === $n ? '' : 's' ) . ' paused — they cannot sign in until released.' ) ) ) . '</p></div>'; // phpcs:ignore
 		}
 		echo '<p><b>Pause</b> = the account stays, but cannot sign in (the person is asked to call the school). <b>Release</b> = it can sign in again. Nothing is deleted.</p>';
-		echo '<p><a class="button" onclick="return confirm(\'Pause every account with a Bot wave sign?\')" href="' . esc_url( self::account_url( 'pause_wave' ) ) . '">Pause all “Bot wave” accounts</a> <a class="button" onclick="return confirm(\'Pause every account on this list?\')" href="' . esc_url( self::account_url( 'pause_all' ) ) . '">Pause all accounts on this list</a></p>';
+		echo '<p><a class="button" onclick="return confirm(\'Pause every account with a Bot wave sign?\')" href="' . esc_url( self::account_url( 'pause_wave' ) ) . '">Pause all “Bot wave” accounts</a> <a class="button" onclick="return confirm(\'Pause every account on this list?\')" href="' . esc_url( self::account_url( 'pause_all' ) ) . '">Pause all accounts on this list</a>' . ( current_user_can( 'delete_users' ) ? ' <a class="button" style="color:#b32d2e;border-color:#b32d2e" onclick="return confirm(\'Delete every PAUSED account on this list? This cannot be undone.\')" href="' . esc_url( self::account_url( 'delete_paused' ) ) . '">Delete all paused accounts</a>' : '' ) . '</p>';
 		echo '<p style="color:#555">IP, country and device come from the sign-up record or the last sign-in that Wordfence logged. A MAC address never travels over the internet, so no website can see it. City-level location needs an outside lookup service and is not used.</p>';
 		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>IP · Country</th><th>Device (system · browser)</th><th>Warning signs</th><th>Status</th></tr></thead><tbody>';
 		foreach ( $list as $x ) {
 			$pz = self::paused( $x['id'] );
 			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['ip'] ? esc_html( $x['ip'] . ( $x['country'] ? ' · ' . $x['country'] : '' ) ) . ( $x['seen'] ? '<br><small>last sign-in ' . esc_html( $x['seen'] ) . '</small>' : '' ) : '<small>no record</small>' ) . '</td><td title="' . esc_attr( $x['ua'] ) . '">' . ( $x['device'] ? esc_html( $x['device'] ) : '<small>no record</small>' ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td>'
-				. '<td>' . ( $pz ? '<span style="color:#b32d2e;font-weight:700">Paused</span><br><a class="button button-small button-primary" href="' . esc_url( self::account_url( 'release', $x['id'] ) ) . '">Release account</a>' : '<span style="color:#0b6b35">Active</span><br><a class="button button-small" href="' . esc_url( self::account_url( 'pause', $x['id'] ) ) . '">Pause</a>' ) . '</td></tr>';
+				. '<td>' . ( $pz ? '<span style="color:#b32d2e;font-weight:700">Paused</span><br><a class="button button-small button-primary" href="' . esc_url( self::account_url( 'release', $x['id'] ) ) . '">Release account</a>' . ( current_user_can( 'delete_users' ) ? ' <a class="button button-small" style="color:#b32d2e;border-color:#b32d2e" onclick="return confirm(\'Delete this account? This cannot be undone.\')" href="' . esc_url( self::account_url( 'delete', $x['id'] ) ) . '">Delete</a>' : '' ) : '<span style="color:#0b6b35">Active</span><br><a class="button button-small" href="' . esc_url( self::account_url( 'pause', $x['id'] ) ) . '">Pause</a>' . ( current_user_can( 'delete_users' ) ? ' <a class="button button-small" style="color:#b32d2e;border-color:#b32d2e" onclick="return confirm(\'Delete this account? This cannot be undone.\')" href="' . esc_url( self::account_url( 'delete', $x['id'] ) ) . '">Delete</a>' : '' ) ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
 		// Paused accounts that are not on the list above (paused from the Users screen, or they had activity).
