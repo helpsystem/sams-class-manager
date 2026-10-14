@@ -350,7 +350,10 @@ class SDSC_Refunds {
 	public static function approvers() {
 		$to = array( strtolower( (string) get_option( 'admin_email' ) ) );
 		if ( class_exists( 'SDSC_Access' ) ) {
-			foreach ( get_users( array( 'role' => SDSC_Access::MANAGER, 'fields' => array( 'user_email' ) ) ) as $u ) { $to[] = strtolower( $u->user_email ); }
+			foreach ( get_users( array( 'role' => SDSC_Access::MANAGER, 'fields' => array( 'ID', 'user_email' ) ) ) as $u ) {
+				if ( class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview( (int) $u->ID ) ) { continue; } // never the "preview as" accounts
+				$to[] = strtolower( $u->user_email );
+			}
 		}
 		return array_values( array_unique( array_filter( $to, 'is_email' ) ) );
 	}
@@ -420,7 +423,7 @@ class SDSC_Refunds {
 
 	public static function h_do() {
 		global $wpdb;
-		if ( ! self::can() ) { wp_die( 'Not allowed.' ); }
+		if ( ! self::can() || ( class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview() ) ) { wp_die( 'Not allowed.' ); }
 		check_admin_referer( 'sdsc_rf_do' );
 		$tok = sanitize_key( $_POST['t'] ?? '' );
 		$key = 'sdsc_rf_' . get_current_user_id() . '_' . $tok;
