@@ -305,6 +305,45 @@ class SDSC_Mailer {
 		return wp_mail( $to, $subject, $body_html, $headers );
 	}
 
+	/**
+	 * Report for the school office, in English and Persian (Farsi), with every detail.
+	 * $a: subject_en, subject_fa, title_en, title_fa, lead_en, lead_fa,
+	 *     rows => array( array( 'en' => label, 'fa' => label, 'v' => plain value, 'ltr' => bool ) ),
+	 *     buttons => array( array( 'en' => text, 'fa' => text, 'url' => url ) ), note_en, note_fa, to, from
+	 */
+	public static function admin_report( $a ) {
+		$a = wp_parse_args( $a, array( 'to' => get_option( 'admin_email' ), 'from' => 'noreply', 'subject_en' => '', 'subject_fa' => '', 'title_en' => '', 'title_fa' => '', 'lead_en' => '', 'lead_fa' => '', 'rows' => array(), 'buttons' => array(), 'note_en' => '', 'note_fa' => '' ) );
+		$f   = 'font-family:Arial,Helvetica,sans-serif;';
+		$ffa = 'font-family:Tahoma,Vazirmatn,Arial,sans-serif;';
+		$block = function ( $lang ) use ( $a, $f, $ffa ) {
+			$fa   = 'fa' === $lang;
+			$font = $fa ? $ffa : $f;
+			$h  = '<div dir="' . ( $fa ? 'rtl' : 'ltr' ) . '" lang="' . $lang . '" style="' . $font . 'text-align:' . ( $fa ? 'right' : 'left' ) . ';margin:0 0 8px">';
+			$h .= '<div style="' . $font . 'font-size:12px;letter-spacing:' . ( $fa ? '0' : '1.5px' ) . ';text-transform:uppercase;color:#5b646d;font-weight:700;margin:0 0 4px">' . ( $fa ? 'گزارش برای دفتر' : 'Office report' ) . '</div>';
+			$h .= '<div style="' . $font . 'font-size:22px;font-weight:800;color:#15191d;margin:0 0 10px">' . esc_html( $a[ 'title_' . $lang ] ) . '</div>';
+			if ( $a[ 'lead_' . $lang ] ) { $h .= '<p style="' . $font . 'margin:0 0 14px;font-size:15px;line-height:1.7;color:#15191d">' . esc_html( $a[ 'lead_' . $lang ] ) . '</p>'; }
+			if ( $a['rows'] ) {
+				$h .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 14px">';
+				foreach ( $a['rows'] as $r ) {
+					$v = (string) ( ( $fa && isset( $r['v_fa'] ) ) ? $r['v_fa'] : ( $r['v'] ?? '' ) );
+					if ( '' === trim( $v ) ) { $v = '—'; }
+					$val = nl2br( esc_html( $v ) );
+					if ( $fa && ! empty( $r['ltr'] ) ) { $val = '<span dir="ltr" style="unicode-bidi:embed">' . $val . '</span>'; }
+					$h .= '<tr><td style="' . $font . 'padding:7px 0;border-bottom:1px solid #eef1f3;font-size:13px;color:#5b646d;width:38%;vertical-align:top">' . esc_html( $r[ $lang ] ) . '</td><td style="' . $font . 'padding:7px 0;border-bottom:1px solid #eef1f3;font-size:14px;color:#15191d;font-weight:600;vertical-align:top">' . $val . '</td></tr>';
+				}
+				$h .= '</table>';
+			}
+			if ( $a[ 'note_' . $lang ] ) { $h .= '<p style="' . $font . 'margin:0 0 14px;padding:10px 12px;border-radius:8px;background:#fff8e1;font-size:14px;line-height:1.7;color:#5b4a00">' . esc_html( $a[ 'note_' . $lang ] ) . '</p>'; }
+			foreach ( $a['buttons'] as $b ) {
+				$h .= '<a href="' . esc_url( $b['url'] ) . '" style="' . $font . 'display:inline-block;margin:0 0 8px ' . ( $fa ? '0' : '0' ) . ';' . ( $fa ? 'margin-left:8px;' : 'margin-right:8px;' ) . 'padding:10px 18px;border-radius:999px;background:#00703c;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none">' . esc_html( $b[ $lang ] ) . '</a>';
+			}
+			return $h . '</div>';
+		};
+		$body = $block( 'en' ) . '<hr style="border:0;border-top:2px dashed #dfe5e1;margin:22px 0">' . $block( 'fa' );
+		$subj = trim( $a['subject_en'] . ( $a['subject_fa'] ? ' | ' . $a['subject_fa'] : '' ) );
+		return self::send( $a['to'], $subj, $body, $a['from'], array( 'Content-Type: text/html; charset=UTF-8' ) );
+	}
+
 	/* ------------------------------------------------------------ checks */
 
 	public static function dns() {

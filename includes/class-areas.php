@@ -615,10 +615,21 @@ class SDSC_Areas {
 		self::install();
 		global $wpdb;
 		$wpdb->insert( self::table(), $d + array( 'created_at' => current_time( 'mysql' ), 'ip' => substr( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ), 0, 64 ) ) );
-		$body = "New instructor application\n\n";
-		foreach ( $d as $k => $v ) { $body .= ucfirst( $k ) . ': ' . $v . "\n"; }
-		$body .= "\nAll applications: " . admin_url( 'admin.php?page=sdsc-applicants' );
-		wp_mail( get_option( 'admin_email' ), 'Instructor application — ' . $d['name'], $body );
+		$lab = array( 'name' => array( 'Name', 'نام' ), 'phone' => array( 'Phone', 'تلفن' ), 'email' => array( 'E-mail', 'ایمیل' ), 'role' => array( 'Position', 'سمت' ), 'license' => array( 'Maryland instructor license', 'مجوز مربیگری مریلند' ), 'langs' => array( 'Languages', 'زبان‌ها' ), 'times' => array( 'Can teach', 'زمان‌های آزاد' ), 'about' => array( 'About', 'درباره متقاضی' ) );
+		$rows = array();
+		foreach ( $lab as $k => $l ) { $rows[] = array( 'en' => $l[0], 'fa' => $l[1], 'v' => $d[ $k ] ?? '', 'ltr' => true ); }
+		$rows[] = array( 'en' => 'Sent', 'fa' => 'زمان ارسال', 'v' => current_time( 'mysql' ) . ' · IP ' . substr( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ), 0, 64 ), 'ltr' => true ); // phpcs:ignore
+		$args = array(
+			'subject_en' => 'Instructor application — ' . $d['name'],
+			'subject_fa' => 'درخواست همکاری مربی',
+			'title_en'   => 'New instructor application',
+			'title_fa'   => 'درخواست جدید همکاری مربی',
+			'lead_en'    => 'Someone applied on the Join our team page.',
+			'lead_fa'    => 'یک نفر از صفحه «Join our team» درخواست همکاری فرستاد.',
+			'rows'       => $rows,
+			'buttons'    => array( array( 'en' => 'All applications', 'fa' => 'همه درخواست‌ها', 'url' => admin_url( 'admin.php?page=sdsc-applicants' ) ) ),
+		);
+		if ( class_exists( 'SDSC_Mailer' ) ) { SDSC_Mailer::admin_report( $args ); } else { wp_mail( get_option( 'admin_email' ), $args['subject_en'], print_r( $d, true ) ); } // phpcs:ignore
 		wp_safe_redirect( add_query_arg( 'sdsc_join', 'ok', $back ) . '#apply' );
 		exit;
 	}

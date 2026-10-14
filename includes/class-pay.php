@@ -318,24 +318,35 @@ class SDSC_Pay {
 		$hdr  = array( 'Content-Type: text/html; charset=UTF-8' );
 		$sent = class_exists( 'SDSC_Mailer' ) ? SDSC_Mailer::send( $reg['email'], $subj, $h, 'info', $hdr ) : wp_mail( $reg['email'], $subj, $h, $hdr );
 
-		// Office copy.
+		// Office copy (English + Persian).
 		$dash = 'https://dashboard.stripe.com/' . ( $test ? 'test/' : '' ) . 'payments/' . rawurlencode( $row['payment_intent'] );
-		$o    = '<div style="' . $f . 'margin:0 0 4px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#5b646d;font-weight:700">New paid enrollment' . ( $test ? ' · test' : '' ) . '</div>'
-			. '<div style="' . $f . 'margin:0 0 16px;font-size:30px;font-weight:800;color:#15191d">' . esc_html( self::money( $paid ) ) . '</div>'
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
-			. $tr( 'Student', esc_html( $student ), true )
-			. $tr( 'E-mail', esc_html( $reg['email'] ) )
-			. $tr( 'Phone', esc_html( $reg['phone'] ) )
-			. $tr( 'Class', esc_html( $name ) )
-			. $tr( 'Receipt', esc_html( $no ) )
-			. $tr( 'Card', esc_html( $row['card'] ? $row['card'] : '—' ) )
-			. $tr( 'Paid', esc_html( $date ) )
-			. '</table><table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:20px auto 0"><tr>'
-			. $btn( 'Open registration', admin_url( 'admin.php?page=sdsc-registrations' ) )
-			. ( $row['payment_intent'] ? $btn( 'Open in Stripe', $dash, false ) : '' )
-			. '</tr></table>';
-		$osubj = ( $test ? '[TEST] ' : '' ) . 'New enrollment: ' . $student . ' — ' . $title . ' — ' . self::money( $paid );
-		if ( class_exists( 'SDSC_Mailer' ) ) { SDSC_Mailer::send( get_option( 'admin_email' ), $osubj, $o, 'noreply', $hdr ); } else { wp_mail( get_option( 'admin_email' ), $osubj, $o, $hdr ); }
+		$office = array(
+			'subject_en' => ( $test ? '[TEST] ' : '' ) . 'New enrollment: ' . $student . ' — ' . $title . ' — ' . self::money( $paid ),
+			'subject_fa' => 'پرداخت جدید ثبت‌نام',
+			'title_en'   => 'New paid enrollment' . ( $test ? ' (test)' : '' ) . ' — ' . self::money( $paid ),
+			'title_fa'   => 'ثبت‌نام پرداخت‌شده' . ( $test ? ' (آزمایشی)' : '' ) . ' — ' . self::money( $paid ),
+			'rows'       => array(
+				array( 'en' => 'Student', 'fa' => 'نام شاگرد', 'v' => $student, 'ltr' => true ),
+				array( 'en' => 'E-mail', 'fa' => 'ایمیل', 'v' => $reg['email'], 'ltr' => true ),
+				array( 'en' => 'Phone', 'fa' => 'تلفن', 'v' => $reg['phone'], 'ltr' => true ),
+				array( 'en' => 'Class', 'fa' => 'کلاس', 'v' => $name, 'ltr' => true ),
+				array( 'en' => 'Class dates', 'fa' => 'تاریخ کلاس', 'v' => trim( ( $start ? date_i18n( 'M j', strtotime( $start ) ) : '' ) . ( $end ? ' – ' . date_i18n( 'M j, Y', strtotime( $end ) ) : '' ) . ( $days ? "\n" . $days : '' ) ), 'ltr' => true ),
+				array( 'en' => 'Listed price', 'fa' => 'قیمت اصلی', 'v' => self::money( $listed > $paid ? $listed : $paid ), 'ltr' => true ),
+				array( 'en' => 'Discount', 'fa' => 'تخفیف', 'v' => $listed > $paid ? $promo_lbl . ' (−' . self::money( $listed - $paid ) . ')' : '', 'ltr' => true ),
+				array( 'en' => 'Amount paid', 'fa' => 'مبلغ پرداختی', 'v' => self::money( $paid ), 'ltr' => true ),
+				array( 'en' => 'Receipt', 'fa' => 'شماره رسید', 'v' => $no, 'ltr' => true ),
+				array( 'en' => 'Card', 'fa' => 'کارت', 'v' => $row['card'] ? $row['card'] : '', 'ltr' => true ),
+				array( 'en' => 'Paid at', 'fa' => 'زمان پرداخت', 'v' => $date, 'ltr' => true ),
+				array( 'en' => 'Receipt e-mailed to student', 'fa' => 'رسید برای شاگرد ایمیل شد', 'v' => $sent ? 'Yes' : 'No — please resend', 'v_fa' => $sent ? 'بله' : 'خیر — لطفاً دوباره بفرستید' ),
+			),
+			'note_en'    => $test ? 'This was a test payment (Stripe test mode). No real money moved.' : '',
+			'note_fa'    => $test ? 'این یک پرداخت آزمایشی بود (حالت تست Stripe). پول واقعی جابه‌جا نشد.' : '',
+			'buttons'    => array_filter( array(
+				array( 'en' => 'Open the registration', 'fa' => 'باز کردن ثبت‌نام', 'url' => admin_url( 'admin.php?page=sdsc-registrations&view=' . (int) $row['reg_id'] ) ),
+				$row['payment_intent'] ? array( 'en' => 'Open in Stripe', 'fa' => 'باز کردن در Stripe', 'url' => $dash ) : null,
+			) ),
+		);
+		if ( class_exists( 'SDSC_Mailer' ) ) { SDSC_Mailer::admin_report( $office ); } else { wp_mail( get_option( 'admin_email' ), $office['subject_en'], $office['title_en'], $hdr ); }
 
 		if ( $sent ) { $wpdb->update( self::table(), array( 'mailed' => 1 ), array( 'id' => $row['id'] ) ); }
 		return (bool) $sent;

@@ -761,11 +761,55 @@ class SDSC_Registration {
 	}
 
 	protected static function notify_admin( $reg_id, $class_id, $d ) {
-		$to   = get_option( 'admin_email' );
+		global $wpdb;
+		$r    = $wpdb->get_row( $wpdb->prepare( 'SELECT id, created_at, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, parent_email, parent_consent, street, apt, city, state, zip, notes, ip, (parent_sig IS NOT NULL) has_p FROM ' . self::table() . ' WHERE id = %d', $reg_id ), ARRAY_A ); // phpcs:ignore
+		$r    = $r ? $r : $d;
 		$code = get_post_meta( $class_id, '_sdsc_course_code', true );
+		$start = (string) get_post_meta( $class_id, '_sdsc_start', true );
 		$link = admin_url( 'admin.php?page=sdsc-registrations&view=' . $reg_id );
-		$msg  = "New registration received.\n\nStudent: {$d['first_name']} {$d['last_name']}\nCourse: " . get_the_title( $class_id ) . ( $code ? " ($code)" : '' ) . "\n\nView it in WordPress (login required):\n$link\n";
-		wp_mail( $to, 'New student registration' . ( $code ? " — $code" : '' ), $msg );
+		$name = trim( ( $r['first_name'] ?? '' ) . ' ' . ( $r['middle_name'] ?? '' ) . ' ' . ( $r['last_name'] ?? '' ) );
+		$addr = trim( ( $r['street'] ?? '' ) . ( ! empty( $r['apt'] ) ? ', ' . $r['apt'] : '' ) . "\n" . ( $r['city'] ?? '' ) . ', ' . ( $r['state'] ?? '' ) . ' ' . ( $r['zip'] ?? '' ), " ,\n" );
+		$age  = isset( $r['age'] ) ? (int) $r['age'] : 0;
+		$missing_en = array(); $missing_fa = array();
+		if ( class_exists( 'SDSC_Followup' ) ) {
+			$i = SDSC_Followup::issues( (object) array_merge( array( 'id' => $reg_id, 'registrant_id' => 0, 'has_p' => 0, 'parent_consent' => 0, 'follow_n' => 0, 'follow_at' => null, 'done_at' => null, 'class_id' => $class_id ), (array) $r ) );
+			$fa_words = array( 'name' => 'نام', 'phone' => 'تلفن', 'email' => 'ایمیل', 'policies' => 'تأیید قوانین', 'signature' => 'امضا' );
+			if ( isset( $i['parent'] ) ) { $missing_en[] = 'Parent: ' . implode( ', ', $i['parent'] ); $missing_fa[] = 'والدین: ' . implode( '، ', array_map( function ( $w ) use ( $fa_words ) { return $fa_words[ $w ] ?? $w; }, $i['parent'] ) ); }
+			if ( isset( $i['pay'] ) ) { $missing_en[] = 'Payment not received yet'; $missing_fa[] = 'پرداخت هنوز انجام نشده'; }
+			if ( isset( $i['age16'] ) ) { $missing_en[] = 'Student is under 16'; $missing_fa[] = 'شاگرد زیر ۱۶ سال است'; }
+		}
+		$rows = array(
+			array( 'en' => 'Student', 'fa' => 'نام شاگرد', 'v' => $name, 'ltr' => true ),
+			array( 'en' => 'Date of birth / age', 'fa' => 'تاریخ تولد / سن', 'v' => trim( ( $r['dob'] ?? '' ) . ( $age ? ' · ' . $age : '' ) ), 'ltr' => true ),
+			array( 'en' => 'Gender', 'fa' => 'جنسیت', 'v' => $r['gender'] ?? '', 'ltr' => true ),
+			array( 'en' => 'E-mail', 'fa' => 'ایمیل', 'v' => $r['email'] ?? '', 'ltr' => true ),
+			array( 'en' => 'Phone', 'fa' => 'تلفن', 'v' => $r['phone'] ?? '', 'ltr' => true ),
+			array( 'en' => 'Address', 'fa' => 'آدرس', 'v' => $addr, 'ltr' => true ),
+			array( 'en' => 'Class', 'fa' => 'کلاس', 'v' => get_the_title( $class_id ) . ( $code ? " ($code)" : '' ), 'ltr' => true ),
+			array( 'en' => 'Class starts', 'fa' => 'شروع کلاس', 'v' => $start ? date_i18n( 'M j, Y', strtotime( $start ) ) : '', 'ltr' => true ),
+			array( 'en' => 'Parent / guardian', 'fa' => 'والدین / سرپرست', 'v' => trim( ( $r['parent_name'] ?? '' ) . "\n" . ( $r['parent_phone'] ?? '' ) . "\n" . ( $r['parent_email'] ?? '' ) ), 'ltr' => true ),
+			array( 'en' => 'Parent signed', 'fa' => 'امضای والدین', 'v' => ! empty( $r['has_p'] ) ? 'Yes' : 'No', 'v_fa' => ! empty( $r['has_p'] ) ? 'بله' : 'خیر' ),
+			array( 'en' => 'Notes', 'fa' => 'توضیحات', 'v' => $r['notes'] ?? '', 'ltr' => true ),
+			array( 'en' => 'Submitted', 'fa' => 'زمان ثبت', 'v' => ( $r['created_at'] ?? current_time( 'mysql' ) ) . ( ! empty( $r['ip'] ) ? ' · IP ' . $r['ip'] : '' ), 'ltr' => true ),
+			array( 'en' => 'Still missing', 'fa' => 'موارد ناقص', 'v' => $missing_en ? implode( "\n", $missing_en ) : 'Nothing — complete', 'v_fa' => $missing_fa ? implode( "\n", $missing_fa ) : 'هیچ — کامل است' ),
+		);
+		if ( class_exists( 'SDSC_Mailer' ) ) {
+			$args = array(
+				'subject_en' => 'New student registration' . ( $code ? " — $code" : '' ) . ' — ' . $name,
+				'subject_fa' => 'ثبت‌نام جدید شاگرد',
+				'title_en'   => 'New registration: ' . $name,
+				'title_fa'   => 'ثبت‌نام جدید: ' . $name,
+				'lead_en'    => 'A student completed the registration form on the website.',
+				'lead_fa'    => 'یک شاگرد فرم ثبت‌نام سایت را کامل کرد.',
+				'rows'       => $rows,
+				'note_en'    => $missing_en ? 'Follow up: ' . implode( '; ', $missing_en ) . '.' : '',
+				'note_fa'    => $missing_fa ? 'پیگیری لازم: ' . implode( '؛ ', $missing_fa ) . '.' : '',
+				'buttons'    => array( array( 'en' => 'Open the registration', 'fa' => 'باز کردن ثبت‌نام', 'url' => $link ) ),
+			);
+			SDSC_Mailer::admin_report( $args );
+			return;
+		}
+		wp_mail( get_option( 'admin_email' ), 'New student registration' . ( $code ? " — $code" : '' ), "New registration: $name\n$link" );
 	}
 
 	/* ============================= Admin ============================= */

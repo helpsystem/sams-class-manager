@@ -106,9 +106,45 @@ class SDSC_Guard {
 		$c   = get_option( 'sdsc_signups_day', array() );
 		$c   = ( is_array( $c ) && ( $c['d'] ?? '' ) === $day ) ? $c : array( 'd' => $day, 'n' => 0, 'mailed' => 0 );
 		$c['n']++;
+		update_user_meta( $user_id, '_sdsc_signup_ip', self::ip() );
 		if ( $c['n'] >= self::SURGE && ! $c['mailed'] ) {
 			$c['mailed'] = 1;
-			wp_mail( get_option( 'admin_email' ), 'Unusual number of new accounts today', $c['n'] . " accounts were created on the website today. If you did not expect this, check Users and Class Manager → Blocked sign-ups.\n\n" . admin_url( 'users.php?orderby=registered&order=desc' ) );
+			$recent = get_users( array( 'orderby' => 'registered', 'order' => 'DESC', 'number' => 25, 'date_query' => array( array( 'after' => $day . ' 00:00:00', 'inclusive' => true ) ) ) );
+			$lines  = array();
+			$ips    = array();
+			foreach ( $recent as $ru ) {
+				$rip     = (string) get_user_meta( $ru->ID, '_sdsc_signup_ip', true );
+				$lines[] = $ru->user_registered . ' · ' . $ru->user_login . ' · ' . $ru->user_email . ( $rip ? ' · IP ' . $rip : '' );
+				if ( $rip ) { $ips[ $rip ] = ( $ips[ $rip ] ?? 0 ) + 1; }
+			}
+			arsort( $ips );
+			$top = array();
+			foreach ( array_slice( $ips, 0, 5, true ) as $k => $n ) { $top[] = $k . ' (' . $n . ')'; }
+			$log = array();
+			foreach ( array_slice( (array) get_option( self::LOG, array() ), 0, 10 ) as $l ) { $log[] = ( $l['t'] ?? '' ) . ' · ' . ( $l['email'] ?? '' ) . ' · ' . ( $l['why'] ?? '' ); }
+			if ( class_exists( 'SDSC_Mailer' ) ) {
+				SDSC_Mailer::admin_report( array(
+					'subject_en' => 'Unusual number of new accounts today (' . $c['n'] . ')',
+					'subject_fa' => 'تعداد غیرعادی حساب جدید',
+					'title_en'   => $c['n'] . ' new accounts today',
+					'title_fa'   => $c['n'] . ' حساب جدید در امروز',
+					'lead_en'    => 'More accounts than usual were created on the website today. If you did not expect this, check the list below.',
+					'lead_fa'    => 'امروز بیش از حد معمول حساب کاربری در سایت ساخته شده. اگر انتظارش را نداشتید، فهرست زیر را بررسی کنید.',
+					'rows'       => array(
+						array( 'en' => 'Date', 'fa' => 'تاریخ', 'v' => $day, 'ltr' => true ),
+						array( 'en' => 'Accounts today', 'fa' => 'حساب‌های امروز', 'v' => (string) $c['n'], 'ltr' => true ),
+						array( 'en' => 'Busiest networks (IP)', 'fa' => 'پرتکرارترین IPها', 'v' => implode( "\n", $top ), 'ltr' => true ),
+						array( 'en' => 'Latest new accounts', 'fa' => 'آخرین حساب‌های جدید', 'v' => implode( "\n", $lines ), 'ltr' => true ),
+						array( 'en' => 'Latest refused sign-ups', 'fa' => 'آخرین ثبت‌نام‌های ردشده', 'v' => implode( "\n", $log ), 'ltr' => true ),
+					),
+					'note_en'    => 'Limits already in place: 3 accounts per network per hour, 6 per day.',
+					'note_fa'    => 'محدودیت فعلی: از هر IP حداکثر ۳ حساب در ساعت و ۶ حساب در روز.',
+					'buttons'    => array(
+						array( 'en' => 'Suspicious accounts', 'fa' => 'حساب‌های مشکوک', 'url' => admin_url( 'admin.php?page=sdsc-suspicious' ) ),
+						array( 'en' => 'Blocked sign-ups', 'fa' => 'ثبت‌نام‌های مسدود', 'url' => admin_url( 'admin.php?page=sdsc-blocklist' ) ),
+					),
+				) );
+			}
 		}
 		update_option( 'sdsc_signups_day', $c, false );
 	}

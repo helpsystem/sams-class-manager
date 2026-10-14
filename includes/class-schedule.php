@@ -513,9 +513,24 @@ class SDSC_Schedule {
 		$name = $t['email'];
 		foreach ( class_exists( 'SDSC_Outreach' ) ? SDSC_Outreach::contacts() : array() as $c ) { if ( $c['email'] === $t['email'] ) { $name = trim( $c['first'] . ' ' . $c['last'] ) . ' (' . $t['email'] . ')'; break; } }
 		$link = 'btw' === $t['kind'] ? admin_url( 'admin.php?page=sdsc-lessons&tab=schedule&id=' . $t['ref'] ) : admin_url( 'admin.php?page=' . self::PAGE . '&class=' . $t['ref'] );
-		$body = '<p><b>' . esc_html( $name ) . '</b> said they cannot come.</p><p>' . esc_html( $what ) . '<br>' . esc_html( $when ) . '<br>Told us: ' . esc_html( wp_date( 'l, F j, g:i a' ) ) . '</p>'
-			. ( $why ? '<p>Reason: ' . esc_html( $why ) . '</p>' : '' ) . '<p>' . esc_html( $policy ) . '</p><p><a href="' . esc_url( $link ) . '">Open it in the dashboard</a></p>';
-		SDSC_Mailer::send( $to, 'Can’t attend: ' . $name, $body, 'noreply' );
+		SDSC_Mailer::admin_report( array(
+			'to'         => $to,
+			'subject_en' => 'Can’t attend: ' . $name,
+			'subject_fa' => 'غیبت اعلام‌شده',
+			'title_en'   => $name . ' cannot come',
+			'title_fa'   => $name . ' نمی‌تواند بیاید',
+			'lead_en'    => 'The student told us through the attendance link that they cannot come.',
+			'lead_fa'    => 'شاگرد از طریق لینک حضور اعلام کرد که نمی‌تواند بیاید.',
+			'rows'       => array(
+				array( 'en' => 'Student', 'fa' => 'شاگرد', 'v' => $name, 'ltr' => true ),
+				array( 'en' => 'What', 'fa' => 'جلسه', 'v' => $what, 'ltr' => true ),
+				array( 'en' => 'When', 'fa' => 'زمان جلسه', 'v' => $when, 'ltr' => true ),
+				array( 'en' => 'Told us at', 'fa' => 'زمان اعلام', 'v' => wp_date( 'l, F j, g:i a' ), 'ltr' => true ),
+				array( 'en' => 'Reason', 'fa' => 'دلیل', 'v' => $why, 'ltr' => true ),
+				array( 'en' => 'Policy', 'fa' => 'قانون مربوط', 'v' => $policy, 'ltr' => true ),
+			),
+			'buttons'    => array( array( 'en' => 'Open it in the dashboard', 'fa' => 'باز کردن در داشبورد', 'url' => $link ) ),
+		) );
 	}
 
 	/* ================================================================ reminders */
