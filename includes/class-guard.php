@@ -113,6 +113,7 @@ class SDSC_Guard {
 		$c   = ( is_array( $c ) && ( $c['d'] ?? '' ) === $day ) ? $c : array( 'd' => $day, 'n' => 0, 'mailed' => 0 );
 		$c['n']++;
 		update_user_meta( $user_id, '_sdsc_signup_ip', self::ip() );
+		update_user_meta( $user_id, '_sdsc_signup_ua', mb_substr( sanitize_text_field( (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' ) ), 0, 400 ) ); // phpcs:ignore
 		if ( $c['n'] >= self::SURGE && ! $c['mailed'] ) {
 			$c['mailed'] = 1;
 			$recent = get_users( array( 'orderby' => 'registered', 'order' => 'DESC', 'number' => 25, 'date_query' => array( array( 'after' => $day . ' 00:00:00', 'inclusive' => true ) ) ) );
@@ -407,6 +408,38 @@ class SDSC_Guard {
 	 * (no class registration, no course, no quiz, no order) — a review list only, nothing is deleted here.
 	 * ------------------------------------------------------------------ */
 
+	/** "Windows · Chrome" style label from a browser user-agent. */
+	public static function device( $ua ) {
+		$ua = (string) $ua;
+		if ( '' === $ua ) { return ''; }
+		if ( preg_match( '/bot|crawl|spider|curl|wget|python|headless|phantom|httpclient|java\//i', $ua ) ) { return 'Bot / script (' . mb_substr( $ua, 0, 40 ) . ')'; }
+		$os = 'Other';
+		foreach ( array( 'iPhone' => 'iPhone', 'iPad' => 'iPad', 'Android' => 'Android', 'Windows NT' => 'Windows', 'Mac OS X' => 'Mac', 'CrOS' => 'ChromeOS', 'Linux' => 'Linux' ) as $k => $v ) { if ( false !== stripos( $ua, $k ) ) { $os = $v; break; } }
+		$br = 'Other';
+		foreach ( array( 'Edg/' => 'Edge', 'OPR/' => 'Opera', 'SamsungBrowser' => 'Samsung', 'Firefox/' => 'Firefox', 'CriOS' => 'Chrome', 'Chrome/' => 'Chrome', 'Safari/' => 'Safari' ) as $k => $v ) { if ( false !== stripos( $ua, $k ) ) { $br = $v; break; } }
+		return $os . ' · ' . $br;
+	}
+
+	/** Last known network address, country and device for a user (sign-up record, then Wordfence's login log). */
+	public static function trace( $uid ) {
+		global $wpdb;
+		$ip = (string) get_user_meta( $uid, '_sdsc_signup_ip', true );
+		$ua = (string) get_user_meta( $uid, '_sdsc_signup_ua', true );
+		static $wf = null;
+		if ( null === $wf ) { $wf = (bool) $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}wflogins'" ); }
+		$when = '';
+		if ( $wf ) {
+			$row = $wpdb->get_row( $wpdb->prepare( "SELECT IP, UA, ctime FROM {$wpdb->prefix}wflogins WHERE userID = %d ORDER BY id DESC LIMIT 1", $uid ) ); // phpcs:ignore
+			if ( $row ) {
+				if ( '' === $ip && class_exists( 'wfUtils' ) ) { $ip = (string) wfUtils::inet_ntop( $row->IP ); }
+				if ( '' === $ua ) { $ua = (string) $row->UA; }
+				$when = $row->ctime ? wp_date( 'M j, Y g:i a', (int) $row->ctime ) : '';
+			}
+		}
+		$cc = ( $ip && class_exists( 'wfUtils' ) && method_exists( 'wfUtils', 'IP2Country' ) ) ? (string) wfUtils::IP2Country( $ip ) : '';
+		return array( 'ip' => $ip, 'country' => $cc, 'device' => self::device( $ua ), 'ua' => $ua, 'seen' => $when );
+	}
+
 	public static function suspicious() {
 		global $wpdb;
 		$reg   = class_exists( 'SDSC_Registration' ) ? SDSC_Registration::table() : '';
@@ -431,7 +464,10 @@ class SDSC_Guard {
 			$d = substr( $r->user_registered, 0, 10 );
 			if ( isset( $days[ $d ] ) ) { $flags[] = 'Bot wave: created on ' . mysql2date( 'M j, Y', $d ) . ', when ' . (int) $days[ $d ]->n . ' accounts were made in one day'; }
 			if ( preg_match( '/^[a-z]{2,}[0-9]{4,}$|^[a-z0-9]{14,}$/i', $r->user_login ) ) { $flags[] = 'Random-looking user name'; }
-			$out[] = array( 'id' => (int) $r->ID, 'login' => $r->user_login, 'email' => $r->user_email, 'name' => $r->display_name, 'registered' => $r->user_registered, 'flags' => $flags );
+			$tr = self::trace( (int) $r->ID );
+			if ( $tr['country'] && ! in_array( $tr['country'], array( 'US' ), true ) ) { $flags[] = 'Outside the US (' . $tr['country'] . ')'; }
+			if ( 0 === strpos( $tr['device'], 'Bot' ) ) { $flags[] = 'Signed in with a script, not a browser'; }
+			$out[] = array( 'id' => (int) $r->ID, 'login' => $r->user_login, 'email' => $r->user_email, 'name' => $r->display_name, 'registered' => $r->user_registered, 'flags' => $flags ) + $tr;
 		}
 		return $out;
 	}
@@ -456,10 +492,11 @@ class SDSC_Guard {
 		}
 		echo '<p><b>Pause</b> = the account stays, but cannot sign in (the person is asked to call the school). <b>Release</b> = it can sign in again. Nothing is deleted.</p>';
 		echo '<p><a class="button" onclick="return confirm(\'Pause every account with a Bot wave sign?\')" href="' . esc_url( self::account_url( 'pause_wave' ) ) . '">Pause all “Bot wave” accounts</a> <a class="button" onclick="return confirm(\'Pause every account on this list?\')" href="' . esc_url( self::account_url( 'pause_all' ) ) . '">Pause all accounts on this list</a></p>';
-		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>Warning signs</th><th>Status</th></tr></thead><tbody>';
+		echo '<p style="color:#555">IP, country and device come from the sign-up record or the last sign-in that Wordfence logged. A MAC address never travels over the internet, so no website can see it. City-level location needs an outside lookup service and is not used.</p>';
+		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>IP · Country</th><th>Device (system · browser)</th><th>Warning signs</th><th>Status</th></tr></thead><tbody>';
 		foreach ( $list as $x ) {
 			$pz = self::paused( $x['id'] );
-			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td>'
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['ip'] ? esc_html( $x['ip'] . ( $x['country'] ? ' · ' . $x['country'] : '' ) ) . ( $x['seen'] ? '<br><small>last sign-in ' . esc_html( $x['seen'] ) . '</small>' : '' ) : '<small>no record</small>' ) . '</td><td title="' . esc_attr( $x['ua'] ) . '">' . ( $x['device'] ? esc_html( $x['device'] ) : '<small>no record</small>' ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td>'
 				. '<td>' . ( $pz ? '<span style="color:#b32d2e;font-weight:700">Paused</span><br><a class="button button-small button-primary" href="' . esc_url( self::account_url( 'release', $x['id'] ) ) . '">Release account</a>' : '<span style="color:#0b6b35">Active</span><br><a class="button button-small" href="' . esc_url( self::account_url( 'pause', $x['id'] ) ) . '">Pause</a>' ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
@@ -484,9 +521,9 @@ class SDSC_Guard {
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="suspicious-accounts-' . current_time( 'Y-m-d' ) . '.csv"' );
 		$f = fopen( 'php://output', 'w' );
-		fputcsv( $f, array( 'User ID', 'User name', 'E-mail', 'Name', 'Created', 'Warning signs', 'Status' ) );
+		fputcsv( $f, array( 'User ID', 'User name', 'E-mail', 'Name', 'Created', 'IP', 'Country', 'Device', 'Browser details', 'Last sign-in', 'Warning signs', 'Status' ) );
 		foreach ( self::suspicious() as $x ) {
-			$cells = array( $x['id'], $x['login'], $x['email'], $x['name'], $x['registered'], implode( ' · ', $x['flags'] ), self::paused( $x['id'] ) ? 'Paused' : 'Active' );
+			$cells = array( $x['id'], $x['login'], $x['email'], $x['name'], $x['registered'], $x['ip'], $x['country'], $x['device'], $x['ua'], $x['seen'], implode( ' · ', $x['flags'] ), self::paused( $x['id'] ) ? 'Paused' : 'Active' );
 			$cells = array_map( function ( $c ) { $c = (string) $c; return preg_match( '/^[=+\-@]/', $c ) ? "'" . $c : $c; }, $cells ); // no spreadsheet formulas
 			fputcsv( $f, $cells );
 		}
