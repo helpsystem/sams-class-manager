@@ -74,7 +74,8 @@ class SDSC_Student {
 		?>
 		<style id="sdsc-student-trim">
 			.tutor-profile-completion,.tutor-dashboard-quick-tips-card,.tutor-dashboard-welcome-card:has(a[href*="/courses"]),a.tutor-see-all-courses,
-			.tutor-dashboard-layout [class*="cover-photo"],.tutor-dashboard-layout [class*="cover_photo"],.tutor-dashboard-layout [class*="profile-cover"]{display:none!important}
+			.tutor-account-cover-photo-action{display:none!important}
+			.tutor-account-cover-photo{background:#eef6f1!important;background-image:none!important;height:70px!important;min-height:0!important}
 			.sdsc-pay-list{display:flex;flex-direction:column;gap:10px;margin:8px 0 20px}
 			.sdsc-pay{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid #e3e7ea;border-radius:12px;padding:12px 14px;background:#fff}
 			.sdsc-pay b{font-size:16px}.sdsc-pay small{display:block;color:#5b646d;margin-top:2px}
