@@ -342,8 +342,8 @@ class SDSC_Guard {
 			$why   = self::reason( $r->user_email );
 			if ( $why ) { $flags[] = $why; }
 			$d = substr( $r->user_registered, 0, 10 );
-			if ( isset( $days[ $d ] ) ) { $flags[] = 'made on a day with ' . (int) $days[ $d ]->n . ' new accounts'; }
-			if ( preg_match( '/^[a-z]{2,}[0-9]{4,}$|^[a-z0-9]{14,}$/i', $r->user_login ) ) { $flags[] = 'random-looking user name'; }
+			if ( isset( $days[ $d ] ) ) { $flags[] = 'Bot wave: created on ' . mysql2date( 'M j, Y', $d ) . ', when ' . (int) $days[ $d ]->n . ' accounts were made in one day'; }
+			if ( preg_match( '/^[a-z]{2,}[0-9]{4,}$|^[a-z0-9]{14,}$/i', $r->user_login ) ) { $flags[] = 'Random-looking user name'; }
 			$out[] = array( 'id' => (int) $r->ID, 'login' => $r->user_login, 'email' => $r->user_email, 'name' => $r->display_name, 'registered' => $r->user_registered, 'flags' => $flags );
 		}
 		return $out;
@@ -357,6 +357,12 @@ class SDSC_Guard {
 		echo '<p>Student-type accounts that have <b>never done anything</b> on the website: no class registration, no online course, no quiz, no order. Staff and instructors are never listed. Nothing is deleted from this page — review first.</p>';
 		echo '<p><b>' . count( $list ) . '</b> accounts with no activity · <b>' . (int) $strong . '</b> of them also have a warning sign (see the last column).</p>';
 		echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_suspicious_csv' ), 'sdsc_suspicious_csv' ) ) . '">Download as CSV (Excel)</a></p>';
+		echo '<div style="max-width:900px;margin:10px 0 16px;padding:12px 16px;border-radius:10px;background:#fff8e1;border:1px solid #ffd766"><b>What the warning signs mean</b><ul style="margin:6px 0 0 18px;list-style:disc">'
+			. '<li><b>Bot wave</b> — the account was made on a day when many accounts (10 or more) were created at once. Real students sign up one by one, so these are almost always bots.</li>'
+			. '<li><b>Random-looking user name</b> — letters followed by many numbers, or a long jumble of characters.</li>'
+			. '<li><b>Throwaway e-mail service / e-mail domain does not exist / blocked</b> — the e-mail address itself would be refused today.</li>'
+			. '<li><b>—</b> (no sign) — the account never did anything, but nothing else looks wrong. It may be a real person who signed up and never came back.</li>'
+			. '</ul></div>';
 		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>Warning signs</th></tr></thead><tbody>';
 		foreach ( $list as $x ) {
 			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td></tr>';
