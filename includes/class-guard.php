@@ -22,6 +22,12 @@ class SDSC_Guard {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 40 );
 		add_action( 'admin_post_sdsc_blocklist_save', array( __CLASS__, 'save' ) );
 		add_action( 'admin_post_sdsc_suspicious_csv', array( __CLASS__, 'suspicious_csv' ) );
+		// Paused accounts: cannot sign in until the office releases them.
+		add_filter( 'authenticate', array( __CLASS__, 'stop_paused' ), 99, 1 );
+		add_action( 'admin_post_sdsc_account', array( __CLASS__, 'account_action' ) );
+		add_filter( 'user_row_actions', array( __CLASS__, 'user_row' ), 20, 2 );
+		// No public profiles: a profile page opens only for its owner and for staff.
+		add_action( 'template_redirect', array( __CLASS__, 'private_profiles' ), 0 );
 		// Honeypot ("bot trap"): hidden fields real visitors never see.
 		add_action( 'init', array( __CLASS__, 'trap_check' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'trap_page' ), 0 );
@@ -152,6 +158,87 @@ class SDSC_Guard {
 	public static function no_author_scan() {
 		if ( is_user_logged_in() ) { return; }
 		if ( isset( $_GET['author'] ) || is_author() ) { wp_safe_redirect( home_url( '/' ), 301 ); exit; } // phpcs:ignore
+	}
+
+	/** Tutor profile pages (/profile/name/) and author pages: only the owner and staff; everyone else (and Google) gets "not found". */
+	public static function private_profiles() {
+		$name = (string) get_query_var( 'tutor_profile_username' );
+		$is_profile = '' !== $name || is_author();
+		if ( ! $is_profile ) { return; }
+		$owner = '' !== $name ? get_user_by( 'slug', $name ) : get_queried_object();
+		if ( is_user_logged_in() && ( ( $owner instanceof WP_User && get_current_user_id() === (int) $owner->ID ) || ( class_exists( 'SDSC_Access' ) && SDSC_Access::is_staff() ) ) ) {
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+			return;
+		}
+		global $wp_query;
+		$wp_query->set_404();
+		status_header( 404 );
+		nocache_headers();
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+		$tpl = get_query_template( '404' );
+		if ( $tpl ) { include $tpl; } else { echo '<!doctype html><title>Not found</title><p>Page not found.</p>'; }
+		exit;
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Pause / release an account (office and administrators)
+	 * ------------------------------------------------------------------ */
+
+	const PAUSED = '_sdsc_paused';
+
+	public static function paused( $uid ) { return get_user_meta( (int) $uid, self::PAUSED, true ); }
+
+	/** Staff and instructors are never paused from here. */
+	protected static function protected_user( $u ) { return $u && ( user_can( $u, 'edit_posts' ) || user_can( $u, 'manage_options' ) || array_intersect( (array) $u->roles, array( 'administrator', 'tutor_instructor', 'sdsc_instructor', 'driveflow_instructor', 'sdsc_manager', 'sdsc_front_desk' ) ) ); }
+
+	public static function stop_paused( $user ) {
+		if ( $user instanceof WP_User && self::paused( $user->ID ) ) {
+			return new WP_Error( 'sdsc_paused', 'This account is paused. Please call Sam’s Driving School at (301) 726-3030 and we will open it for you.' );
+		}
+		return $user;
+	}
+
+	public static function pause( $uid, $why = '' ) {
+		$u = get_userdata( $uid );
+		if ( ! $u || self::protected_user( $u ) ) { return false; }
+		update_user_meta( $uid, self::PAUSED, array( 'by' => wp_get_current_user()->display_name, 'at' => current_time( 'mysql' ), 'why' => $why ) );
+		if ( class_exists( 'WP_Session_Tokens' ) ) { WP_Session_Tokens::get_instance( $uid )->destroy_all(); } // signed out everywhere
+		return true;
+	}
+
+	public static function release( $uid ) { delete_user_meta( (int) $uid, self::PAUSED ); return true; }
+
+	public static function account_url( $do, $uid = 0 ) {
+		return wp_nonce_url( add_query_arg( array( 'action' => 'sdsc_account', 'do' => $do, 'u' => (int) $uid ), admin_url( 'admin-post.php' ) ), 'sdsc_account_' . $do . '_' . (int) $uid );
+	}
+
+	public static function account_action() {
+		$do  = sanitize_key( $_GET['do'] ?? '' ); // phpcs:ignore
+		$uid = absint( $_GET['u'] ?? 0 ); // phpcs:ignore
+		if ( ! SDSC_Access::can( 'blocklist' ) ) { wp_die( 'You do not have permission to do this.', '', array( 'response' => 403 ) ); }
+		check_admin_referer( 'sdsc_account_' . $do . '_' . $uid );
+		$n = 0;
+		if ( 'pause' === $do ) { $n = (int) self::pause( $uid, 'paused by the office' ); }
+		elseif ( 'release' === $do ) { $n = (int) self::release( $uid ); }
+		elseif ( 'pause_wave' === $do || 'pause_all' === $do ) {
+			foreach ( self::suspicious() as $x ) {
+				if ( self::paused( $x['id'] ) ) { continue; }
+				$wave = (bool) array_filter( $x['flags'], function ( $f ) { return 0 === strpos( $f, 'Bot wave' ); } );
+				if ( 'pause_all' === $do || $wave ) { $n += (int) self::pause( $x['id'], $wave ? 'bot wave' : 'no activity' ); }
+			}
+		}
+		$back = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=sdsc-suspicious' );
+		wp_safe_redirect( add_query_arg( array( 'sdsc_done' => $do, 'sdsc_n' => $n ), remove_query_arg( array( 'sdsc_done', 'sdsc_n' ), $back ) ) );
+		exit;
+	}
+
+	/** Users screen: "Pause account" / "Release account" under each student. */
+	public static function user_row( $actions, $u ) {
+		if ( ! class_exists( 'SDSC_Access' ) || ! SDSC_Access::can( 'blocklist' ) || self::protected_user( $u ) ) { return $actions; }
+		$actions['sdsc_pause'] = self::paused( $u->ID )
+			? '<a style="color:#0b6b35;font-weight:700" href="' . esc_url( self::account_url( 'release', $u->ID ) ) . '">Release account</a>'
+			: '<a style="color:#b32d2e" href="' . esc_url( self::account_url( 'pause', $u->ID ) ) . '">Pause account</a>';
+		return $actions;
 	}
 
 	public static function hide_users_api( $endpoints ) {
@@ -363,11 +450,31 @@ class SDSC_Guard {
 			. '<li><b>Throwaway e-mail service / e-mail domain does not exist / blocked</b> — the e-mail address itself would be refused today.</li>'
 			. '<li><b>—</b> (no sign) — the account never did anything, but nothing else looks wrong. It may be a real person who signed up and never came back.</li>'
 			. '</ul></div>';
-		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>Warning signs</th></tr></thead><tbody>';
-		foreach ( $list as $x ) {
-			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td></tr>';
+		if ( isset( $_GET['sdsc_done'] ) ) { // phpcs:ignore
+			$n = (int) ( $_GET['sdsc_n'] ?? 0 ); // phpcs:ignore
+			echo '<div class="notice notice-success"><p>' . ( 'release' === $_GET['sdsc_done'] ? 'Account released — it can sign in again.' : esc_html( $n . ' account' . ( 1 === $n ? '' : 's' ) . ' paused — they cannot sign in until released.' ) ) . '</p></div>'; // phpcs:ignore
 		}
-		echo '</tbody></table></div>';
+		echo '<p><b>Pause</b> = the account stays, but cannot sign in (the person is asked to call the school). <b>Release</b> = it can sign in again. Nothing is deleted.</p>';
+		echo '<p><a class="button" onclick="return confirm(\'Pause every account with a Bot wave sign?\')" href="' . esc_url( self::account_url( 'pause_wave' ) ) . '">Pause all “Bot wave” accounts</a> <a class="button" onclick="return confirm(\'Pause every account on this list?\')" href="' . esc_url( self::account_url( 'pause_all' ) ) . '">Pause all accounts on this list</a></p>';
+		echo '<table class="widefat striped"><thead><tr><th>Created</th><th>User name</th><th>E-mail</th><th>Name</th><th>Warning signs</th><th>Status</th></tr></thead><tbody>';
+		foreach ( $list as $x ) {
+			$pz = self::paused( $x['id'] );
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y', $x['registered'] ) ) . '</td><td><a href="' . esc_url( get_edit_user_link( $x['id'] ) ) . '">' . esc_html( $x['login'] ) . '</a></td><td>' . esc_html( $x['email'] ) . '</td><td>' . esc_html( $x['name'] ) . '</td><td>' . ( $x['flags'] ? '<b style="color:#b32d2e">' . esc_html( implode( ' · ', $x['flags'] ) ) . '</b>' : '—' ) . '</td>'
+				. '<td>' . ( $pz ? '<span style="color:#b32d2e;font-weight:700">Paused</span><br><a class="button button-small button-primary" href="' . esc_url( self::account_url( 'release', $x['id'] ) ) . '">Release account</a>' : '<span style="color:#0b6b35">Active</span><br><a class="button button-small" href="' . esc_url( self::account_url( 'pause', $x['id'] ) ) . '">Pause</a>' ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
+		// Paused accounts that are not on the list above (paused from the Users screen, or they had activity).
+		$ids   = wp_list_pluck( $list, 'id' );
+		$other = get_users( array( 'meta_key' => self::PAUSED, 'meta_compare' => 'EXISTS', 'exclude' => $ids, 'number' => 500 ) );
+		if ( $other ) {
+			echo '<h2 style="margin-top:24px">Other paused accounts</h2><table class="widefat striped"><thead><tr><th>User name</th><th>E-mail</th><th>Paused</th><th></th></tr></thead><tbody>';
+			foreach ( $other as $o ) {
+				$pz = (array) self::paused( $o->ID );
+				echo '<tr><td><a href="' . esc_url( get_edit_user_link( $o->ID ) ) . '">' . esc_html( $o->user_login ) . '</a></td><td>' . esc_html( $o->user_email ) . '</td><td>' . esc_html( ( $pz['at'] ?? '' ) . ( ! empty( $pz['by'] ) ? ' · by ' . $pz['by'] : '' ) ) . '</td><td><a class="button button-small button-primary" href="' . esc_url( self::account_url( 'release', $o->ID ) ) . '">Release account</a></td></tr>';
+			}
+			echo '</tbody></table>';
+		}
+		echo '</div>';
 	}
 
 	public static function suspicious_csv() {
@@ -377,9 +484,9 @@ class SDSC_Guard {
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="suspicious-accounts-' . current_time( 'Y-m-d' ) . '.csv"' );
 		$f = fopen( 'php://output', 'w' );
-		fputcsv( $f, array( 'User ID', 'User name', 'E-mail', 'Name', 'Created', 'Warning signs' ) );
+		fputcsv( $f, array( 'User ID', 'User name', 'E-mail', 'Name', 'Created', 'Warning signs', 'Status' ) );
 		foreach ( self::suspicious() as $x ) {
-			$cells = array( $x['id'], $x['login'], $x['email'], $x['name'], $x['registered'], implode( ' · ', $x['flags'] ) );
+			$cells = array( $x['id'], $x['login'], $x['email'], $x['name'], $x['registered'], implode( ' · ', $x['flags'] ), self::paused( $x['id'] ) ? 'Paused' : 'Active' );
 			$cells = array_map( function ( $c ) { $c = (string) $c; return preg_match( '/^[=+\-@]/', $c ) ? "'" . $c : $c; }, $cells ); // no spreadsheet formulas
 			fputcsv( $f, $cells );
 		}
