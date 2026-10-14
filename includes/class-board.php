@@ -104,6 +104,9 @@ class SDSC_Board {
 
 	protected static function rt() { return SDSC_Registration::table(); }
 
+	/** How far back "No class yet" looks: 30 days, or 120 with ?older=1. */
+	protected static function days() { return empty( $_GET['older'] ) ? 30 : 120; } // phpcs:ignore
+
 	protected static function offline_for( $reg_id, $registrant_id ) {
 		global $wpdb;
 		return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::table() . " WHERE status = 'paid' AND ( ( reg_id > 0 AND reg_id = %d ) OR ( registrant_id > 0 AND registrant_id = %d ) ) ORDER BY id", (int) $reg_id, (int) $registrant_id ), ARRAY_A ); // phpcs:ignore
@@ -153,7 +156,7 @@ class SDSC_Board {
 	protected static function cards( $classes ) {
 		global $wpdb;
 		$ids   = array_keys( $classes );
-		$since = wp_date( 'Y-m-d H:i:s', time() - 120 * DAY_IN_SECONDS );
+		$since = wp_date( 'Y-m-d H:i:s', time() - self::days() * DAY_IN_SECONDS );
 		$in    = $ids ? implode( ',', array_map( 'intval', $ids ) ) : '0';
 		$rows  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, created_at, source, class_id, registrant_id, first_name, last_name, email, phone, parent_email FROM ' . self::rt() . " WHERE source <> 'demo' AND ( class_id IN ($in) OR ( ( class_id IS NULL OR class_id = 0 ) AND created_at > %s ) ) ORDER BY created_at", $since ) ); // phpcs:ignore
 		$cols  = array( 0 => array() );
@@ -468,7 +471,7 @@ class SDSC_Board {
 									<i class="sdb-bar"><i></i></i>
 								</div>
 							<?php else : ?>
-								<p class="sdb-when">Registrations of the last 120 days with no class (the old form did not ask). Drag each one into its class.</p>
+								<p class="sdb-when">Registrations of the last <?php echo (int) self::days(); ?> days with no class (the old form did not ask). Drag each one into its class. <a href="<?php echo esc_url( self::days() > 30 ? admin_url( 'admin.php?page=' . self::PAGE ) : admin_url( 'admin.php?page=' . self::PAGE . '&older=1' ) ); ?>"><?php echo self::days() > 30 ? 'Last 30 days only' : 'Show 120 days'; ?></a></p>
 							<?php endif; ?>
 							<button type="button" class="button sdb-add">+ Add student</button>
 						</header>
