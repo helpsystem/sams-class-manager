@@ -810,6 +810,8 @@ class SDSC_Registration {
 			if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) { echo '<p>' . SDSC_Docs::link( $r->email ) . '</p>'; } // phpcs:ignore -- escaped inside
 			if ( isset( $_GET['sdsc_reminded'] ) ) { echo '<div class="notice notice-success"><p>Reminder e-mail sent.</p></div>'; } // phpcs:ignore
 			if ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ) { echo SDSC_Followup::panel( $r->id ); } // phpcs:ignore -- escaped inside
+			if ( isset( $_GET['sdsc_access'] ) ) { echo '<div class="notice notice-success"><p>' . ( 'opened' === $_GET['sdsc_access'] ? 'Online course access opened.' : 'Manual course access removed.' ) . '</p></div>'; } // phpcs:ignore
+			if ( class_exists( 'SDSC_Gate' ) ) { echo SDSC_Gate::panel( $r->email ); } // phpcs:ignore -- escaped inside
 			echo '<table class="widefat striped" style="max-width:800px">';
 			$rows = array(
 				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
