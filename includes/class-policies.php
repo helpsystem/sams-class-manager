@@ -42,8 +42,12 @@ class SDSC_Policies {
 		$raw  = preg_replace( '#<(script|style)[^>]*>.*?</\1>#is', '', (string) $raw );
 		$html = wp_kses( $raw, array( 'h1' => array(), 'h2' => array(), 'h3' => array(), 'h4' => array(), 'p' => array(), 'ul' => array(), 'ol' => array(), 'li' => array(), 'strong' => array(), 'b' => array(), 'em' => array(), 'br' => array() ) );
 		// The page ends with a services promo — not a policy.
-		$pos = stripos( $html, 'Our Driving School Services' );
-		if ( false !== $pos ) { $cut = strrpos( substr( $html, 0, $pos ), '<' ); $html = substr( $html, 0, false !== $cut ? $cut : $pos ); }
+		if ( preg_match( '#<(h[1-4]|p|li)>\s*(Our Driving School Services|Our services)\b#i', $html, $m, PREG_OFFSET_CAPTURE ) ) {
+			$html = substr( $html, 0, $m[0][1] );
+		} else {
+			$pos = stripos( $html, 'Our Driving School Services' );
+			if ( false !== $pos ) { $cut = strrpos( substr( $html, 0, $pos ), '<' ); $html = substr( $html, 0, false !== $cut ? $cut : $pos ); }
+		}
 		$html = preg_replace( '/\n\s*\n+/', "\n", trim( $html ) );
 		$html = preg_replace( '#<(p|li|h[1-4])>\s*</\1>#', '', $html );
 		$f    = 'font-family:Arial,Helvetica,sans-serif;';
