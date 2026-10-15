@@ -169,7 +169,7 @@ class SDSC_Student_File {
 				$cur = $out[ $r['user_id'] ][ $r['quiz_id'] ] ?? null;
 				$n   = ( $cur['attempts'] ?? 0 ) + 1;
 				if ( ! $cur || $pct >= $cur['pct'] ) {
-					$out[ $r['user_id'] ][ $r['quiz_id'] ] = array( 'pct' => $pct, 'earned' => (float) $r['earned_marks'], 'total' => (float) $r['total_marks'], 'ended' => $r['attempt_ended_at'], 'attempts' => $n, 'attempt_id' => (int) $r['attempt_id'] );
+					$out[ $r['user_id'] ][ $r['quiz_id'] ] = array( 'pct' => $pct, 'earned' => (float) $r['earned_marks'], 'total' => (float) $r['total_marks'], 'ended' => $r['attempt_ended_at'], 'attempts' => $n, 'attempt_id' => (int) $r['attempt_id'], 'first' => $cur['first'] ?? $r['attempt_ended_at'] );
 				} else {
 					$out[ $r['user_id'] ][ $r['quiz_id'] ]['attempts'] = $n;
 				}
@@ -388,7 +388,7 @@ table.t tr { break-inside: avoid; }
 		$pol   = class_exists( 'SDSC_Policies' ) ? SDSC_Policies::html() : '';
 		$pol   = $pol ? wp_kses( $pol, array( 'h1' => array(), 'h2' => array(), 'h3' => array(), 'h4' => array(), 'p' => array(), 'ul' => array(), 'ol' => array(), 'li' => array(), 'strong' => array(), 'b' => array(), 'em' => array(), 'i' => array(), 'br' => array() ) ) : '';
 		$h  = '<section class="pg"><table class="wrap">' . self::who( 'Student Registration Form', $p, self::file_no( $p ) ) . '<tbody><tr><td>';
-		$h .= '<h2>Course</h2><table class="f"><tr><th>Class</th><td>' . $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : '' ) . '</td></tr>'
+		$h .= '<h2>Course</h2><table class="f"><tr><th>Class</th><td>' . $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : self::online_span( $p ) ) . '</td></tr>'
 			. '<tr><th>Registration</th><td>#' . (int) $r['id'] . ' · submitted ' . esc_html( $d( $r['created_at'], 'm/d/Y g:i A' ) ) . ( 'forminator' === $r['source'] ? ' (earlier website form)' : '' ) . '</td></tr>'
 			. '<tr><th>Payment</th><td>' . $v( $paid ? 'Paid online ' . '$' . number_format( $paid['amount'] / 100, 2 ) . ( ! empty( $paid['paid_at'] ) ? ' on ' . $d( $paid['paid_at'] ) : '' ) : 'Not paid online (see the office records)' ) . '</td></tr></table>';
 		$h .= '<h2>Student</h2><table class="f">'
@@ -480,6 +480,17 @@ table.t tr { break-inside: avoid; }
 		return '<section class="pg"><table class="wrap">' . self::who( 'Class Attendance Record', $p, self::file_no( $p ) ) . '<tbody><tr><td>' . $t . $sum . '<div class="office"><div>Instructor signature</div><div>Date</div><div>School manager</div></div></td></tr></tbody></table></section>';
 	}
 
+	/** Older students (no class in the new class system): the online course and the days of the first and last unit test. */
+	public static function online_span( $p ) {
+		global $wpdb;
+		$c = self::default_course();
+		if ( ! $c || empty( $p['user_id'] ) ) { return ''; }
+		$d = $wpdb->get_row( $wpdb->prepare( "SELECT MIN(attempt_ended_at) a, MAX(attempt_ended_at) b FROM {$wpdb->prefix}tutor_quiz_attempts WHERE course_id = %d AND user_id = %d AND attempt_status = 'attempt_ended'", $c, (int) $p['user_id'] ), ARRAY_A ); // phpcs:ignore
+		if ( empty( $d['a'] ) ) { return ''; }
+		$f = function ( $x ) { return wp_date( 'm/d/Y', strtotime( substr( $x, 0, 10 ) . ' 12:00:00' ) ); };
+		return get_the_title( $c ) . ' · Zoom classes ' . $f( $d['a'] ) . ( substr( $d['a'], 0, 10 ) !== substr( $d['b'], 0, 10 ) ? ' – ' . $f( $d['b'] ) : '' );
+	}
+
 	/** Whole printout: $parts = any of form, sheet, attendance. */
 	/** The forms that can be printed, in print order: key => exact name. */
 	public static function parts() {
@@ -528,7 +539,7 @@ table.t tr { break-inside: avoid; }
 			$data = array();
 			foreach ( $people as $p ) { $data[] = array( 'name' => $p['name'], 'file' => self::file_no( $p ), 'f' => SDSC_DE003::fields( $p, $quizzes, $res ) ); }
 			$set  = SDSC_DE003::settings();
-			$miss = array_filter( array( 'School number' => $set['number'], 'Maryland State ID of the authorized school official' => $set['rep_id'] ), function ( $v ) { return '' === $v; } );
+			$miss = array_filter( array( 'School number' => $set['number'], 'Maryland State ID of the authorized school official' => SDSC_DE003::rep_id( $set )[0] ), function ( $v ) { return '' === $v; } );
 			echo '<div class="de3" id="de3"><p class="de3-s" id="de3s">' . ( $html_parts ? 'The DE-003 forms open as a separate PDF.' : 'Preparing the official MVA form…' ) . '</p>'
 				. ( $miss ? '<p class="de3-w">Not filled yet: ' . esc_html( implode( ', ', array_keys( $miss ) ) ) . ' — enter them once under Reports → “MVA form DE-003 — school details”.</p>' : '' )
 				. '<iframe id="de3f" title="' . esc_attr( $names['de003'] ) . '" hidden></iframe></div>';
