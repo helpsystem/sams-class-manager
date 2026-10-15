@@ -62,6 +62,11 @@ class SDSC_Workspace {
 			'df-vehicles'    => array( 'Cars', 'team', 'admin.php?page=driveflow-pro-vehicles', $df, '🚘', 'School cars, plates and availability.' ),
 			'df-reports'     => array( 'Lesson accounting', 'money', 'admin.php?page=driveflow-pro-reports', $df, '📈', 'Lessons taught, hours, instructor earnings and payouts by period.' ),
 			'df-settings'    => array( 'DriveFlow settings', 'setup', 'admin.php?page=driveflow-pro-settings', $df && $adm, '⚙️', 'Booking rules, e-mails, TV board and pages.' ),
+			'offers'         => array( 'Lesson offers', 'lessons', 'admin.php?page=sdsc-lesson-offers', class_exists( 'SDSC_DFOffer' ) && class_exists( 'SDSC_DFBook' ) && SDSC_DFBook::can(), '🔗', 'Times offered to a student by link: who picked, copy, resend, withdraw.' ),
+			'instructors'    => array( 'Add & assign instructors', 'team', 'admin.php?page=sdsc-instructors', class_exists( 'SDSC_Instructors' ) && SDSC_Instructors::can(), '🪪', 'Add an instructor by hand, paper agreement, switch on or off.' ),
+			'applicants'     => array( 'Instructor applications', 'team', 'admin.php?page=sdsc-applicants', class_exists( 'SDSC_Areas' ) && $can( 'registrations' ), '📨', 'People who applied to teach.' ),
+			'board'          => array( 'Class board', 'students', 'admin.php?page=sdsc-board', class_exists( 'SDSC_Board' ) && SDSC_Board::can(), '🧩', 'Seats, instructors and cars for every class.' ),
+			'pricewatch'     => array( 'Price watch', 'money', 'admin.php?page=sdsc-price-watch', class_exists( 'SDSC_PriceWatch' ) && SDSC_PriceWatch::can(), '📉', 'Other Maryland schools’ prices next to ours: changes, sales, charts.' ),
 			// Sam's Class Manager.
 			'classes'        => array( 'Classes', 'students', 'edit.php?post_type=sdsc_class', current_user_can( 'edit_posts' ) && class_exists( 'SDSC_Access' ) && SDSC_Access::is_staff(), '🏫', 'Add or edit a class: dates, price, Zoom link, timetable and instructor.' ),
 			'registrations'  => array( 'Registrations', 'students', 'admin.php?page=sdsc-registrations', $can( 'registrations' ), '📝', 'Sign-ups, contracts and signatures.' ),
@@ -180,7 +185,7 @@ class SDSC_Workspace {
 		if ( ! self::is_staff() ) { return; }
 		$id = function_exists( 'tutor_utils' ) ? (int) tutor_utils()->get_option( 'tutor_dashboard_page_id' ) : 0;
 		if ( $id && is_page( $id ) ) {
-			wp_enqueue_style( 'sdsc-workspace', SDSC_URL . 'assets/workspace.css', array(), SDSC_VERSION );
+			wp_enqueue_style( 'sdsc-workspace', SDSC_URL . 'assets/workspace.css', array(), SDSC_VERSION . '.' . (int) @filemtime( SDSC_DIR . 'assets/workspace.css' ) );
 			wp_enqueue_script( 'sdsc-workspace', SDSC_URL . 'assets/workspace.js', array(), SDSC_VERSION, true );
 		}
 	}
@@ -208,7 +213,12 @@ class SDSC_Workspace {
 			}
 			echo '</div>';
 		}
-		echo '</div></details><nav class="sws-quick" aria-label="Quick actions">';
+		echo '</div></details>';
+		if ( class_exists( 'SDSC_Pins' ) ) {
+			$pq = SDSC_Pins::quick();
+			echo SDSC_Pins::assets() . '<nav class="sws-quick sws-pins" aria-label="Pinned screens"' . ( $pq ? '' : ' style="display:none"' ) . '><span class="sws-pin-h" aria-hidden="true">📌</span>' . $pq . '</nav>'; // phpcs:ignore -- escaped inside
+		}
+		echo '<nav class="sws-quick" aria-label="Quick actions">';
 		if ( ! empty( $s['df-calendar'][3] ) ) { echo '<a href="' . esc_url( self::url( 'df-calendar' ) ) . '">＋ Book a lesson</a>'; }
 		if ( ! empty( $s['classes'][3] ) ) { echo '<a href="' . esc_url( add_query_arg( 'new', 1, self::url( 'classes' ) ) ) . '">＋ New class</a>'; }
 		if ( ! empty( $s['df-students'][3] ) ) { echo '<a href="' . esc_url( self::url( 'df-students' ) ) . '">＋ Student</a>'; }

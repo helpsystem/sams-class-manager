@@ -54,3 +54,28 @@ a.sov-tile:hover { box-shadow: 0 0 0 2px var(--g); transform: translateY(-1px); 
 .sov-card--alert form { margin: 0; }
 .sov-card--alert button.sov-btn { border: 0; cursor: pointer; }
 .sov-flash { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #e7f5ec; color: #00653a; font-weight: 600; }
+/* Price watch card (administrator, school manager) */
+.sov-pw { margin: 18px 0 0; }
+.sov-pw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; color: var(--mut); }
+.sov-pw-when { flex: 1 1 220px; }
+.sov-pw-when b { color: var(--ink); }
+.sov-pw-prog { font-weight: 700; color: var(--g); }
+.sov-pw-sync { border: 0; cursor: pointer; }
+.sov-pw-sync[disabled] { opacity: .6; cursor: progress; }
+.sov-pw-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+.sov-pw-kpis a { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #f7f9fa; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); text-decoration: none; }
+.sov-pw-kpis a.is-warn { background: #fff7e6; box-shadow: inset 0 0 0 1px #ffd591; }
+.sov-pw-kpis b { font-size: 20px; }
+.sov-pw-kpis small { font-size: 12px; color: var(--mut); }
+.sov-up { color: #b42318; }
+.sov-dn { color: #0b7a3b; }
+.sov-mid { color: var(--ink); }
+.sov-muted { color: var(--mut); }
+.sov-pw-scroll { overflow-x: auto; margin: 0 0 6px; }
+.sov-pw-t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sov-pw-t th { text-align: left; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--mut); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sov-pw-t td { padding: 8px; border-bottom: 1px solid #f0f2f4; vertical-align: top; }
+.sov-pw-t td small { display: block; font-size: 11.5px; color: var(--mut); }
+.sov-pw-t td span { font-weight: 700; }
+.sov-pw-h { margin: 12px 0 2px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--g); }
+@media (max-width: 600px) { .sov-pw-kpis { grid-template-columns: 1fr 1fr 1fr; gap: 6px; } .sov-pw-kpis b { font-size: 16px; } }

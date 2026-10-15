@@ -509,7 +509,7 @@ class SDSC_PriceWatch {
 	/** Price changes in the last N days: [up, down]. */
 	protected static function moves( $days = 30 ) {
 		$st   = get_option( self::STATE, array() );
-		$from = gmdate( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS );
+		$from = wp_date( 'Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS ); // feed times are local
 		$up   = 0;
 		$down = 0;
 		foreach ( (array) ( $st['feed'] ?? array() ) as $e ) {
@@ -517,6 +517,83 @@ class SDSC_PriceWatch {
 			if ( $e['new'] > $e['old'] ) { $up++; } else { $down++; }
 		}
 		return array( $up, $down );
+	}
+
+	/* ------------------------------------------------------------- dashboard */
+
+	/** Link to the full screen: inside the dashboard workspace when it exists, else wp-admin. */
+	public static function full_url() {
+		return class_exists( 'SDSC_Workspace' ) ? SDSC_Workspace::url( 'pricewatch' ) : admin_url( 'admin.php?page=' . self::PAGE );
+	}
+
+	/** Compact card for the dashboard home (administrator and school manager): where we stand, recent moves, "Sync now". */
+	public static function dash_card() {
+		if ( ! self::can() ) { return ''; }
+		self::maybe_install();
+		self::record_ours();
+		$schools = self::schools();
+		$active  = array_filter( $schools, function ( $s ) { return ! empty( $s['active'] ); } );
+		$svcs    = self::services();
+		$ins     = self::insights();
+		$pend    = (array) get_option( self::PENDING, array() );
+		$st      = (array) get_option( self::STATE, array() );
+		list( $up, $down ) = self::moves( 30 );
+		$sales   = count( array_filter( $active, function ( $s ) { return ! empty( $s['promos'] ); } ) );
+		$last    = max( array_merge( array( 0 ), array_map( function ( $s ) { return (int) ( $s['last'] ?? 0 ); }, $active ) ) );
+		$full    = self::full_url();
+		$m       = function ( $v ) { return null === $v ? '—' : '$' . self::n( (float) $v ); };
+
+		$h  = '<section class="sov-card sov-pw" id="sov-pw"><header><h4>Price watch</h4><a href="' . esc_url( $full ) . '">Open full page →</a></header>';
+		$h .= '<div class="sov-pw-bar"><span class="sov-pw-when">Last check: <b>' . ( $last ? esc_html( human_time_diff( $last ) . ' ago' ) : 'never' ) . '</b> · ' . count( $active ) . ' Maryland schools</span>'
+			. '<span class="sov-pw-prog" aria-live="polite"></span><button type="button" class="sov-btn sov-pw-sync">⟳ Sync now</button></div>';
+		$h .= '<div class="sov-pw-kpis">'
+			. '<a href="' . esc_url( $full ) . '"><b><span class="sov-up">▲ ' . (int) $up . '</span> <span class="sov-dn">▼ ' . (int) $down . '</span></b><small>Price moves, 30 days</small></a>'
+			. '<a href="' . esc_url( $full ) . '"><b>' . (int) $sales . '</b><small>Schools with a sale now</small></a>'
+			. '<a href="' . esc_url( $full ) . '" class="' . ( $pend ? 'is-warn' : '' ) . '"><b>' . count( $pend ) . '</b><small>Readings to confirm</small></a></div>';
+
+		$h .= '<div class="sov-pw-scroll"><table class="sov-pw-t"><thead><tr><th>Service</th><th>Us</th><th>Market median</th><th>Lowest</th><th>Where we stand</th></tr></thead><tbody>';
+		foreach ( $svcs as $k => $d ) {
+			$x = $ins[ $k ];
+			if ( ! $x['n'] && null === $x['ours'] ) { continue; }
+			$pos = '<span class="sov-muted">—</span>';
+			if ( null !== $x['ours'] && $x['median'] ) {
+				$pct = ( $x['ours'] - $x['median'] ) / $x['median'] * 100;
+				$cls = $pct > 8 ? 'sov-up' : ( $pct < -8 ? 'sov-dn' : 'sov-mid' );
+				$pos = '<span class="' . $cls . '">' . ( abs( $pct ) < 0.5 ? 'At median' : ( $pct > 0 ? '+' : '−' ) . round( abs( $pct ) ) . '%' ) . '</span><small>' . esc_html( $x['rank_txt'] ) . '</small>';
+			} elseif ( null === $x['ours'] ) {
+				$pos = '<small>We do not list a price</small>';
+			}
+			$h .= '<tr><td>' . esc_html( $d[0] ) . '</td><td><b>' . esc_html( $m( $x['ours'] ) ) . '</b></td><td>' . esc_html( $m( $x['median'] ) ) . ( $x['n'] ? '<small>' . (int) $x['n'] . ' schools</small>' : '' ) . '</td>'
+				. '<td>' . esc_html( $m( $x['min'] ) ) . ( $x['cheapest'] ? '<small>' . esc_html( $x['cheapest'] ) . '</small>' : '' ) . '</td><td>' . $pos . '</td></tr>';
+		}
+		$h .= '</tbody></table></div>';
+
+		$feed = array_slice( array_values( array_filter( (array) ( $st['feed'] ?? array() ), function ( $e ) { return in_array( $e['type'] ?? '', array( 'change', 'promo' ), true ); } ) ), 0, 5 );
+		if ( $feed ) {
+			$h .= '<p class="sov-pw-h">Latest changes</p><ul class="sov-list">';
+			foreach ( $feed as $e ) {
+				$who = $schools[ $e['school'] ]['name'] ?? $e['school'];
+				if ( 'change' === $e['type'] ) {
+					$upd  = $e['new'] > $e['old'];
+					$what = ( $svcs[ $e['service'] ][0] ?? $e['service'] ) . ': $' . self::n( (float) $e['old'] ) . ' → $' . self::n( (float) $e['new'] ) . ( ! empty( $e['disc'] ) ? ' (sale)' : '' );
+					$chip = '<span class="sov-chip ' . ( $upd ? 'sov-chip--due' : 'sov-chip--done' ) . '">' . ( $upd ? '▲ Up' : '▼ Down' ) . '</span>';
+				} else {
+					$what = 'Sale wording: ' . wp_trim_words( (string) $e['text'], 14 );
+					$chip = '<span class="sov-chip">Sale</span>';
+				}
+				$h .= '<li><span class="sov-what"><b>' . esc_html( $who ) . '</b><small>' . esc_html( $what . ' · ' . wp_date( 'M j', class_exists( 'SDSC_Lessons' ) ? SDSC_Lessons::ts( $e['at'] ) : strtotime( $e['at'] ) ) ) . '</small></span>' . $chip . '</li>';
+			}
+			$h .= '</ul>';
+		} else {
+			$h .= '<p class="sov-empty">No price changes yet. Changes show here once a new price is read twice in a row.</p>';
+		}
+		$ids = array_keys( $active );
+		$h  .= '<script>(function(){var c=document.getElementById("sov-pw");if(!c)return;var b=c.querySelector(".sov-pw-sync"),p=c.querySelector(".sov-pw-prog"),ids=' . wp_json_encode( $ids ) . ',names=' . wp_json_encode( array_map( function ( $s ) { return $s['name']; }, $active ) ) . ',AJ=' . wp_json_encode( admin_url( 'admin-ajax.php' ) ) . ',N=' . wp_json_encode( wp_create_nonce( 'sdsc_pw_check' ) ) . ';'
+			. 'function post(id,cb){var x=new XMLHttpRequest();x.open("POST",AJ);x.setRequestHeader("Content-Type","application/x-www-form-urlencoded");x.timeout=90000;x.onload=function(){var r=null;try{r=JSON.parse(x.responseText);}catch(e){}cb(r);};x.onerror=x.ontimeout=function(){cb(null);};x.send("action=sdsc_pw_check&_n="+encodeURIComponent(N)+"&id="+encodeURIComponent(id));}'
+			. 'b.addEventListener("click",function(){var i=0,bad=0;b.disabled=true;c.classList.add("is-busy");'
+			. 'function next(){if(i>=ids.length){p.textContent="Finishing…";post("done",function(){p.textContent="Done"+(bad?" · "+bad+" could not be read":"")+". Refreshing…";setTimeout(function(){location.reload();},700);});return;}'
+			. 'p.textContent="Checking "+(i+1)+" of "+ids.length+": "+(names[ids[i]]||ids[i]);post(ids[i],function(r){if(!r||!r.success||!r.data.ok)bad++;i++;next();});}next();});})();</script>';
+		return $h . '</section>';
 	}
 
 	/* ----------------------------------------------------------------- admin */

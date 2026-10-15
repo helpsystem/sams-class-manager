@@ -24,19 +24,24 @@ class SDSC_Overview {
 
 	public static function assets() {
 		if ( ! is_user_logged_in() ) { return; }
-		wp_register_style( 'sdsc-overview', SDSC_URL . 'assets/overview.css', array(), SDSC_VERSION );
+		wp_register_style( 'sdsc-overview', SDSC_URL . 'assets/overview.css', array(), SDSC_VERSION . '.' . (int) @filemtime( SDSC_DIR . 'assets/overview.css' ) );
 		wp_register_style( 'sdsc-lessons-front', SDSC_URL . 'assets/lessons.css', array(), SDSC_VERSION );
 		$id = function_exists( 'tutor_utils' ) ? (int) tutor_utils()->get_option( 'tutor_dashboard_page_id' ) : 0;
 		if ( $id && is_page( $id ) ) { wp_enqueue_style( 'sdsc-overview' ); wp_enqueue_style( 'sdsc-lessons-front' ); }
 	}
 
-	/** Print our panel right before Tutor's own dashboard home. */
+	/**
+	 * Print our panel right before Tutor's own dashboard home. For the office (administrator, school manager,
+	 * front desk) Tutor's course-selling numbers (earnings, courses, ratings, completion) are left out: they
+	 * are always empty here, and the Price watch card takes their place.
+	 */
 	public static function inject( $load, $template ) {
-		if ( ! self::$done && in_array( $template, array( 'dashboard.dashboard', 'dashboard.student.dashboard' ), true ) ) {
+		if ( ! in_array( $template, array( 'dashboard.dashboard', 'dashboard.student.dashboard' ), true ) ) { return $load; }
+		if ( ! self::$done ) {
 			self::$done = true;
 			echo self::render(); // phpcs:ignore -- built from escaped parts
 		}
-		return $load;
+		return in_array( self::kind(), array( 'admin', 'manager', 'frontdesk' ), true ) ? false : $load;
 	}
 
 	/* ------------------------------------------------------------ who */
@@ -121,6 +126,7 @@ class SDSC_Overview {
 		$hi   = ( $hour < 12 ? 'Good morning' : ( $hour < 17 ? 'Good afternoon' : 'Good evening' ) ) . ', ' . ( $u->first_name ? $u->first_name : $u->display_name );
 		$role = array( 'admin' => 'Administrator', 'manager' => 'School manager', 'frontdesk' => 'Front desk', 'instructor' => 'Instructor', 'student' => 'Student' )[ $k ];
 		$h    = '<div class="sov"><div class="sov-hero"><div><p class="sov-kicker">' . esc_html( $role . ' · ' . wp_date( 'l, F j' ) ) . '</p><h3>' . esc_html( $hi ) . '</h3></div></div>';
+		if ( class_exists( 'SDSC_Pins' ) ) { $h .= SDSC_Pins::assets() . SDSC_Pins::strip(); }
 		if ( in_array( $k, array( 'admin', 'manager', 'frontdesk' ), true ) ) { $h .= self::office( $k ); }
 		elseif ( 'instructor' === $k ) { $h .= self::instructor( $u ); }
 		else { $h .= self::student( $u ); }
@@ -175,7 +181,7 @@ class SDSC_Overview {
 		foreach ( $groups as $g ) {
 			$h .= '<div class="sov-group"><p class="sov-group-h">' . esc_html( $g[0] ) . '</p>';
 			foreach ( $g[1] as $t ) {
-				$h .= '<a class="sov-tool" href="' . esc_url( $t[3] ) . '"><span class="sov-tool-ic" aria-hidden="true">' . esc_html( $t[0] ) . '</span><span><b>' . esc_html( $t[1] ) . '</b><small>' . esc_html( $t[2] ) . '</small></span></a>';
+				$h .= '<div class="sov-tool-w"><a class="sov-tool" href="' . esc_url( $t[3] ) . '"><span class="sov-tool-ic" aria-hidden="true">' . esc_html( $t[0] ) . '</span><span><b>' . esc_html( $t[1] ) . '</b><small>' . esc_html( $t[2] ) . '</small></span></a>' . ( class_exists( 'SDSC_Pins' ) ? SDSC_Pins::star( $t[3] ) : '' ) . '</div>';
 			}
 			$h .= '</div>';
 		}
@@ -266,6 +272,7 @@ class SDSC_Overview {
 		$h .= '</div>';
 
 		$h .= self::tools_html();
+		if ( class_exists( 'SDSC_PriceWatch' ) && SDSC_PriceWatch::can() ) { $h .= SDSC_PriceWatch::dash_card(); }
 		return $h;
 	}
 

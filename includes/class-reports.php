@@ -22,6 +22,7 @@ class SDSC_Reports {
 			'roster'        => array( 'Class roster', 'Students registered in a class, with contact details and payment.', 'class', false, '👥' ),
 			'attendance'    => array( 'Class attendance', 'All sessions of a class: present, late, left early, absent.', 'class', true, '🗓️' ),
 			'registrations' => array( 'Registrations', 'Every registration in a date range, with class and payment.', 'range', false, '📝' ),
+			'forms'         => array( 'Registration forms', 'Each student’s full signed registration form, one page each — for a class, a date range or one student.', 'forms', false, '🖊️' ),
 			'payments'      => array( 'Online payments', 'Card payments received in a date range, with totals.', 'range', false, '💳' ),
 			'lessons'       => array( 'Driving lessons', 'Behind-the-wheel lessons in a date range, by instructor.', 'range', false, '🚗' ),
 			'fees'          => array( 'Lesson fees', 'Late-cancellation and no-show fees: due, paid and waived.', 'range', false, '🧾' ),
@@ -86,7 +87,7 @@ class SDSC_Reports {
 
 	public static function assets() {
 		if ( ! is_user_logged_in() ) { return; }
-		wp_register_style( 'sdsc-reports', SDSC_URL . 'assets/reports.css', array(), SDSC_VERSION );
+		wp_register_style( 'sdsc-reports', SDSC_URL . 'assets/reports.css', array(), SDSC_VERSION . '.' . (int) @filemtime( SDSC_DIR . 'assets/reports.css' ) );
 		global $wp_query;
 		if ( self::TAB === ( $wp_query->query_vars['tutor_dashboard_page'] ?? '' ) ) { wp_enqueue_style( 'sdsc-reports' ); }
 	}
@@ -110,6 +111,7 @@ class SDSC_Reports {
 			'to'     => $date( $g( 'to' ), wp_date( 'Y-m-d' ) ),
 			'who'    => mb_substr( $g( 'who' ), 0, 120 ),
 			'status' => sanitize_key( $g( 'status' ) ),
+			'one'    => absint( $g( 'one', '0' ) ),
 		);
 		if ( $a['from'] > $a['to'] ) { list( $a['from'], $a['to'] ) = array( $a['to'], $a['from'] ); }
 		if ( 'instructor' === self::kind() ) { $a['who'] = class_exists( 'SDSC_Overview' ) ? SDSC_Overview::instructor_name( wp_get_current_user() ) : wp_get_current_user()->display_name; }
@@ -196,6 +198,20 @@ class SDSC_Reports {
 
 		$from = $a['from'] . ' 00:00:00';
 		$to   = $a['to'] . ' 23:59:59';
+		if ( 'forms' === $a['r'] ) {
+			if ( ! class_exists( 'SDSC_Registration' ) || 'instructor' === self::kind() ) { return new WP_Error( 'x', 'Registration forms are not available.' ); }
+			$ids = self::form_ids( $a );
+			$res = $ids ? (array) $wpdb->get_results( 'SELECT id, class_id, first_name, last_name, dob, age, email, phone, signed_date, created_at, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM ' . SDSC_Registration::table() . ' WHERE id IN (' . implode( ',', array_map( 'intval', $ids ) ) . ') ORDER BY created_at', ARRAY_A ) : array(); // phpcs:ignore
+			$rows = array();
+			$sig  = 0;
+			foreach ( $res as $r ) {
+				$sig   += $r['has_s'] ? 1 : 0;
+				$rows[] = array( self::d( $r['created_at'] ), trim( $r['first_name'] . ' ' . $r['last_name'] ), $r['class_id'] ? SDSC_Schedule::class_name( (int) $r['class_id'], true ) : '—', $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? ' (' . (int) $r['age'] . ')' : '' ) : '', $r['phone'], $r['has_s'] ? 'Signed' . ( $r['has_p'] ? ' + parent' : '' ) : 'No signature' );
+			}
+			$sub = $a['class'] ? SDSC_Schedule::class_name( $a['class'], true ) : $range;
+			if ( '' !== $a['who'] ) { $sub .= ' · “' . $a['who'] . '”'; }
+			return array( 'Registration forms', $sub, array( 'Registered', 'Student', 'Class', 'Date of birth', 'Phone', 'Signature' ), $rows, array( 'Forms' => count( $rows ), 'Signed' => $sig ), false, wp_list_pluck( $res, 'id' ) );
+		}
 		if ( 'registrations' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Registration' ) ) { return new WP_Error( 'x', 'Registrations are not available.' ); }
 			$res  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, class_id, first_name, last_name, email, phone, created_at FROM ' . SDSC_Registration::table() . " WHERE created_at BETWEEN %s AND %s AND source <> 'demo'" . self::not_demo( 'email' ) . ' ORDER BY created_at', $from, $to ), ARRAY_A ); // phpcs:ignore
@@ -254,6 +270,134 @@ class SDSC_Reports {
 		return new WP_Error( 'x', 'Unknown report.' );
 	}
 
+	/** Registration ids for the "Registration forms" report: one class (any date), else a date range; optional name, e-mail or phone. */
+	protected static function form_ids( $a ) {
+		global $wpdb;
+		$t    = SDSC_Registration::table();
+		$sql  = "SELECT id FROM $t WHERE source <> 'demo'" . self::not_demo( 'email' );
+		$args = array();
+		if ( ! empty( $a['one'] ) ) {
+			$sql   .= ' AND id = %d';
+			$args[] = (int) $a['one'];
+		} elseif ( $a['class'] ) {
+			if ( ! self::class_ok( $a['class'] ) ) { return array(); }
+			$sql   .= ' AND class_id = %d';
+			$args[] = $a['class'];
+		} else {
+			$sql   .= ' AND created_at BETWEEN %s AND %s';
+			$args[] = $a['from'] . ' 00:00:00';
+			$args[] = $a['to'] . ' 23:59:59';
+		}
+		if ( '' !== $a['who'] && empty( $a['one'] ) ) {
+			$like   = '%' . $wpdb->esc_like( $a['who'] ) . '%';
+			$sql   .= " AND (CONCAT(first_name, ' ', last_name) LIKE %s OR email LIKE %s OR phone LIKE %s)";
+			$args[] = $like;
+			$args[] = $like;
+			$args[] = $like;
+		}
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( $sql . ' ORDER BY created_at, id LIMIT 400', $args ) ) ); // phpcs:ignore
+	}
+
+	/** The printable forms: one US Letter page per registration, with the agreement wording and both signatures. */
+	protected static function print_forms( $ids ) {
+		global $wpdb;
+		$t    = SDSC_Registration::table();
+		$rows = $ids ? (array) $wpdb->get_results( "SELECT * FROM $t WHERE id IN (" . implode( ',', array_map( 'intval', $ids ) ) . ') ORDER BY created_at, id', ARRAY_A ) : array(); // phpcs:ignore
+		$u    = wp_get_current_user();
+		$logo = class_exists( 'SDSC_Brand' ) ? SDSC_Brand::logo( 'wide', 'rp-logo', 40 ) : '<b>Sam’s Driving School</b>';
+		$pol  = home_url( '/policy/' );
+		$v    = function ( $x ) { $x = trim( (string) $x ); return '' === $x ? '<span class="blank">—</span>' : esc_html( $x ); };
+		$img  = function ( $bin ) { return ( $bin && 0 === strpos( $bin, "\x89PNG" ) ) ? '<img alt="" src="data:image/png;base64,' . base64_encode( $bin ) . '">' : ''; }; // phpcs:ignore
+		header( 'Content-Type: text/html; charset=utf-8' );
+		?><!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title><?php echo esc_html( 1 === count( $rows ) ? 'Registration form — ' . trim( $rows[0]['first_name'] . ' ' . $rows[0]['last_name'] ) : 'Registration forms (' . count( $rows ) . ')' ); ?></title>
+<style>
+@page { size: letter portrait; margin: 0.5in 0.55in 0.6in; @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8.5pt Arial, sans-serif; color: #5b646d; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 10.5pt/1.4 Arial, Helvetica, sans-serif; color: #15191d; background: #eef1f3; }
+.bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; justify-content: center; align-items: center; padding: 10px; background: #15191d; color: #fff; font: 13px Arial, sans-serif; }
+.bar button, .bar a { padding: 9px 16px; border: 0; border-radius: 999px; background: #00703c; color: #fff; font: 700 13px Arial, sans-serif; text-decoration: none; cursor: pointer; }
+.bar a { background: #3c434a; }
+.form { max-width: 8.5in; margin: 18px auto; padding: 26px 30px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.08); break-after: page; page-break-after: always; }
+.form:last-child { break-after: auto; page-break-after: auto; }
+header.rh { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 8px; border-bottom: 3px solid #00703c; }
+.rh .rp-logo { height: 0.48in; width: auto; }
+.rh .org { text-align: right; font-size: 8.5pt; color: #5b646d; line-height: 1.4; }
+.road { height: 4px; margin: 0 0 10px; background: repeating-linear-gradient(90deg, #ffc20e 0 22px, transparent 22px 38px); }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 8px; }
+h1 { margin: 0; font-size: 15pt; }
+.no { font-size: 9pt; color: #5b646d; text-align: right; }
+h2 { margin: 12px 0 4px; padding: 3px 8px; font-size: 9pt; letter-spacing: .6px; text-transform: uppercase; background: #e7f5ec; color: #0b3d24; border-radius: 3px; }
+table.f { width: 100%; border-collapse: collapse; }
+table.f th { width: 1.55in; padding: 4px 8px; text-align: left; font-size: 8.5pt; font-weight: 700; color: #5b646d; text-transform: uppercase; letter-spacing: .3px; vertical-align: top; border-bottom: 0.5pt solid #e1e5e8; }
+table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-align: top; }
+.blank { color: #9aa3ab; }
+.agree { margin: 4px 0; padding: 6px 8px; border: 0.75pt solid #d5dbe0; border-radius: 4px; font-size: 9.5pt; break-inside: avoid; }
+.agree b.box { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 1pt solid #15191d; text-align: center; line-height: 9px; font-size: 9px; vertical-align: -1px; }
+.sigs { display: flex; gap: 18px; margin-top: 6px; break-inside: avoid; }
+.sig { flex: 1; }
+.sig .pad { height: 1.05in; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1pt solid #15191d; }
+.sig .pad img { max-height: 1in; max-width: 100%; }
+.sig small { display: flex; justify-content: space-between; font-size: 8.5pt; color: #5b646d; padding-top: 2px; }
+.office { display: flex; gap: 18px; margin-top: 14px; font-size: 8.5pt; color: #5b646d; break-inside: avoid; }
+.office div { flex: 1; border-top: 0.75pt solid #9aa3ab; padding-top: 2px; }
+.meta { margin-top: 10px; font-size: 8pt; color: #7b838a; }
+.none { max-width: 8.5in; margin: 40px auto; padding: 30px; background: #fff; text-align: center; }
+@media print { body { background: #fff; } .bar { display: none; } .form { max-width: none; margin: 0; padding: 0; box-shadow: none; } }
+</style></head><body>
+<div class="bar"><span><?php echo (int) count( $rows ); ?> form<?php echo 1 === count( $rows ) ? '' : 's'; ?> · one page each</span><button onclick="window.print()">🖨 Print / Save as PDF</button><a href="javascript:window.close()">Close</a></div>
+		<?php
+		if ( ! $rows ) { echo '<div class="none">No registration forms for these filters.</div>'; }
+		foreach ( $rows as $r ) {
+			$minor = ( $r['age'] && (int) $r['age'] < 18 ) || $r['parent_name'] || $r['parent_sig'];
+			$paid  = class_exists( 'SDSC_Pay' ) ? SDSC_Pay::paid_row( (int) $r['id'] ) : null;
+			$addr  = trim( $r['street'] . ( $r['apt'] ? ', ' . $r['apt'] : '' ) . ', ' . $r['city'] . ', ' . $r['state'] . ' ' . $r['zip'], ' ,' );
+			$sd    = $r['signed_date'] ? wp_date( 'm/d/Y', strtotime( $r['signed_date'] . ' 12:00:00' ) ) : self::d( $r['created_at'], 'm/d/Y' );
+			?>
+<section class="form">
+<header class="rh"><div><?php echo $logo; // phpcs:ignore ?></div><div class="org">Sam’s Driving School LLC · MVA-licensed driving school<br>751 Rockville Pike, Unit 9B, Rockville, MD 20852<br>(301) 726-3030 · info@samsdrivingschool.org</div></header>
+<div class="road"></div>
+<div class="top"><h1>Student Registration Form</h1><div class="no">Registration #<?php echo (int) $r['id']; ?><br>Submitted <?php echo esc_html( self::d( $r['created_at'], 'm/d/Y g:i A' ) ); ?><?php echo 'forminator' === $r['source'] ? ' (earlier form)' : ''; ?></div></div>
+<h2>Course</h2>
+<table class="f">
+<tr><th>Class</th><td><?php echo $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : '' ); ?></td></tr>
+<tr><th>Payment</th><td><?php echo $v( $paid ? 'Paid online ' . self::money( $paid['amount'] / 100 ) . ( ! empty( $paid['paid_at'] ) ? ' on ' . self::d( $paid['paid_at'], 'm/d/Y' ) : '' ) : 'Not paid online (check the office records)' ); ?></td></tr>
+</table>
+<h2>Student</h2>
+<table class="f">
+<tr><th>Full name</th><td><?php echo $v( trim( $r['first_name'] . ' ' . $r['middle_name'] . ' ' . $r['last_name'] ) ); ?></td></tr>
+<tr><th>Date of birth</th><td><?php echo $v( $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? '  (age ' . (int) $r['age'] . ' when registered)' : '' ) : '' ); ?></td></tr>
+<tr><th>Gender</th><td><?php echo $v( ucfirst( $r['gender'] ) ); ?></td></tr>
+<tr><th>Phone</th><td><?php echo $v( $r['phone'] ); ?></td></tr>
+<tr><th>E-mail</th><td><?php echo $v( $r['email'] ); ?></td></tr>
+<tr><th>Home address</th><td><?php echo $v( $addr ); ?></td></tr>
+</table>
+<?php if ( $minor ) : ?>
+<h2>Parent / guardian</h2>
+<table class="f">
+<tr><th>Name</th><td><?php echo $v( $r['parent_name'] ); ?></td></tr>
+<tr><th>Phone</th><td><?php echo $v( $r['parent_phone'] ); ?></td></tr>
+<tr><th>E-mail</th><td><?php echo $v( $r['parent_email'] ); ?></td></tr>
+</table>
+<?php endif; ?>
+<?php if ( trim( (string) $r['notes'] ) ) : ?><h2>Notes</h2><table class="f"><tr><td><?php echo nl2br( esc_html( $r['notes'] ) ); ?></td></tr></table><?php endif; ?>
+<h2>Agreement</h2>
+<p class="agree"><b class="box"><?php echo $r['consent'] ? '✓' : ''; ?></b>I confirm that I have read and fully understood the forms, policies, and terms and conditions, and I agree to all the stipulated terms. <span class="blank">(<?php echo esc_html( $pol ); ?>)</span></p>
+<?php if ( $minor ) : ?><p class="agree"><b class="box"><?php echo $r['parent_consent'] ? '✓' : ''; ?></b>I am the student’s parent or legal guardian. I have read the policies, terms and conditions and I agree to them for my child.</p><?php endif; ?>
+<div class="sigs">
+<div class="sig"><div class="pad"><?php echo $img( $r['student_sig'] ); // phpcs:ignore ?></div><small><span>Student signature</span><span>Date: <?php echo esc_html( $r['student_sig'] ? $sd : '__________' ); ?></span></small></div>
+<?php if ( $minor ) : ?><div class="sig"><div class="pad"><?php echo $img( $r['parent_sig'] ); // phpcs:ignore ?></div><small><span>Parent / guardian signature</span><span>Date: <?php echo esc_html( $r['parent_sig'] ? $sd : '__________' ); ?></span></small></div><?php endif; ?>
+</div>
+<div class="office"><div>Received by (office)</div><div>Date</div><div>Permit / ID checked</div></div>
+<p class="meta">Signed electronically on the school website<?php echo $r['ip'] ? ' from IP ' . esc_html( $r['ip'] ) : ''; ?>. Printed <?php echo esc_html( wp_date( 'm/d/Y g:i A' ) ); ?> by <?php echo esc_html( $u->display_name ); ?>. Confidential — student file.</p>
+</section>
+			<?php
+		}
+		echo '<script>if (location.hash === "#print") { window.addEventListener("load", function(){ window.print(); }); }</script></body></html>';
+		exit;
+	}
+
 	/* ------------------------------------------------------------ dashboard screen */
 
 	protected static function table( $cols, $rows, $limit = 0 ) {
@@ -289,7 +433,12 @@ class SDSC_Reports {
 		if ( $a['r'] ) {
 			$def = self::reports()[ $a['r'] ];
 			$h  .= '<form method="get" class="srp-filters" action="' . esc_url( self::url() ) . '"><input type="hidden" name="r" value="' . esc_attr( $a['r'] ) . '">';
-			if ( 'class' === $def[2] ) {
+			if ( 'forms' === $def[2] ) {
+				$h .= '<label>Class <select name="class"><option value="">Any class (use the dates)</option>';
+				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ( substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ? ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) : '' ) ) . '</option>'; }
+				$h .= '</select></label><label>From <input type="date" name="from" value="' . esc_attr( $a['from'] ) . '"></label><label>To <input type="date" name="to" value="' . esc_attr( $a['to'] ) . '"></label>'
+					. '<label>Student <input type="search" name="who" value="' . esc_attr( $a['who'] ) . '" placeholder="Name, e-mail or phone"></label>';
+			} elseif ( 'class' === $def[2] ) {
 				$h .= '<label>Class <select name="class" required><option value="">Choose a class…</option>';
 				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ( substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ? ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) : '' ) ) . '</option>'; }
 				$h .= '</select></label>';
@@ -320,7 +469,7 @@ class SDSC_Reports {
 					$q   = array_filter( array( 'sdsc_report' => $a['r'], 'class' => $a['class'] ?: null, 'from' => 'class' === $def[2] ? null : $a['from'], 'to' => 'class' === $def[2] ? null : $a['to'], 'who' => $a['who'] ?: null, 'status' => $a['status'] ?: null ) );
 					$q['_wpnonce'] = wp_create_nonce( 'sdsc_report' );
 					$h  .= '<div class="srp-head"><div><b>' . esc_html( $rep[0] ) . '</b><small>' . esc_html( $rep[1] ) . '</small></div><div class="srp-actions">'
-						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 Print / Save PDF</a>'
+						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 ' . ( 'forms' === $a['r'] ? 'Print all forms' : 'Print / Save PDF' ) . '</a>'
 						. '<a class="srp-btn srp-btn--ghost" href="' . esc_url( add_query_arg( $q + array( 'out' => 'csv' ), home_url( '/' ) ) ) . '">⬇ Download CSV</a></div></div>';
 					if ( $rep[4] ) {
 						$h .= '<div class="srp-totals">';
@@ -328,6 +477,13 @@ class SDSC_Reports {
 						$h .= '</div>';
 					}
 					$h .= '<div class="srp-scroll">' . self::table( $rep[2], $rep[3], 300 ) . '</div>';
+					if ( 'forms' === $a['r'] && ! empty( $rep[6] ) ) {
+						$h .= '<details class="srp-access" open><summary>Print one student’s form</summary><div class="srp-one">';
+						foreach ( array_slice( $rep[6], 0, 300 ) as $i => $rid ) {
+							$h .= '<a class="srp-btn srp-btn--ghost" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( array( 'sdsc_report' => 'forms', 'one' => (int) $rid, 'out' => 'print', '_wpnonce' => wp_create_nonce( 'sdsc_report' ) ), home_url( '/' ) ) ) . '">🖨 ' . esc_html( $rep[3][ $i ][1] ) . '</a>';
+						}
+						$h .= '</div></details>';
+					}
 					if ( count( $rep[3] ) > 300 ) { $h .= '<p class="srp-m">Showing the first 300 rows. Print or download for all ' . count( $rep[3] ) . '.</p>'; }
 				}
 			}
@@ -345,7 +501,7 @@ class SDSC_Reports {
 		foreach ( self::reports() as $k => $d ) {
 			$h .= '<tr><td>' . esc_html( $d[0] ) . '</td>';
 			foreach ( array( 'frontdesk', 'instructor' ) as $role ) {
-				$off = 'instructor' === $role && in_array( $k, array( 'registrations', 'payments', 'fees' ), true );
+				$off = 'instructor' === $role && in_array( $k, array( 'registrations', 'forms', 'payments', 'fees' ), true );
 				$h  .= '<td>' . ( $off ? '<span class="srp-m" title="Contains other students’ data">—</span>' : '<input type="checkbox" name="acc[' . $role . '][]" value="' . esc_attr( $k ) . '"' . checked( in_array( $k, (array) $acc[ $role ], true ), true, false ) . ' aria-label="' . esc_attr( $d[0] . ' for ' . $role ) . '">' ) . '</td>';
 			}
 			$h .= '</tr>';
@@ -361,7 +517,7 @@ class SDSC_Reports {
 		$out = array();
 		foreach ( array( 'frontdesk', 'instructor' ) as $role ) {
 			$keys = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) ( $in[ $role ] ?? array() ) ) ) );
-			if ( 'instructor' === $role ) { $keys = array_values( array_diff( $keys, array( 'registrations', 'payments', 'fees' ) ) ); }
+			if ( 'instructor' === $role ) { $keys = array_values( array_diff( $keys, array( 'registrations', 'forms', 'payments', 'fees' ) ) ); }
 			$out[ $role ] = $keys;
 		}
 		update_option( self::ACCESS, $out, false );
@@ -380,6 +536,7 @@ class SDSC_Reports {
 		$rep    = self::build( $a );
 		if ( is_wp_error( $rep ) ) { wp_die( esc_html( $rep->get_error_message() ), 'Report', array( 'response' => 403 ) ); }
 		nocache_headers();
+		if ( 'forms' === $a['r'] && 'csv' !== ( $_GET['out'] ?? '' ) ) { self::print_forms( (array) ( $rep[6] ?? array() ) ); } // phpcs:ignore
 		$u = wp_get_current_user();
 		if ( 'csv' === ( $_GET['out'] ?? '' ) ) { // phpcs:ignore
 			header( 'Content-Type: text/csv; charset=utf-8' );

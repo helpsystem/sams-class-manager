@@ -29,3 +29,6 @@
 .srp-access { margin: 22px 0 0; padding: 12px 14px; border-radius: 14px; background: #f7f9fa; }
 .srp-access summary { cursor: pointer; font-weight: 700; }
 .srp-matrix td, .srp-matrix th { text-align: center; } .srp-matrix td:first-child, .srp-matrix th:first-child { text-align: left; }
+.srp-one { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.srp-one .srp-btn { font-size: 12.5px; padding: 6px 12px; }
+.srp-filters input[type=search] { min-width: 200px; }
