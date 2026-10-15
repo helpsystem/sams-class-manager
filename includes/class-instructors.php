@@ -189,6 +189,7 @@ class SDSC_Instructors {
 				.sdin-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#334155}.sdin-grid input,.sdin-grid select{min-height:34px;font-weight:400}
 				.sdin-langs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;font-weight:700;color:#334155}.sdin-langs>span{width:100%}
 				.sdin-tick{display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0;font-weight:400}
+				.sdin-grid label.sdin-tick{flex-direction:row;font-weight:400;font-size:13px;margin:0}
 				table.sdin-t{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e3e7ea;border-radius:12px;overflow:hidden}
 				.sdin-t th,.sdin-t td{padding:9px 10px;border-bottom:1px solid #eef1f3;text-align:left;vertical-align:top;font-size:13px}.sdin-t th{background:#f6f8f9;color:#5b646d;font-size:12px}
 				.sdin-chip{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}
