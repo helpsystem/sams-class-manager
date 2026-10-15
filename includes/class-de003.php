@@ -11,7 +11,9 @@
  *    MVA instructor number, the unit's test score) and the final exam score.
  *  - Behind the wheel: completed lessons (date, start, end, hours, lesson, tag number of the car,
  *    instructor initials and number, grade S/U from the instructor's evaluation).
- *  - Signatures and "electronically submitted" stay empty for the school official and the student.
+ *  - The authorized school official's signature (a picture they upload once on the Reports screen) is placed
+ *    on the classroom and behind-the-wheel lines that have entries. The student signs by hand; the dates and
+ *    "electronically submitted" stay empty.
  *
  * @package SamsClassManager
  */
@@ -22,6 +24,7 @@ class SDSC_DE003 {
 	const OPT  = 'sdsc_de003';
 	const URL  = 'https://mva.maryland.gov/media/194';
 	const NAME = 'Student Record and Completion Form (MVA DE-003)';
+	const SIG  = 'sdsc_signature'; // user meta of the official: data:image/png;base64,… (never in the plugin files)
 
 	public static function init() {
 		add_action( 'wp_ajax_sdsc_de003_pdf', array( __CLASS__, 'ajax_pdf' ) );
@@ -32,7 +35,7 @@ class SDSC_DE003 {
 	public static function defaults() {
 		return array(
 			'school'    => 'Sam Driving School',
-			'branch'    => '751 Rockville Pike Ste 9B, Rockville MD 20852',
+			'branch'    => 'Rockville', // as written on the school's own filled forms
 			'number'    => 'DE10008819',
 			'rep_user'  => '',
 			'rep_id'    => '',
@@ -40,6 +43,7 @@ class SDSC_DE003 {
 			'cls_start' => '',
 			'cls_end'   => '',
 			'cls_ins'   => '',
+			'sign'      => '1',
 		);
 	}
 
@@ -72,6 +76,26 @@ class SDSC_DE003 {
 		return '' !== $i['no'] ? array( $i['no'], 'from the instructor profile' ) : array( '', '' );
 	}
 
+	/** The official's signature picture when automatic signing is on, else ''. */
+	public static function signature( $set = null ) {
+		$set = $set ? $set : self::settings();
+		$uid = (int) $set['rep_user'];
+		if ( '1' !== (string) $set['sign'] || ! $uid ) { return ''; }
+		$d = (string) get_user_meta( $uid, self::SIG, true );
+		return 0 === strpos( $d, 'data:image/png;base64,' ) ? $d : '';
+	}
+
+	/** Hours between two times as the school writes them: 3, 3:15, 2:30. */
+	public static function span( $from, $to ) {
+		$a = strtotime( (string) $from );
+		$b = strtotime( (string) $to );
+		if ( ! $a || ! $b ) { return ''; }
+		$m = (int) round( ( $b - $a ) / 60 );
+		if ( $m < 0 ) { $m += 1440; }
+		if ( $m <= 0 || $m > 720 ) { return ''; }
+		return intdiv( $m, 60 ) . ( $m % 60 ? ':' . str_pad( (string) ( $m % 60 ), 2, '0', STR_PAD_LEFT ) : '' );
+	}
+
 	/** County of a ZIP code (Maryland, DC, Virginia). */
 	public static function county( $zip ) {
 		static $map = null;
@@ -91,7 +115,17 @@ class SDSC_DE003 {
 		$in  = wp_unslash( $_POST ); // phpcs:ignore -- sanitised below
 		$out = array();
 		foreach ( array_keys( self::defaults() ) as $k ) { $out[ $k ] = sanitize_text_field( mb_substr( (string) ( $in[ $k ] ?? '' ), 0, 120 ) ); }
+		$out['sign'] = empty( $in['sign'] ) ? '0' : '1';
 		update_option( self::OPT, $out, false );
+		// The official's signature picture (cleaned in the browser: transparent PNG).
+		$uid = (int) $out['rep_user'];
+		$sig = (string) ( $in['sig_data'] ?? '' );
+		if ( $uid && ! empty( $in['sig_remove'] ) ) { delete_user_meta( $uid, self::SIG ); }
+		elseif ( $uid && 0 === strpos( $sig, 'data:image/png;base64,' ) && strlen( $sig ) < 400000 ) {
+			$bin = base64_decode( substr( $sig, 22 ), true );
+			$sz  = $bin ? @getimagesizefromstring( $bin ) : false; // phpcs:ignore
+			if ( $sz && IMAGETYPE_PNG === $sz[2] && $sz[0] <= 1600 && $sz[1] <= 1600 ) { update_user_meta( $uid, self::SIG, 'data:image/png;base64,' . base64_encode( $bin ) ); }
+		}
 		wp_safe_redirect( add_query_arg( 'srp_msg', rawurlencode( 'MVA form details saved.' ), wp_get_referer() ? remove_query_arg( 'srp_msg', wp_get_referer() ) : SDSC_Reports::url() ) );
 		exit;
 	}
@@ -121,10 +155,35 @@ class SDSC_DE003 {
 			. $f( 'school', 'Name of driving school', '', $d['school'] ) . $f( 'branch', 'Branch location', '', $d['branch'] ) . $f( 'number', 'School number', '(MVA certificate)', $d['number'] )
 			. $sel( 'rep_user', 'Authorized school official', $off, '(signs the forms)' )
 			. $f( 'rep_id', 'Their Maryland State ID', $rid && 'typed in' !== $how ? '(now: ' . $rid . ', ' . $how . ')' : '(or scan their license in Student documents)', $rid )
-			. $f( 'hours', 'Hours per classroom session', '(30 hours ÷ sessions)', $d['hours'] )
+			. self::sig_box( $s )
+			. $f( 'hours', 'Hours per classroom session', '(used when a class has no times)', $d['hours'] )
 			. '<p class="srp-m" style="margin-top:6px"><b>Older classes</b> (before the new class system): the unit rows are filled from each student’s unit tests — the date of the test is the class day. Their usual class time and Zoom instructor:</p>'
 			. $f( 'cls_start', 'Class start time', '(e.g. 5:30 PM)' ) . $f( 'cls_end', 'Class end time', '(e.g. 8:30 PM)' ) . $sel( 'cls_ins', 'Zoom instructor', $ins )
 			. '<p><button class="srp-btn">Save</button></p></form></details>';
+	}
+
+	/** Signature of the official: upload a photo of it signed on white paper; the background is removed here. */
+	protected static function sig_box( $s ) {
+		$uid = (int) $s['rep_user'];
+		$cur = $uid ? (string) get_user_meta( $uid, self::SIG, true ) : '';
+		$h   = '<div class="srp-sig" style="grid-column:1/-1;border:1px dashed #cbd5e1;border-radius:8px;padding:8px 10px">'
+			. '<b>Signature of the authorized official</b> <small>placed on the official’s signature lines of every DE-003</small>'
+			. '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:6px">'
+			. '<img id="sigimg" alt="" style="height:70px;max-width:240px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px' . ( $cur ? '' : ';display:none' ) . '" src="' . esc_attr( $cur ) . '">'
+			. ( $uid ? '<label style="margin:0">Photo of the signature <input type="file" id="sigfile" accept="image/*"></label><button type="button" class="srp-btn" id="sigrot" style="display:none">↻ Turn</button>' : '<span>Choose the official above and save first.</span>' )
+			. '<input type="hidden" name="sig_data" id="sigdata">'
+			. ( $cur ? '<label style="margin:0"><input type="checkbox" name="sig_remove" value="1"> Remove</label>' : '' )
+			. '<input type="hidden" name="sign" value="0"><label style="margin:0"><input type="checkbox" name="sign" value="1"' . checked( '1', (string) $s['sign'], false ) . '> Sign the forms automatically</label>'
+			. '</div></div>';
+		$js = '(function(){var f=document.getElementById("sigfile");if(!f)return;var I=document.getElementById("sigimg"),O=document.getElementById("sigdata"),R=document.getElementById("sigrot"),last=null;'
+			. 'function clean(src,turn){var M=1400,s=Math.min(1,M/Math.max(src.width,src.height)),w=Math.round(src.width*s),h=Math.round(src.height*s),c=document.createElement("canvas");c.width=w;c.height=h;var x=c.getContext("2d");x.drawImage(src,0,0,w,h);var d=x.getImageData(0,0,w,h),p=d.data,g=new Float32Array(w*h),i;for(i=0;i<w*h;i++){g[i]=(p[i*4]+p[i*4+1]+p[i*4+2])/3;}'
+			// paper brightness around each pixel: a blurred copy (smoothing out the ink)
+			. 'var b=document.createElement("canvas"),k=24;b.width=Math.max(1,Math.round(w/k));b.height=Math.max(1,Math.round(h/k));var bx=b.getContext("2d");bx.filter="blur(2px)";bx.drawImage(c,0,0,b.width,b.height);var u=document.createElement("canvas");u.width=w;u.height=h;var ux=u.getContext("2d");ux.imageSmoothingEnabled=true;ux.drawImage(b,0,0,w,h);var q=ux.getImageData(0,0,w,h).data,x0=w,y0=h,x1=0,y1=0;'
+			. 'for(i=0;i<w*h;i++){var bg=Math.max((q[i*4]+q[i*4+1]+q[i*4+2])/3,g[i]),a=Math.max(0,Math.min(1,(bg-g[i]-16)/34));p[i*4]=16;p[i*4+1]=24;p[i*4+2]=64;p[i*4+3]=Math.round(a*255);if(a>0.3){var yy=(i/w)|0,xx=i%w;if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}}'
+			. 'if(x1<=x0||y1<=y0)return"";x.putImageData(d,0,0);var m=8;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);var cw=x1-x0+1,ch=y1-y0+1,tw=turn%2?ch:cw,th=turn%2?cw:ch,z=Math.min(1,600/tw),o=document.createElement("canvas");o.width=Math.round(tw*z);o.height=Math.round(th*z);var ox=o.getContext("2d");ox.translate(o.width/2,o.height/2);ox.rotate(turn*Math.PI/2);ox.scale(z,z);ox.drawImage(c,x0,y0,cw,ch,-cw/2,-ch/2,cw,ch);return o.toDataURL("image/png");}'
+			. 'var turn=0;function go(){var u=clean(last,turn);if(!u){alert("No signature found in this picture.");return;}O.value=u;I.src=u;I.style.display="";R.style.display="";}'
+			. 'f.addEventListener("change",function(){var fl=f.files[0];if(!fl)return;var im=new Image();im.onload=function(){last=im;turn=0;go();};im.src=URL.createObjectURL(fl);});R.addEventListener("click",function(){if(!last)return;turn=(turn+1)%4;go();});})();';
+		return $h . '<script>' . $js . '</script>';
 	}
 
 	/* ------------------------------------------------------------ the official PDF */
@@ -226,7 +285,7 @@ class SDSC_DE003 {
 		$units = array_values( array_filter( $quizzes, function ( $q ) { return ! $q[3]; } ) );
 		$final = array_values( array_filter( $quizzes, function ( $q ) { return $q[3]; } ) );
 		$mine  = $p['user_id'] ? ( $res[ $p['user_id'] ] ?? array() ) : array();
-		$pct   = function ( $q ) use ( $mine ) { return isset( $mine[ $q[0] ] ) ? rtrim( rtrim( number_format( $mine[ $q[0] ]['pct'], 1 ), '0' ), '.' ) . '%' : ''; };
+		$pct   = function ( $q ) use ( $mine ) { return isset( $mine[ $q[0] ] ) ? rtrim( rtrim( number_format( $mine[ $q[0] ]['pct'], 1 ), '0' ), '.' ) : ''; }; // written as on the school's forms: 90, 96.7
 		if ( $cid && class_exists( 'SDSC_ZoomRoll' ) ) {
 			$list = SDSC_Schedule::sessions( $cid );
 			$att  = SDSC_ZoomRoll::rows( $cid )[ $p['email'] ] ?? array();
@@ -243,7 +302,7 @@ class SDSC_DE003 {
 				$f[ 'Unit Date ' . $row ]       = self::ymd( $x['date'] );
 				$f[ 'Unit Start Time ' . $row ] = self::hm( $x['start'] );
 				$f[ 'Unit End Time ' . $row ]   = self::hm( $x['end'] );
-				$f[ 'Hours ' . $row ]           = $set['hours'];
+				$f[ 'Hours ' . $row ]           = self::span( $x['start'], $x['end'] ) ?: $set['hours'];
 				// The form's own field names: on page 1 the unit column of row r is "Unit r" (r = 1–10, "Unit 11" is
 				// the final score); on the continued page it is "Unit r+1" (rows 11–35 → "Unit 12"–"Unit 36").
 				$f[ 'Unit ' . ( $row <= 10 ? $row : $row + 1 ) ] = $n <= count( $units ) ? (string) $n : 'Final';
@@ -264,7 +323,7 @@ class SDSC_DE003 {
 				$f[ 'Unit Date ' . $row ]       = self::ymd( $day );
 				$f[ 'Unit Start Time ' . $row ] = $set['cls_start'];
 				$f[ 'Unit End Time ' . $row ]   = $set['cls_end'];
-				$f[ 'Hours ' . $row ]           = $set['hours'];
+				$f[ 'Hours ' . $row ]           = self::span( $set['cls_start'], $set['cls_end'] ) ?: $set['hours'];
 				$f[ 'Unit ' . ( $row <= 10 ? $row : $row + 1 ) ] = $q[3] ? 'Final' : (string) ( $k + 1 );
 				$f[ 'Instructor Initials ' . $row ]  = $ins['ini'];
 				$f[ 'Instructor ID Number ' . $row ] = $ins['no'];
@@ -292,7 +351,7 @@ class SDSC_DE003 {
 			$f[ 'Lesson Date ' . $i ]       = self::ymd( $l['scheduled_start'] );
 			$f[ 'Lesson Start Time ' . $i ] = self::hm( $l['scheduled_start'] );
 			$f[ 'Lesson End Time ' . $i ]   = self::hm( $l['scheduled_end'] );
-			$f[ 'Lesson Hours ' . $i ]      = rtrim( rtrim( number_format( $min / 60, 2 ), '0' ), '.' );
+			$f[ 'Lesson Hours ' . $i ]      = self::span( $l['scheduled_start'], $l['scheduled_end'] ) ?: rtrim( rtrim( number_format( $min / 60, 2 ), '0' ), '.' );
 			$f[ 'Lesson ' . $i ]            = (string) ( (int) $l['session_number'] ? (int) $l['session_number'] : $i );
 			$f[ 'Tag Number ' . $i ]        = $l['plate_number'];
 			$f[ 'Lesson Instructor Initials ' . $i ]  = $ins['ini'];
