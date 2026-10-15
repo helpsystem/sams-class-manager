@@ -303,7 +303,9 @@ class SDSC_ZoomAuto {
 		$x = self::session( $cid, $date );
 		if ( ! $x || ! class_exists( 'SDSC_ZoomRoll' ) || SDSC_ZoomRoll::instructor_for( $cid, $date ) !== get_current_user_id() ) { return false; }
 		$now = time();
-		return $now >= SDSC_Lessons::ts( $x['start'] ) - HOUR_IN_SECONDS && $now <= SDSC_Lessons::ts( $x['end'] ) + 30 * MINUTE_IN_SECONDS;
+		$st = SDSC_Lessons::ts( $x['start'] );
+		$until = max( SDSC_Lessons::ts( $x['end'] ) + 30 * MINUTE_IN_SECONDS, $st + 3 * HOUR_IN_SECONDS ); // host access lasts at least 3 hours from the start
+		return $now >= $st - HOUR_IN_SECONDS && $now <= $until;
 	}
 
 	public static function host_button( $cid, $date ) {
@@ -323,7 +325,7 @@ class SDSC_ZoomAuto {
 		$cid  = absint( $_GET['c'] ?? 0 ); // phpcs:ignore
 		$date = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) ); // phpcs:ignore
 		check_admin_referer( 'sdsc_zoom_start_' . $cid . '_' . $date );
-		if ( ! self::can_host( $cid, $date ) ) { wp_die( 'This button works for the instructor of this session, from one hour before the class until it ends.', '', array( 'response' => 403 ) ); }
+		if ( ! self::can_host( $cid, $date ) ) { wp_die( 'This button works for the instructor of this session, from one hour before the class until three hours after it starts (or 30 minutes after it ends, if later).', '', array( 'response' => 403 ) ); }
 		$n   = (int) get_post_meta( $cid, '_sdsc_zoom_acct_n', true ) ?: ( self::chosen( $cid ) ?: 1 );
 		$tok = self::token( $n );
 		$err = is_wp_error( $tok ) ? $tok->get_error_message() : '';
