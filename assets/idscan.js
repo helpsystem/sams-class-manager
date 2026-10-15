@@ -368,7 +368,7 @@
 		}
 
 		function show() {
-			var f = S.fields || {}, r = S.reg || {}, apply = C.apply && S.reg;
+			var f = S.fields || {}, r = S.reg || {}, apply = +C.apply && S.reg;
 			var regv = function (k) { return k === 'dob' ? r.dob : r[k]; };
 			var fig = function (k, lab) { return S[k] ? '<figure class="ids-img" data-i="' + k + '"><figcaption>' + lab + ' <button type="button" class="ids-redo" data-redo="' + k + '">↻ Scan again</button></figcaption></figure>' : '<div class="ids-miss"><span>' + lab + ' — not scanned</span><button type="button" class="sdd-b sdd-b--ghost" data-redo="' + k + '">+ Scan the ' + k + '</button></div>'; };
 			var html = '<div class="ids-res"><div class="ids-imgs">' + fig('front', 'Front') + fig('back', 'Back') + '</div><div class="ids-tab"><table><thead><tr><th>Field</th><th>On the card' + (S.src === 'ocr' ? ' <small>(read from text — check)</small>' : ' <small>(barcode)</small>') + '</th><th>On the registration' + (r.file ? ' <small>' + esc(r.file) + '</small>' : '') + '</th><th></th>' + (apply ? '<th title="Copy into the registration">Use</th>' : '') + '</tr></thead><tbody>';

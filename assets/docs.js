@@ -4,6 +4,8 @@
   'use strict';
   var C = window.SDSC_DOCS, root = document.querySelector('#sdd .sdd-app');
   if (!C || !root) { return; }
+  // wp_localize_script sends numbers as text ("0" would count as yes).
+  ['office', 'remove', 'ok', 'front', 'iAmIns'].forEach(function (k) { C[k] = +C[k] || 0; });
   var S = { email: '', person: null, docs: [], home: null, q: '' };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
