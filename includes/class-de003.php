@@ -155,6 +155,7 @@ class SDSC_DE003 {
 		$f['Maryland State ID of Authorized School Rep'] = $set['rep_id'];
 
 		// Classroom: the sessions the student attended.
+		$row = 0;
 		$units = array_values( array_filter( $quizzes, function ( $q ) { return ! $q[3]; } ) );
 		$final = array_values( array_filter( $quizzes, function ( $q ) { return $q[3]; } ) );
 		$mine  = $p['user_id'] ? ( $res[ $p['user_id'] ] ?? array() ) : array();
@@ -164,7 +165,7 @@ class SDSC_DE003 {
 			$att  = SDSC_ZoomRoll::rows( $cid )[ $p['email'] ] ?? array();
 			$over = SDSC_ZoomRoll::session_instructors( $cid );
 			$main = SDSC_ZoomRoll::instructor_of( $cid );
-			$row  = 0;
+			$row  = 0; // also read after the loop
 			foreach ( $list as $x ) {
 				$v = (string) ( $att[ $x['date'] ]['actual'] ?? '' );
 				if ( ! in_array( $v, array( 'present', 'late', 'left' ), true ) ) { continue; }
@@ -176,13 +177,18 @@ class SDSC_DE003 {
 				$f[ 'Unit Start Time ' . $row ] = self::hm( $x['start'] );
 				$f[ 'Unit End Time ' . $row ]   = self::hm( $x['end'] );
 				$f[ 'Hours ' . $row ]           = $set['hours'];
-				$f[ 'Unit ' . $row ]            = $n <= count( $units ) ? (string) $n : 'Final';
+				// The form's own field names: on page 1 the unit column of row r is "Unit r" (r = 1–10, "Unit 11" is
+				// the final score); on the continued page it is "Unit r+1" (rows 11–35 → "Unit 12"–"Unit 36").
+				$f[ 'Unit ' . ( $row <= 10 ? $row : $row + 1 ) ] = $n <= count( $units ) ? (string) $n : 'Final';
 				$f[ 'Instructor Initials ' . $row ]  = $ins['ini'];
 				$f[ 'Instructor ID Number ' . $row ] = $ins['no'];
 				$f[ 'Unit Test Score ' . $row ]      = $n <= count( $units ) ? $pct( $units[ $n - 1 ] ) : ( $final ? $pct( $final[0] ) : '' );
 			}
 		}
-		if ( $final ) { $f['Unit 11'] = $pct( $final[0] ); } // "Final Score" on the first page
+		if ( $final ) {
+			$f['Unit 11'] = $pct( $final[0] );                                                // "Final Score", page 1
+			if ( ! empty( $row ) && $row > 10 ) { $f['Unit 37'] = $f['Unit 11']; }            // "Final Score", continued page
+		}
 
 		// Behind the wheel: completed lessons.
 		$T   = $wpdb->prefix . 'driveflow_sessions';

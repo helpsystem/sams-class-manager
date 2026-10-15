@@ -50,3 +50,4 @@
 .srp-de3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .srp-de3 label { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 13px; } .srp-de3 small { color: #5b646d; font-weight: 400; }
 .srp-de3 input { height: 34px; border: 1px solid #cfd6dc; border-radius: 8px; padding: 0 8px; } .srp-de3 p { grid-column: 1 / -1; margin: 0; }
+.srp-filters .srp-part { flex-direction: row !important; }
