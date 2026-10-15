@@ -30,8 +30,7 @@
 		(banner ? banner.parentNode : wrap).insertBefore(root, banner ? banner.nextSibling : wrap.firstChild);
 		start(root);
 	}
-	boot();
-	if (!booted) { document.addEventListener('DOMContentLoaded', boot); }
+
 
 	/* ------------------------------------------------------------ helpers (all times are "naive" school-time values) */
 	function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -616,4 +615,7 @@
 		T.textContent = msg; T.className = 'scal-toast is-on' + (bad ? ' is-bad' : '');
 		clearTimeout(tt); tt = setTimeout(function () { T.className = 'scal-toast'; }, bad ? 9000 : 5000);
 	}
+
+	boot();
+	if (!booted) { document.addEventListener('DOMContentLoaded', boot); }
 })();
