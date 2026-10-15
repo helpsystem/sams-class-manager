@@ -257,7 +257,7 @@ class SDSC_DE003 {
 		if ( ! $row && $mine ) {
 			$ins = '' !== $set['cls_ins'] ? self::instructor( 0, $set['cls_ins'] ) : array( 'ini' => '', 'no' => '' );
 			foreach ( array_merge( $units, $final ) as $k => $q ) {
-				$day = $mine[ $q[0] ]['first'] ?? ( $mine[ $q[0] ]['ended'] ?? '' );
+				$day = $q[3] ? ( $mine[ $q[0] ]['ended'] ?? '' ) : ( $mine[ $q[0] ]['first'] ?? ( $mine[ $q[0] ]['ended'] ?? '' ) ); // final: the attempt that counts
 				if ( ! $day ) { continue; }
 				$row++;
 				if ( $row > 35 ) { break; }
