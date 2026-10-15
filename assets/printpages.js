@@ -42,7 +42,7 @@
 			if (prev) { var l = prev.lastElementChild; if (l && l.tagName === 'H2' && prev.children.length > 1) { b.appendChild(l); } }
 			return b;
 		}
-		function fits() { return cur.scrollHeight <= cur.clientHeight + 1; }
+		function fits() { return cur.scrollHeight <= cur.clientHeight - 6; } // a little room for margins that move with a heading
 		function empty() { return !cur.children.length; }
 		/* Containers that may be split between pages, and how to make an empty copy of them. */
 		function parts(x) {
@@ -101,7 +101,6 @@
 			total += pages.length;
 			info.push(name + ': ' + pages.length);
 		});
-		if (duplex && total % 2 === 1 && tpl.length > 1) { holder.appendChild(el('div', 'pp pp-blank', '<p>This page is intentionally left blank.</p>')); total++; }
 		var n = document.getElementById('ppn');
 		if (n) { n.textContent = total + ' page' + (total === 1 ? '' : 's') + (duplex ? ' · ' + Math.ceil(total / 2) + ' sheet' + (Math.ceil(total / 2) === 1 ? '' : 's') + ' 2-sided' : ''); }
 	}
