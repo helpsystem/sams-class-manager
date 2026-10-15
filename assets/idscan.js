@@ -272,7 +272,7 @@
 		opts = opts || {};
 		var S = { reg: null, check: null, fields: null, src: '', front: null, back: null, code: null, saved: false };
 		el.innerHTML = '<div class="ids-card"><div class="ids-head"><span class="ids-ic" aria-hidden="true">🪪</span><div><h4>Scan ID, learner’s permit or license — both sides</h4><p>Hold the card in the frame: the <b>front</b> is taken by itself as soon as it is still and sharp, then turn the card over and the <b>back</b> is taken when its barcode is read. Both pictures are cropped, saved to the student’s documents and compared with the registration — nothing else to do.</p></div></div>' +
-			'<div class="ids-bar"><label>Document <select class="ids-doc"><option value="permit">Learner’s permit</option><option value="license">Driver’s license</option><option value="id">ID card</option></select></label>' +
+			'<div class="ids-bar"><label>Document <select class="ids-doc"><option value="permit">Learner’s permit</option><option value="license"' + (opts.staff ? ' selected' : '') + '>Driver’s license</option><option value="id">ID card</option></select></label>' +
 			'<button type="button" class="sdd-b" data-ids="live">📷 Camera — both sides</button><button type="button" class="sdd-b" data-ids="scanner">🖨 Office scanner</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="photo">📸 Take photos</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="file">⬆ Files</button></div>' +
 			'<ol class="ids-steps"><li data-s="front">Front</li><li data-s="back">Back</li><li data-s="read">Read</li><li data-s="saved">Saved</li></ol>' +
 			'<p class="ids-status" role="status" aria-live="polite"></p><div class="ids-out"></div><p class="ids-last"></p></div>';

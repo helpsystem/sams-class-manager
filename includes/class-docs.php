@@ -330,7 +330,7 @@ class SDSC_Docs {
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t_docs() . ' WHERE email = %s ORDER BY FIELD(type,%s,%s) DESC, id DESC', $email, 'id_back', 'id_front' ), ARRAY_A );
 		$person = self::is_office() ? self::person( $email ) : null;
 		$ins    = self::instructor( $email );
-		if ( $person && $ins ) { $person['kind'] = 'instructor'; $person['name'] = $person['name'] ? $person['name'] : $ins['name']; $person['phone'] = $person['phone'] ? $person['phone'] : $ins['phone']; $person['from'] = array( 'Instructor' ); $person['self'] = self::me() === $email; }
+		if ( $person && $ins ) { $person['kind'] = 'instructor'; $person['name'] = $ins['name']; $person['phone'] = $person['phone'] ? $person['phone'] : $ins['phone']; $person['from'] = array( 'Instructor' ); $person['self'] = self::me() === $email; }
 		wp_send_json_success( array( 'person' => $person, 'docs' => array_map( array( __CLASS__, 'shape' ), (array) $rows ) ) );
 	}
 
