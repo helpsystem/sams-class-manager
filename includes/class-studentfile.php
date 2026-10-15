@@ -313,11 +313,11 @@ table.f tr, .agree, .sigs, .office, .unit, .final { break-inside: avoid; page-br
 .blank { color: #9aa3ab; }
 .agree { margin: 4px 0; padding: 6px 8px; border: 0.75pt solid #d5dbe0; border-radius: 4px; font-size: 9pt; }
 .box { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 1pt solid #15191d; text-align: center; line-height: 9px; font-size: 9px; vertical-align: -1px; }
-.policy { font-size: 8.4pt; line-height: 1.38; color: #24292e; columns: 2; column-gap: 0.28in; }
-.policy h1, .policy h2, .policy h3, .policy h4 { all: unset; display: block; font-weight: 700; font-size: 8.8pt; margin: 6px 0 2px; color: #0b3d24; break-after: avoid; }
+.policy { font-size: 9.2pt; line-height: 1.45; color: #1d2327; }
+.policy h1, .policy h2, .policy h3, .policy h4 { all: unset; display: block; font-weight: 700; font-size: 9.8pt; margin: 8px 0 3px; color: #0b3d24; break-after: avoid; }
 .policy p { margin: 0 0 4px; } .policy ul, .policy ol { margin: 0 0 4px; padding-left: 14px; } .policy li { margin: 0 0 1px; }
 .policy a { color: inherit; text-decoration: none; }
-.policy p { text-align: justify; } .policy h4 { margin-top: 8px; }
+.policy p { text-align: left; margin: 0 0 5px; break-inside: avoid; } .policy h4 { margin-top: 10px; }
 .keep { break-inside: avoid; page-break-inside: avoid; }
 .sigs { display: flex; gap: 18px; margin-top: 8px; }
 .sig { flex: 1; }
@@ -459,9 +459,8 @@ table.t tr { break-inside: avoid; }
 
 	/** Class attendance page. */
 	public static function attendance_html( $p ) {
-		if ( ! $p['class'] || ! class_exists( 'SDSC_ZoomRoll' ) ) { return ''; }
-		$list = SDSC_Schedule::sessions( $p['class'] );
-		if ( ! $list ) { return ''; }
+		$list = ( $p['class'] && class_exists( 'SDSC_ZoomRoll' ) ) ? SDSC_Schedule::sessions( $p['class'] ) : array();
+		if ( ! $list ) { return '<section class="pg"><table class="wrap">' . self::who( 'Class Attendance Record', $p, self::file_no( $p ) ) . '<tbody><tr><td><p class="empty">' . ( $p['class'] ? 'This class has no Zoom sessions scheduled yet.' : 'This student is not in a class of the new class system, so there is no attendance on record here.' ) . '</p></td></tr></tbody></table></section>'; }
 		$rows  = SDSC_ZoomRoll::rows( $p['class'] );
 		$mine  = $rows[ $p['email'] ] ?? array();
 		$lbl   = array( 'present' => 'Present', 'late' => 'Late', 'left' => 'Left early', 'absent' => 'Absent' );
@@ -536,7 +535,7 @@ table.t tr { break-inside: avoid; }
 			echo '<script src="' . esc_url( SDSC_URL . 'assets/vendor/pdf-lib.min.js?ver=1.17.1' ) . '"></script>'; // bundled (MIT), see assets/vendor/README.txt
 			echo '<script>(function(){var D=' . wp_json_encode( $data ) . ',U=' . wp_json_encode( add_query_arg( array( 'action' => 'sdsc_de003_pdf', '_n' => wp_create_nonce( 'sdsc_de003' ) ), admin_url( 'admin-ajax.php' ) ) ) . ',dbg=/[?&]de3debug=1/.test(location.search),S=document.getElementById("de3s"),F=document.getElementById("de3f"),busy=false,url="";'
 				. 'function latin(v){return String(v==null?"":v).replace(/[‘’]/g,"\'").replace(/[“”]/g,"\"").replace(/[–—]/g,"-").normalize("NFKD").replace(/[^\x20-\x7E\xA0-\xFF]/g,"");}'
-				. 'function fit(fl,t,hv){try{fl.setMaxLength(undefined);}catch(e){}fl.setText(t);var w=fl.acroField.getWidgets()[0].getRectangle(),W=w.width-5,H=w.height,ml=false;try{ml=fl.isMultiline();}catch(e){}var s=Math.max(5,Math.min(9.5,H*0.62));if(ml){var L=function(z){var n=1,x=0;t.split(/\s+/).forEach(function(wd){var ww=hv.widthOfTextAtSize(wd+" ",z);if(x+ww>W){n++;x=ww;}else x+=ww;});return n*z*1.18;};while(s>5&&L(s)>H-2)s-=0.25;}else{while(s>4.5&&hv.widthOfTextAtSize(t,s)>W)s-=0.25;}try{fl.setFontSize(s);}catch(e){}}async function make(){if(busy)return;if(url){show();return;}busy=true;S.textContent="Preparing the official MVA form…";try{if(!window.PDFLib)throw new Error("The PDF tool did not load. Reload the page.");var r=await fetch(U,{credentials:"same-origin"});if(!r.ok)throw new Error(await r.text());var src=await r.arrayBuffer(),out=await PDFLib.PDFDocument.create();'
+				. 'function fit(fl,t,hv){try{fl.setMaxLength(undefined);}catch(e){}fl.setText(t);var w=fl.acroField.getWidgets()[0].getRectangle(),W=w.width-5,H=w.height,ml=false;try{ml=fl.isMultiline();}catch(e){}var s=Math.max(5,Math.min(9.5,H*0.62));if(ml){var L=function(z){var n=1,x=0;t.split(/\s+/).forEach(function(wd){var ww=hv.widthOfTextAtSize(wd+" ",z);if(x+ww>W){n++;x=ww;}else x+=ww;});return n*z*1.18;};while(s>5&&L(s)>H-2)s-=0.25;}else{while(s>4.5&&hv.widthOfTextAtSize(t,s)>W)s-=0.25;}fl.acroField.setDefaultAppearance("/Helv "+s.toFixed(2)+" Tf 0 g");}async function make(){if(busy)return;if(url){show();return;}busy=true;S.textContent="Preparing the official MVA form…";try{if(!window.PDFLib)throw new Error("The PDF tool did not load. Reload the page.");var r=await fetch(U,{credentials:"same-origin"});if(!r.ok)throw new Error(await r.text());var src=await r.arrayBuffer(),out=await PDFLib.PDFDocument.create();'
 				. 'for(var i=0;i<D.length;i++){S.textContent="Filling "+(i+1)+" of "+D.length+": "+D[i].name;var doc=await PDFLib.PDFDocument.load(src),form=doc.getForm(),hv=await doc.embedFont(PDFLib.StandardFonts.Helvetica);form.getFields().forEach(function(fl){var n=fl.getName();if(!(fl instanceof PDFLib.PDFTextField))return;var v=dbg?n:D[i].f[n];if(v!==undefined&&v!==null&&v!==""){try{fit(fl,latin(v),hv);}catch(e){}}});form.updateFieldAppearances(hv);form.flatten({updateFieldAppearances:false});var pg=await out.copyPages(doc,doc.getPageIndices());pg.forEach(function(p){out.addPage(p);});}'
 				. 'out.setTitle(' . wp_json_encode( $names['de003'] ) . '+(D.length===1?" — "+D[0].name:""));var b=await out.save();url=URL.createObjectURL(new Blob([b],{type:"application/pdf"}));show();}catch(e){S.textContent="The form could not be prepared: "+e.message;}busy=false;}'
 				. 'function show(){S.textContent=D.length+" form"+(D.length===1?"":"s")+" ready — print or save with the buttons of the PDF viewer below.";F.hidden=false;F.src=url;F.scrollIntoView();}'

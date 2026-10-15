@@ -57,17 +57,17 @@ class SDSC_Lab {
 	}
 
 	/** Erase everything entered for this e-mail on the test site. */
-	protected static function erase( $email ) {
+	protected static function erase( $email, $since ) {
 		global $wpdb;
 		$n = array();
 		$t = SDSC_Registration::table();
-		$n['registration forms'] = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM $t WHERE email = %s", $email ) ); // phpcs:ignore
-		$posts = get_posts( array( 'post_type' => SDSC_CPT_Registrants::CPT, 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids', 'meta_query' => array( array( 'key' => '_sdsc_email', 'value' => $email ) ) ) );
+		$n['registration forms'] = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM $t WHERE email = %s AND created_at >= %s", $email, $since ) ); // phpcs:ignore
+		$posts = get_posts( array( 'post_type' => SDSC_CPT_Registrants::CPT, 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids', 'date_query' => array( array( 'after' => $since, 'inclusive' => true ) ), 'meta_query' => array( array( 'key' => '_sdsc_email', 'value' => $email ) ) ) );
 		foreach ( $posts as $pid ) { wp_delete_post( $pid, true ); }
 		$n['class sign-ups'] = count( $posts );
 		if ( class_exists( 'SDSC_Docs' ) ) {
 			$dir  = SDSC_Docs::dir();
-			$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, file, thumb FROM ' . SDSC_Docs::t_docs() . ' WHERE email = %s', $email ), ARRAY_A ); // phpcs:ignore
+			$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, file, thumb FROM ' . SDSC_Docs::t_docs() . ' WHERE email = %s AND created >= %s', $email, $since ), ARRAY_A ); // phpcs:ignore
 			foreach ( $rows as $r ) {
 				foreach ( array( $r['file'], $r['thumb'] ) as $f ) { if ( $dir && preg_match( '/^[a-f0-9]{32}\.bin$/', (string) $f ) && is_file( $dir . $f ) ) { @unlink( $dir . $f ); } } // phpcs:ignore
 				$wpdb->delete( SDSC_Docs::t_log(), array( 'doc_id' => (int) $r['id'] ) );
@@ -75,8 +75,9 @@ class SDSC_Lab {
 			}
 			$n['documents'] = count( $rows );
 		}
-		$n['ID checks'] = delete_option( 'sdsc_idc_' . md5( $email ) ) ? 1 : 0;
-		$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}driveflow_students SET license_number = '' WHERE LOWER(email) = %s", $email ) ); // phpcs:ignore
+		$c = get_option( 'sdsc_idc_' . md5( $email ), array() );
+		$n['ID checks'] = ( is_array( $c ) && ! empty( $c['at'] ) && $c['at'] >= $since && delete_option( 'sdsc_idc_' . md5( $email ) ) ) ? 1 : 0;
+		if ( $n['ID checks'] ) { $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->prefix}driveflow_students SET license_number = '' WHERE LOWER(email) = %s", $email ) ); } // phpcs:ignore
 		$links = get_option( 'sdsc_reg_links', array() );
 		if ( is_array( $links ) && isset( $links[ $email ] ) ) { unset( $links[ $email ] ); update_option( 'sdsc_reg_links', $links, false ); }
 		return $n;
@@ -88,10 +89,12 @@ class SDSC_Lab {
 		if ( ! class_exists( 'SDSC_Docs' ) || ! SDSC_Docs::is_office() ) { wp_die( 'The test lab is for the school team. Sign in with your staff account.', 'Test lab', array( 'response' => 403 ) ); }
 		$uid   = get_current_user_id();
 		$email = strtolower( sanitize_email( wp_unslash( $_REQUEST['e'] ?? get_user_meta( $uid, 'sdsc_lab_email', true ) ) ) ); // phpcs:ignore
-		if ( is_email( $email ) ) { update_user_meta( $uid, 'sdsc_lab_email', $email ); }
+		$sinces = (array) get_user_meta( $uid, 'sdsc_lab_since', true );
+		if ( is_email( $email ) ) { update_user_meta( $uid, 'sdsc_lab_email', $email ); if ( empty( $sinces[ $email ] ) ) { $sinces[ $email ] = current_time( 'mysql' ); update_user_meta( $uid, 'sdsc_lab_since', $sinces ); } }
+		$since = is_email( $email ) ? $sinces[ $email ] : '';
 		$msg = '';
 		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && isset( $_POST['erase'] ) && is_email( $email ) && check_admin_referer( 'sdsc_lab_erase' ) ) {
-			$n   = self::erase( $email );
+			$n   = self::erase( $email, $since );
 			$msg = 'Erased for ' . $email . ': ' . implode( ', ', array_map( function ( $k, $v ) { return $v . ' ' . $k; }, array_keys( $n ), $n ) ) . '.';
 		}
 		$s     = self::state( $email );
@@ -177,7 +180,7 @@ table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0 10px}td,
 </div>
 
 <div class="card"><h2><span class="n">5</span>Erase my test data</h2>
-<p>Removes from the test site everything entered for <b><?php echo $e( $email ); ?></b>: <?php echo count( $s['regs'] ); ?> registration form(s), the class sign-up, <?php echo (int) $s['docs']; ?> document(s) and the ID check.</p>
+<p>Removes from the test site what was entered for <b><?php echo $e( $email ); ?></b> since you started this test (<?php echo $e( mysql2date( 'M j, g:i a', $since ) ); ?>): registration forms, the class sign-up, documents and the ID check. Older records of the test site are never touched.</p>
 <form method="post" id="er"><?php wp_nonce_field( 'sdsc_lab_erase' ); ?><input type="hidden" name="e" value="<?php echo esc_attr( $email ); ?>"><button class="b r" type="button" id="erb">🗑 Erase my test data</button><button class="b r" type="submit" name="erase" value="1" id="ers" hidden>Tap again to erase — this cannot be undone</button></form>
 </div>
 <script src="<?php echo esc_url( SDSC_URL . 'assets/vendor/qrcode.min.js?ver=1.4.4' ); ?>"></script>
