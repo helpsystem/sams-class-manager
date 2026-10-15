@@ -54,7 +54,7 @@ class SDSC_DFCal {
 
 	public static function cars() {
 		global $wpdb;
-		$rows = (array) $wpdb->get_results( "SELECT id, plate_number, model, color, transmission, maintenance_status FROM {$wpdb->prefix}driveflow_vehicles WHERE status = 'active' ORDER BY plate_number", ARRAY_A ); // phpcs:ignore
+		$rows = (array) $wpdb->get_results( "SELECT id, plate_number, model, color, transmission, maintenance_status FROM {$wpdb->prefix}driveflow_vehicles WHERE status = 'active' AND plate_number NOT LIKE 'DEMO%' ORDER BY plate_number", ARRAY_A ); // phpcs:ignore
 		return array_map( function ( $r ) { return array( 'id' => (int) $r['id'], 'plate' => $r['plate_number'], 'model' => trim( $r['model'] . ( $r['color'] ? ' · ' . $r['color'] : '' ) ), 'down' => 'operational' !== $r['maintenance_status'] ? $r['maintenance_status'] : '' ); }, $rows );
 	}
 

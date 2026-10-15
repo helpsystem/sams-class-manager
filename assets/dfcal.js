@@ -277,7 +277,7 @@
 			html += '<div class="scal-col' + (c.today ? ' is-today' : '') + '" data-col="' + ci + '" data-day="' + c.key + '">';
 			var d0 = parse(c.key + ' 00:00');
 			if (DAY > OPEN) { html += '<div class="scal-early" style="height:' + ((DAY - OPEN) / STEP * ROW) + 'px"' + (ci === 0 ? '><span>Early — ' + (C.early ? 'manager only' : 'the manager books these') + '</span>' : '>') + '</div>'; }
-			SL.forEach(function (sm, si) { if (sm >= DAY && sm + SLEN <= CLOSE) { html += '<div class="scal-band' + (si % 2 ? ' is-alt' : '') + '" style="top:' + ((sm - OPEN) / STEP * ROW) + 'px;height:' + (SLEN / STEP * ROW) + 'px"></div>'; } });
+			SL.forEach(function (sm, si) { if (sm >= DAY && sm + SLEN <= CLOSE) { html += '<div class="scal-band' + (si % 2 ? ' is-alt' : '') + '" style="top:' + ((sm - OPEN) / STEP * ROW) + 'px;height:' + (SLEN / STEP * ROW) + 'px"><i>' + slotName(sm) + '</i></div>'; } });
 			if (SLEND < CLOSE) { html += '<div class="scal-after" style="top:' + ((SLEND - OPEN) / STEP * ROW) + 'px;height:' + ((CLOSE - SLEND) / STEP * ROW) + 'px">' + (ci === 0 ? '<span>After ' + h12(SLEND) + ' PM — off the time sheet</span>' : '') + '</div>'; }
 			// Blocked time.
 			S.blocked.filter(blkVisible).forEach(function (b) {
