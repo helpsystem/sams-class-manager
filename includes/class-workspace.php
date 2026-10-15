@@ -264,7 +264,7 @@ class SDSC_Workspace {
 		remove_all_actions( 'admin_notices' );
 		remove_all_actions( 'all_admin_notices' );
 		echo '<style id="sdsc-embed">html.wp-toolbar{padding-top:0!important}#wpadminbar,#adminmenumain,#adminmenuback,#adminmenuwrap,#wpfooter,#screen-meta-links,.update-nag,.notice.is-dismissible.hide-in-embed{display:none!important}#wpcontent,#wpfooter{margin-left:0!important}#wpbody-content{padding-bottom:20px!important}.auto-fold #wpcontent{margin-left:0!important}body{background:#fff!important}</style>'
-			. '<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.target==="_blank")return;try{var u=new URL(a.href,location.href);if(u.origin===location.origin&&u.pathname.indexOf("/wp-admin/")!==-1&&!u.searchParams.has("sdsc_embed")){u.searchParams.set("sdsc_embed","1");a.href=u.toString();}}catch(x){}},true);'
+			. '<script>document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.target==="_blank")return;if(/^(sms|tel|mailto):/i.test(a.getAttribute("href")||"")){a.target="_top";return;}try{var u=new URL(a.href,location.href);if(u.origin===location.origin&&u.pathname.indexOf("/wp-admin/")!==-1&&!u.searchParams.has("sdsc_embed")){u.searchParams.set("sdsc_embed","1");a.href=u.toString();}}catch(x){}},true);'
 			. 'document.addEventListener("submit",function(e){var f=e.target;if(!f.querySelector("input[name=sdsc_embed]")){var i=document.createElement("input");i.type="hidden";i.name="sdsc_embed";i.value="1";f.appendChild(i);}},true);</script>';
 	}
 }

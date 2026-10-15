@@ -40,6 +40,8 @@
 		var go = t.closest && t.closest( '.sdq-go' );
 		if ( go ) {
 			refresh( go );
+			// Inside the dashboard frame a phone only opens Messages when the whole page goes to the sms: link.
+			if ( window.top !== window ) { go.target = '_top'; }
 			var card = go.closest( '.sdq-card' );
 			setTimeout( function () { if ( ! card.classList.contains( 'is-done' ) ) { done( card, 'sent' ); } }, 400 );
 			return; // let the sms: link open Messages

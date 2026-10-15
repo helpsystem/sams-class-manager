@@ -151,6 +151,7 @@ class SDSC_DFOffer {
 		$st   = $o['student'];
 		$es   = 'es' === $st['lang'];
 		$url  = self::link( $o['token'] );
+		if ( class_exists( 'SDSC_Short' ) ) { $url = SDSC_Short::make( $url ); } // samsdrivingschool.org/go/… — short in texts
 		$n    = (int) $o['pick'];
 		$c    = count( $o['slots'] );
 		$exp  = wp_date( $es ? 'j \d\e F, g:i a' : 'l, F j \a\t g:i A', SDSC_Lessons::ts( $o['expires_at'] ) );

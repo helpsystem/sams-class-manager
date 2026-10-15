@@ -51,6 +51,22 @@
     (C.chat ? '<button type="button" class="sdk-btn sdk-btn--chat" aria-label="Messages" title="Messages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16.1A2.5 2.5 0 0 1 4 14V5.5Z" fill="currentColor"/></svg><span class="sdk-badge" hidden></span></button>' : '') +
     (adminBell ? '' : '<button type="button" class="sdk-btn sdk-btn--bell" aria-label="Notifications" title="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.3l-1.6 2.9A1 1 0 0 0 5.3 17h13.4a1 1 0 0 0 .9-1.8L18 12.3V9a6 6 0 0 0-6-6Zm0 19a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z" fill="currentColor"/></svg><span class="sdk-badge" hidden></span></button>');
   (mount || document.body).appendChild(dock);
+  // Phones: keep the floating buttons above a bar fixed to the bottom of the screen (the dashboard's
+  // Home / Explore / Calendar / Profile menu), so they never cover it.
+  function lift() {
+    if (mount) { return; }
+    var hgt = 0, vw = window.innerWidth, vh = window.innerHeight;
+    [].forEach.call(document.querySelectorAll('body *'), function (el) {
+      if (el === dock || dock.contains(el) || el.offsetWidth < vw * 0.6) { return; }
+      var cs = getComputedStyle(el);
+      if ((cs.position !== 'fixed' && cs.position !== 'sticky') || cs.display === 'none' || cs.visibility === 'hidden') { return; }
+      var r = el.getBoundingClientRect();
+      if (r.height > 0 && r.height < vh * 0.3 && Math.abs(r.bottom - vh) < 4) { hgt = Math.max(hgt, r.height); }
+    });
+    dock.style.bottom = hgt ? 'calc(' + Math.round(hgt + 12) + 'px + env(safe-area-inset-bottom))' : '';
+  }
+  lift(); window.addEventListener('resize', function () { clearTimeout(lift.t); lift.t = setTimeout(lift, 150); });
+  setTimeout(lift, 800); setTimeout(lift, 2500);
   var toasts = h('div', 'sdk-toasts'); toasts.setAttribute('aria-live', 'polite'); document.body.appendChild(toasts);
 
   var panel = h('div', 'sdk-panel'); panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Notifications');
