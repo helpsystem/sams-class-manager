@@ -50,3 +50,7 @@
 .ids-cd { font-size: 13px; color: #5b646d; }
 .ids-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid #b8dcc6; border-top-color: #0b5d2e; border-radius: 50%; animation: ids-r .8s linear infinite; vertical-align: -2px; }
 @keyframes ids-r { to { transform: rotate(360deg); } }
+.ids-ask { border: 2px solid #00703c; }
+.ids-big { font-size: 16px !important; } .ids-big b { color: #00703c; }
+.ids-redo { margin-left: 8px; padding: 2px 8px; border: 1px solid #cfd6dc; border-radius: 999px; background: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.ids-miss { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 14px; border: 2px dashed #cfd6dc; border-radius: 10px; font-size: 13px; color: #5b646d; }

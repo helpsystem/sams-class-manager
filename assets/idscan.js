@@ -202,13 +202,20 @@
 	function fix(c) { try { return enhance(autoCrop(canvasFrom(c, 2600))); } catch (e) { return c; } }
 
 	/* ------------------------------------------------------------ finding the card on a scanner page */
+	/** Typical tone of the page border (median of a ring 2–7 % in from the edges). */
+	function ring(g, w, h) {
+		var hist = new Uint32Array(256), n = 0, a = Math.round(Math.min(w, h) * 0.02), b = Math.round(Math.min(w, h) * 0.07), x, y;
+		for (y = a; y < h - a; y++) { for (x = a; x < w - a; x++) { if (x < b || y < b || x >= w - b || y >= h - b) { hist[g[y * w + x]]++; n++; } } }
+		var acc = 0; for (var i = 0; i < 256; i++) { acc += hist[i]; if (acc >= n / 2) { return i; } }
+		return 255;
+	}
 	/** The card(s) on a scanner page: connected blobs that differ from the white lid. Returns boxes in source pixels. */
 	function blobs(c, max) {
 		var k = Math.min(1, (max || 320) / Math.max(c.width, c.height)), w = Math.max(8, Math.round(c.width * k)), h = Math.max(8, Math.round(c.height * k));
 		var t = document.createElement('canvas'); t.width = w; t.height = h; var x = t.getContext('2d'); x.filter = 'blur(1px)'; x.drawImage(c, 0, 0, w, h); x.filter = 'none';
 		var d = x.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h), i, hist = new Uint32Array(256);
 		for (i = 0; i < w * h; i++) { var r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], l = (r * 0.299 + gg * 0.587 + b * 0.114) | 0, sat = Math.max(r, gg, b) - Math.min(r, gg, b); g[i] = l; hist[l]++; d[i * 4 + 3] = sat; }
-		var acc = 0, bg = 255; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > w * h * 0.35) { bg = i; break; } } // the lid is the most common bright tone
+		var bg = ring(g, w, h); // the background (white lid, or dark when the lid is open)
 		var m = new Uint8Array(w * h), edge = Math.max(1, Math.round(Math.min(w, h) * 0.012));
 		for (var yy = edge; yy < h - edge; yy++) { for (var xx = edge; xx < w - edge; xx++) { i = yy * w + xx; var gr = Math.abs(g[i + 1] - g[i - 1]) + Math.abs(g[i + w] - g[i - w]); if (Math.abs(bg - g[i]) > 8 || d[i * 4 + 3] > 18 || gr > 9) { m[i] = 1; } } }
 		// close small gaps (white parts of the card) with a 2-pixel dilation
@@ -237,7 +244,7 @@
 		var b = blobs(t, 700)[0]; if (!b) { return c; }
 		var d = t.getContext('2d').getImageData(0, 0, w, h).data, hist = new Uint32Array(256), i, pts = [];
 		for (i = 0; i < w * h; i++) { hist[(d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0]++; }
-		var acc = 0, bg = 255; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > w * h * 0.35) { bg = i; break; } }
+		var gg2 = new Uint8Array(w * h); for (i = 0; i < w * h; i++) { gg2[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0; } var bg = ring(gg2, w, h);
 		var L = function (q) { return d[q * 4] * 0.299 + d[q * 4 + 1] * 0.587 + d[q * 4 + 2] * 0.114; };
 		for (var y = Math.max(1, Math.floor(b.y)); y < Math.min(h - 1, b.y + b.h); y += 1) { for (var x = Math.max(1, Math.floor(b.x)); x < Math.min(w - 1, b.x + b.w); x += 1) { i = (y * w + x) * 4; var q = y * w + x, l = L(q), sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]), gr = Math.abs(L(q + 1) - L(q - 1)) + Math.abs(L(q + w) - L(q - w)); if (Math.abs(bg - l) > 8 || sat > 18 || gr > 9) { pts.push(x, y); } } }
 		if (pts.length < 200) { return c; }
@@ -248,7 +255,7 @@
 			var ar = (Mx - mx) * (My - my); if (ar < area - 0.5) { area = ar; best = a; box = [mx, my, Mx, My]; }
 		}
 		// Rotate the full picture by the same angle (around the origin, then shift) and cut the box out.
-		var R = best * Math.PI / 180, s1 = 1 / k, pad = 0.012 * Math.max(box[2] - box[0], box[3] - box[1]);
+		var R = best * Math.PI / 180, s1 = 1 / k, pad = 0.005 * Math.max(box[2] - box[0], box[3] - box[1]);
 		var bx = (box[0] - pad) * s1, by = (box[1] - pad) * s1, bw = (box[2] - box[0] + 2 * pad) * s1, bh = (box[3] - box[1] + 2 * pad) * s1;
 		var o = document.createElement('canvas'); o.width = Math.round(bw); o.height = Math.round(bh);
 		var ox = o.getContext('2d'); ox.fillStyle = '#fff'; ox.fillRect(0, 0, o.width, o.height);
@@ -300,11 +307,15 @@
 			});
 		}
 		/** Put a picture where it belongs: with a barcode it is the back, otherwise the front. */
-		function place(c, scanned) {
+		/** Put a picture in its place: the side that was asked for — unless its barcode shows it is the back. */
+		function place(c, scanned, want) {
 			return zx().then(function (Z) {
 				var f = scanned ? fixScan(c) : fix(c), t = quickCode(Z, f);
-				if (t) { S.back = f; S.code = t; } else if (!S.front) { S.front = f; } else if (!S.back) { S.back = f; }
+				var side = t ? 'back' : (want || (!S.front ? 'front' : 'back'));
+				if (side === 'back') { S.back = f; S.code = t || null; } else { S.front = f; }
+				S.imgsSaved = false;
 				steps();
+				return side;
 			});
 		}
 		/* Scanner: one page with both sides, or two files. */
@@ -323,10 +334,11 @@
 			i.addEventListener('change', function () {
 				if (!i.files[0]) { return; }
 				status('Checking the picture…');
-				open(i.files[0]).then(place).then(function () {
+				S.method = 'photo';
+				open(i.files[0]).then(function (c) { return place(c, false, side); }).then(function () {
 					if (S.front && S.back) { finish(); return; }
 					var need = S.front ? 'back' : 'front';
-					out.innerHTML = '<div class="ids-next"><p>' + (need === 'back' ? 'Front ✓ — now turn the card over.' : 'Back ✓ — now the front.') + '</p><button type="button" class="sdd-b">📸 Take the ' + need + '</button> <button type="button" class="sdd-b sdd-b--ghost" data-skip="1">Skip — only one side</button></div>';
+					out.innerHTML = '<div class="ids-next ids-ask"><p class="ids-big">' + (need === 'back' ? '②' : '①') + ' Now the <b>' + SIDE[need] + '</b></p><p class="ids-m2">✓ The ' + (need === 'back' ? 'front' : 'back') + ' is done.</p><button type="button" class="sdd-b">📸 Take the ' + need + '</button> <button type="button" class="sdd-b sdd-b--ghost" data-skip="1">Skip — only the ' + (need === 'back' ? 'front' : 'back') + ' is needed</button></div>';
 					status('');
 					out.querySelector('.sdd-b:not([data-skip])').addEventListener('click', function () { photo(need); });
 					out.querySelector('[data-skip]').addEventListener('click', finish);
@@ -358,7 +370,8 @@
 		function show() {
 			var f = S.fields || {}, r = S.reg || {}, apply = C.apply && S.reg;
 			var regv = function (k) { return k === 'dob' ? r.dob : r[k]; };
-			var html = '<div class="ids-res"><div class="ids-imgs">' + (S.front ? '<figure class="ids-img" data-i="front"><figcaption>Front</figcaption></figure>' : '') + (S.back ? '<figure class="ids-img" data-i="back"><figcaption>Back</figcaption></figure>' : '') + '</div><div class="ids-tab"><table><thead><tr><th>Field</th><th>On the card' + (S.src === 'ocr' ? ' <small>(read from text — check)</small>' : ' <small>(barcode)</small>') + '</th><th>On the registration' + (r.file ? ' <small>' + esc(r.file) + '</small>' : '') + '</th><th></th>' + (apply ? '<th title="Copy into the registration">Use</th>' : '') + '</tr></thead><tbody>';
+			var fig = function (k, lab) { return S[k] ? '<figure class="ids-img" data-i="' + k + '"><figcaption>' + lab + ' <button type="button" class="ids-redo" data-redo="' + k + '">↻ Scan again</button></figcaption></figure>' : '<div class="ids-miss"><span>' + lab + ' — not scanned</span><button type="button" class="sdd-b sdd-b--ghost" data-redo="' + k + '">+ Scan the ' + k + '</button></div>'; };
+			var html = '<div class="ids-res"><div class="ids-imgs">' + fig('front', 'Front') + fig('back', 'Back') + '</div><div class="ids-tab"><table><thead><tr><th>Field</th><th>On the card' + (S.src === 'ocr' ? ' <small>(read from text — check)</small>' : ' <small>(barcode)</small>') + '</th><th>On the registration' + (r.file ? ' <small>' + esc(r.file) + '</small>' : '') + '</th><th></th>' + (apply ? '<th title="Copy into the registration">Use</th>' : '') + '</tr></thead><tbody>';
 			ROWS.forEach(function (row) {
 				var k = row[0], cv = f[k] || '', rv = ONREG[k] ? (regv(k) || '') : null;
 				html += '<tr data-k="' + k + '"><th>' + esc(row[1]) + '</th><td><input value="' + esc(k === 'dob' || k === 'issued' || k === 'expires' ? us(cv) : cv) + '" data-f="' + k + '" aria-label="' + esc(row[1]) + ' on the card"></td><td>' + (rv === null ? '<span class="ids-na">—</span>' : esc(k === 'dob' ? us(rv) : rv) || '<span class="ids-na">empty</span>') + '</td><td class="ids-m"></td>' + (apply ? '<td>' + (ONREG[k] ? '<input type="checkbox" data-use="' + k + '" aria-label="Use the card value for ' + esc(row[1]) + '">' : '') + '</td>' : '') + '</tr>';
@@ -370,6 +383,7 @@
 			out.querySelectorAll('[data-f]').forEach(function (i) { i.addEventListener('input', function () { marks(); out.querySelector('[data-act="save"]').hidden = false; }); });
 			marks();
 			out.querySelector('[data-act="save"]').addEventListener('click', function () { save(false); });
+			out.querySelectorAll('[data-redo]').forEach(function (b) { b.addEventListener('click', function () { redo(b.getAttribute('data-redo')); }); });
 			var ap = out.querySelector('[data-act="apply"]'); if (ap) { ap.addEventListener('click', applyIt); }
 		}
 
@@ -496,34 +510,49 @@
 				return { c: c, inside: inside, box: b ? { x: x + b.x / 300, y: y + b.y / 300, w: b.w / 300, h: b.h / 300 } : box };
 			});
 		}
+		var SIDE = { front: 'FRONT of the card — the side with the photo', back: 'BACK of the card — the side with the barcode' };
 		function scanSide(side, model, manual) {
-			var tell = side === 'front' ? 'Put the card <b>face down</b> anywhere on the glass and close the lid.' : 'Now turn the card over in the same place and close the lid.';
-			var n = side === 'front' ? 2 : 6, tmr = null;
-			out.innerHTML = '<div class="ids-next"><p>🖨 ' + esc(model || 'Office scanner') + ' — ' + side + ' side</p><p class="ids-m2">' + tell + '</p><button type="button" class="sdd-b" data-go>Scan now</button> <button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
+			S.method = 'office'; S.model = model;
+			var other = side === 'front' ? 'back' : 'front', have = S[other];
+			var n = side === 'front' && !have ? 2 : 6, tmr = null;
+			out.innerHTML = '<div class="ids-next ids-ask"><p class="ids-big">' + (side === 'front' ? '①' : '②') + ' Put the <b>' + SIDE[side] + '</b> face down on the glass</p>' +
+				'<p class="ids-m2">' + (have ? '✓ The ' + other + ' is done. Turn the card over in the same place and close the lid.' : 'Anywhere on the glass, then close the lid.') + '</p>' +
+				'<button type="button" class="sdd-b" data-go>🖨 Scan the ' + side + ' now</button> ' + (have ? '<button type="button" class="sdd-b sdd-b--ghost" data-skip>Skip — only the ' + other + ' is needed</button> ' : '') + '<button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
 			var cd = out.querySelector('.ids-cd');
 			function go() {
 				if (tmr) { clearInterval(tmr); tmr = null; }
 				out.innerHTML = '<div class="ids-next"><p>Scanning the ' + side + '… <span class="ids-spin"></span></p></div>';
 				var t0 = Date.now();
-				// The back lies where the front was: skip the search and scan that spot with a wider margin.
-				var hint = side === 'back' && S.spot ? S.spot : null;
-				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (b) { return sharp(b, 0.2); }); })
-					: locate().then(function (b) { return sharp(b, 0.2); })
+				// After the first side the card lies in a known spot: scan just there, with room for turning it over.
+				var hint = S.spot || null;
+				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (b) { return sharp(b, 0.35); }); })
+					: locate().then(function (b) { return sharp(b, 0.35); })
 				).then(function (r) {
+					if (!r.inside) { return sharp(r.box, 0.7); } // the card touched the edge of the scan: once more with more room
+					return r;
+				}).then(function (r) {
 					S.spot = r.box;
-					return place(r.c, true);
-				}).then(function () {
+					return place(r.c, true, side);
+				}).then(function (got) {
 					beep();
+					var note = got !== side ? 'That was the ' + got + ' (its barcode was read) — fine. ' : '';
 					if (S.front && S.back) { finish(); return; }
-					status('✓ ' + (S.front ? 'Front' : 'Back') + ' scanned in ' + Math.round((Date.now() - t0) / 1000) + ' s.');
+					status('✓ ' + (got === 'front' ? 'Front' : 'Back') + ' scanned in ' + Math.round((Date.now() - t0) / 1000) + ' s. ' + note);
 					scanSide(S.front ? 'back' : 'front', model);
 				}).catch(function (e) { scanSide(side, model, true); status(e.message || 'Scan failed.', true); });
 			}
 			out.querySelector('[data-go]').addEventListener('click', go);
+			var sk = out.querySelector('[data-skip]'); if (sk) { sk.addEventListener('click', function () { if (tmr) { clearInterval(tmr); } finish(); }); }
 			out.querySelector('[data-x]').addEventListener('click', function () { if (tmr) { clearInterval(tmr); } out.innerHTML = ''; status('Scan cancelled.'); reset(); });
 			if (manual) { return; } // after a problem: wait for "Scan now"
 			tmr = setInterval(function () { n--; cd.textContent = n > 0 ? 'Scanning by itself in ' + n + '…' : ''; if (n <= 0) { go(); } }, 1000);
 			cd.textContent = 'Scanning by itself in ' + n + '…';
+		}
+		/** Scan one side again (from the result screen). */
+		function redo(side) {
+			S.fields = null; S.saved = false; steps();
+			if (S.method === 'office') { scanSide(side, S.model); return; }
+			photo(side);
 		}
 
 		/* Live camera: front taken by itself when the card is still and sharp; back when its barcode is read. */
@@ -532,7 +561,7 @@
 			var M = document.createElement('div'); M.className = 'ids-live';
 			M.innerHTML = '<div class="ids-live-in"><div class="ids-vw"><video playsinline muted></video><div class="ids-frame" aria-hidden="true"><i></i></div><div class="ids-flash"></div></div>' +
 				'<div class="ids-live-s"><span data-t="front">1 Front</span><span data-t="back">2 Back</span></div><p class="ids-live-t">Front of the card inside the frame — hold still.</p>' +
-				'<div class="ids-live-b"><button type="button" class="sdd-b" data-l="shot">Take it now</button><button type="button" class="sdd-b sdd-b--ghost" data-l="x">Cancel</button></div></div>';
+				'<div class="ids-live-b"><button type="button" class="sdd-b" data-l="shot">Take it now</button><button type="button" class="sdd-b sdd-b--ghost" data-l="skip" hidden>Skip — one side is enough</button><button type="button" class="sdd-b sdd-b--ghost" data-l="x">Cancel</button></div></div>';
 			document.body.appendChild(M);
 			var v = M.querySelector('video'), fr = M.querySelector('.ids-frame'), tip = M.querySelector('.ids-live-t'), stream = null, stop = false, Z = null;
 			var want = 'front', prev = null, still = 0, peak = 0, lastShot = null, moved = true, since = Date.now(), lastTry = 0, busy = false;
@@ -550,11 +579,13 @@
 				steps();
 				if (S.front && S.back) { close(); finish(); return; }
 				want = S.front ? 'back' : 'front'; mark();
+				M.querySelector('[data-l="skip"]').hidden = false;
 				tip.innerHTML = want === 'back' ? '✓ Front taken. <b>Turn the card over</b> — the back is taken when the barcode is read.' : '✓ Back read. Now the <b>front</b> inside the frame — hold still.';
 			}
 			M.addEventListener('click', function (e) {
 				var b = e.target.closest('[data-l]'); if (!b) { return; }
 				if (b.getAttribute('data-l') === 'x') { close(); status('Scan cancelled.'); reset(); return; }
+				if (b.getAttribute('data-l') === 'skip') { close(); finish(); return; }
 				var c = frame(); if (c) { shot(c, null); }
 			});
 			navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false }).then(function (s) {

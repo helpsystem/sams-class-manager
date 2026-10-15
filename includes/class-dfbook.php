@@ -25,6 +25,7 @@ class SDSC_DFBook {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_action( 'admin_footer', array( __CLASS__, 'modal' ) );
 		add_action( 'wp_ajax_sdsc_dfb_check', array( __CLASS__, 'ajax_check' ) );
+		add_action( 'wp_ajax_sdsc_dfb_grid', array( __CLASS__, 'ajax_grid' ) );
 		add_action( 'admin_post_sdsc_dfb_book', array( __CLASS__, 'h_book' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
 	}
@@ -294,6 +295,36 @@ class SDSC_DFBook {
 		wp_send_json_success( array( 'errors' => $e, 'warnings' => $w, 'info' => $i ) );
 	}
 
+	/**
+	 * Offer builder: every start time of one week (30-minute steps) checked with the same rules as a booking,
+	 * for the chosen instructor, car, student, kind and length. 0 = free, 1 = free with a note (early start),
+	 * 2 = not possible (the reason is sent along).
+	 */
+	public static function ajax_grid() {
+		if ( ! self::can() || ! check_ajax_referer( 'sdsc_dfb', '_n', false ) ) { wp_send_json_error( 'Not allowed', 403 ); }
+		$d    = self::input();
+		$from = preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $_POST['week'] ?? '' ) ) ? $_POST['week'] : wp_date( 'Y-m-d' ); // phpcs:ignore
+		$days = array();
+		$now  = time();
+		for ( $i = 0; $i < 7; $i++ ) {
+			$day  = wp_date( 'Y-m-d', strtotime( $from . ' 12:00:00 +' . $i . ' days' ) );
+			$row  = array( 'date' => $day, 'label' => wp_date( 'D', strtotime( $day . ' 12:00:00' ) ), 'num' => wp_date( 'M j', strtotime( $day . ' 12:00:00' ) ), 'cells' => array() );
+			for ( $m = self::OPENS * 60; $m + $d['minutes'] <= self::CLOSES * 60; $m += 30 ) {
+				$t = sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 );
+				$x = array_merge( $d, array( 'start' => $day . ' ' . $t . ':00' ) );
+				if ( self::ts( $x['start'] ) < $now + HOUR_IN_SECONDS ) { $row['cells'][ $t ] = array( 2, 'Past' ); continue; }
+				list( $e, $w ) = self::check( $x );
+				// Messages about the person (name / instructor missing) are not about the time.
+				$e = array_values( array_filter( $e, function ( $z ) { return 0 !== strpos( $z, 'Choose the' ) && 0 !== strpos( $z, 'Type the' ); } ) );
+				if ( $e ) { $row['cells'][ $t ] = array( 2, $e[0] ); continue; }
+				$early = array_filter( $w, function ( $z ) { return false !== strpos( $z, 'Starts before' ); } );
+				$row['cells'][ $t ] = $early ? array( 1, 'Early start — manager only' ) : array( 0, '' );
+			}
+			$days[] = $row;
+		}
+		wp_send_json_success( array( 'days' => $days ) );
+	}
+
 	/* ------------------------------------------------------------------ book */
 
 	public static function h_book() {
@@ -426,8 +457,8 @@ class SDSC_DFBook {
 							</div>
 							<div class="sdfb-grid">
 								<label class="sdfb-wide">Kind of lesson<select name="type" id="sdfb-type"><?php foreach ( self::types() as $k => $t ) : ?><option value="<?php echo esc_attr( $k ); ?>"><?php echo esc_html( $t[0] ); ?></option><?php endforeach; ?></select></label>
-								<label>Date<input type="date" name="date" id="sdfb-date" required min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>"></label>
-								<label>Start<select name="time" id="sdfb-time" required><option value="">—</option><?php foreach ( $times as $v => $l ) : ?><option value="<?php echo esc_attr( $v ); ?>"><?php echo esc_html( $l ); ?></option><?php endforeach; ?></select></label>
+								<label class="sdfb-one">Date<input type="date" name="date" id="sdfb-date" required min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>"></label>
+								<label class="sdfb-one">Start<select name="time" id="sdfb-time" required><option value="">—</option><?php foreach ( $times as $v => $l ) : ?><option value="<?php echo esc_attr( $v ); ?>"><?php echo esc_html( $l ); ?></option><?php endforeach; ?></select></label>
 								<label>Length<select name="minutes" id="sdfb-min"><option value="60">1 hour</option><option value="90">1½ hours</option><option value="120" selected>2 hours</option><option value="180">3 hours</option></select></label>
 								<label>Lesson number<input type="number" name="no" id="sdfb-no" min="1" max="99" value="1"></label>
 								<label class="sdfb-wide">Focus <small>(optional)</small><input name="topic" id="sdfb-topic" list="sdfb-topics" maxlength="150" placeholder="e.g. lane changes and merging"><datalist id="sdfb-topics"><option value="Basic control, mirrors, turns"><option value="Residential streets and intersections"><option value="Lane changes and merging"><option value="Highway driving"><option value="Parallel parking and backing"><option value="MVA test route practice"><option value="Night driving"></datalist></label>
@@ -449,8 +480,11 @@ class SDSC_DFBook {
 						<div id="sdfb-check" class="sdfb-check" aria-live="polite"></div>
 
 						<fieldset class="sdfb-sec sdfb-offer" id="sdfb-offer" hidden><legend>4 · Times to offer</legend>
-							<p class="sdfb-mini">Set a day, start, length, instructor and car above, then add it here. Repeat for every time you want to offer.</p>
-							<p><button type="button" class="df-btn df-btn-secondary" id="sdfb-add" disabled>+ Add this time</button></p>
+							<p class="sdfb-mini">Tap the times to offer — as many days and times as you like. Grey times are not possible (the reason shows when you point at them); they follow the instructor, car, kind of lesson and length chosen above.</p>
+							<div class="sdfb-wk"><button type="button" class="df-btn df-btn-secondary" id="sdfb-wprev" aria-label="Previous week">‹</button><b id="sdfb-wlab"></b><button type="button" class="df-btn df-btn-secondary" id="sdfb-wnext" aria-label="Next week">›</button><span id="sdfb-wst" class="sdfb-mini"></span></div>
+							<div id="sdfb-grid" class="sdfb-tgrid" role="grid" aria-label="Times to offer"></div>
+							<button type="button" class="df-btn df-btn-secondary" id="sdfb-add" hidden disabled>+ Add this time</button>
+							<p class="sdfb-mini"><b>Chosen times</b> <span id="sdfb-cnt"></span></p>
 							<ol id="sdfb-list" class="sdfb-list"></ol>
 							<input type="hidden" name="slots" id="sdfb-slots" value="[]">
 							<div class="sdfb-grid">
