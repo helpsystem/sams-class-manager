@@ -87,6 +87,7 @@ class SDSC_Workspace {
 			'blocklist'      => array( 'Blocked sign-ups', 'setup', 'admin.php?page=sdsc-blocklist', $can( 'blocklist' ), '🛡️', 'Spam e-mails and domains that may not register.' ),
 			'api'            => array( 'API connections', 'setup', 'admin.php?page=sdsc-api', $can( 'api' ), '🔑', 'Stripe, Zoom and Twilio keys.' ),
 			'email'          => array( 'E-mail', 'setup', 'admin.php?page=sdsc-email', $adm, '✉️', 'Mailboxes, delivery checks and the send log.' ),
+			'myemail'        => array( 'My e-mails', 'setup', 'admin.php?page=sdsc-my-email', class_exists( 'SDSC_MailPrefs' ) && SDSC_MailPrefs::can(), '📬', 'Choose which website e-mails reach you; notifications keep coming.' ),
 			'team'           => array( 'Team access', 'setup', 'admin.php?page=sdsc-team', $adm, '👥', 'Who can open which screen.' ),
 			'settings'       => array( 'Settings', 'setup', 'admin.php?page=sdsc-settings', $adm, '⚙️', 'General Class Manager settings.' ),
 			'updates'        => array( 'What’s new', 'help', 'admin.php?page=sdsc-updates', $can( 'updates' ), '✨', 'Explanations of every change.' ),
