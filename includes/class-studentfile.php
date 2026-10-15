@@ -329,7 +329,7 @@ table.f tr, .agree, .sigs, .office, .unit, .final { break-inside: avoid; page-br
 .unit, .final { border: 0.75pt solid #cfd6dc; border-radius: 5px; overflow: hidden; }
 .unit header, .final header { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 7px; background: #f3f6f7; border-bottom: 0.75pt solid #cfd6dc; font-size: 8.5pt; font-weight: 700; }
 .unit header small, .final header small { font-weight: 400; color: #5b646d; }
-.qs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 10px; padding: 4px 7px 5px; font-size: 8.6pt; }
+.qs { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-flow: column; grid-template-rows: repeat(5, auto); gap: 0 10px; padding: 4px 7px 5px; font-size: 8.6pt; }
 .final .qs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: column; grid-template-rows: repeat(10, auto); }
 .q { display: flex; gap: 4px; align-items: baseline; white-space: nowrap; line-height: 1.5; }
 .q .n { width: 18px; text-align: right; color: #5b646d; }
@@ -397,7 +397,8 @@ table.t tr { break-inside: avoid; }
 		}
 		if ( trim( (string) $r['notes'] ) ) { $h .= '<h2>Notes</h2><table class="f"><tr><td>' . nl2br( esc_html( $r['notes'] ) ) . '</td></tr></table>'; }
 		$h .= '<h2>Agreement</h2><p class="agree"><span class="box">' . ( $r['consent'] ? '✓' : '' ) . '</span>I confirm that I have read and fully understood the forms, policies, and terms and conditions, and I agree to all the stipulated terms.</p>';
-		if ( $minor ) { $h .= '<p class="agree"><span class="box">' . ( $r['parent_consent'] ? '✓' : '' ) . '</span>I am the student’s parent or legal guardian. I have read the policies, terms and conditions and I agree to them for my child.</p>'; }
+		if ( $minor && ( $r['parent_consent'] || 'forminator' !== $r['source'] ) ) { $h .= '<p class="agree"><span class="box">' . ( $r['parent_consent'] ? '✓' : '' ) . '</span>I am the student’s parent or legal guardian. I have read the policies, terms and conditions and I agree to them for my child.</p>'; }
+		elseif ( $minor ) { $h .= '<p class="agree">The earlier website form had no separate parent check box; ' . ( $r['parent_sig'] ? 'the parent / guardian signed the form below.' : 'no parent / guardian signature was given.' ) . '</p>'; }
 		$h .= '<div class="sigs"><div class="sig"><div class="pad">' . $img( $r['student_sig'] ) . '</div><small><span>Student signature</span><span>Date: ' . esc_html( $r['student_sig'] ? $sd : '__________' ) . '</span></small></div>';
 		if ( $minor ) { $h .= '<div class="sig"><div class="pad">' . $img( $r['parent_sig'] ) . '</div><small><span>Parent / guardian signature</span><span>Date: ' . esc_html( $r['parent_sig'] ? $sd : '__________' ) . '</span></small></div>'; }
 		$h .= '</div><div class="office"><div>Received by (office)</div><div>Date</div><div>Permit / ID checked</div></div>';
