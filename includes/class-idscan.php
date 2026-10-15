@@ -46,8 +46,8 @@ class SDSC_IDScan {
 			'apply' => self::can_apply() ? 1 : 0,
 			'zxing' => SDSC_URL . 'assets/vendor/zxing.min.js?ver=0.21.3',
 			'tess'  => SDSC_URL . 'assets/vendor/tesseract/',
-			'scanWin' => SDSC_URL . 'assets/scan/SDS-Scan-Windows.zip',
-			'scanMac' => SDSC_URL . 'assets/scan/SDS-Scan-Mac.zip',
+			'scanWin' => SDSC_URL . 'assets/scan/SDS-Scan-Windows.zip?v=1.1.0',
+			'scanMac' => SDSC_URL . 'assets/scan/SDS-Scan-Mac.zip?v=1.1.0',
 		) );
 	}
 
