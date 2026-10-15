@@ -128,10 +128,41 @@
 			if (e.target.closest && e.target.closest('input,select,textarea,.scal-dlg,#df-add-session-modal')) { return; }
 			if (e.key === 'ArrowLeft') { go(-1); } else if (e.key === 'ArrowRight') { go(1); } else if (e.key === 't' || e.key === 'T') { go(0); } else if (e.key === 'Escape') { closePanel(); }
 		});
+		swipe(root.querySelector('#scal-body'));
 		load();
 		setInterval(function () { if (!document.hidden && !S.drag && document.getElementById('scal-dlg').hidden && !(document.getElementById('df-add-session-modal') || { classList: { contains: function () { return false; } } }).classList.contains('is-open')) { load(false, true); } }, 60000);
 		setInterval(nowLine, 30000);
 		// After the Schedule Lesson form books (it reloads the page) we are back here with a notice — nothing to do.
+	}
+
+	/* Phones and tablets: swipe left for the next day (week, month…), right for the previous one. */
+	function swipe(body) {
+		var sx = 0, sy = 0, st = 0, on = false;
+		function scroller(el, dx) { // a box that can still scroll sideways in that direction keeps the gesture
+			for (; el && el !== body; el = el.parentNode) {
+				if (el.scrollWidth > el.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(el).overflowX)) {
+					if (dx < 0 && el.scrollLeft + el.clientWidth < el.scrollWidth - 2) { return true; }
+					if (dx > 0 && el.scrollLeft > 2) { return true; }
+				}
+			}
+			return false;
+		}
+		body.addEventListener('touchstart', function (e) {
+			on = e.touches.length === 1 && !(e.target.closest && e.target.closest('.scal-ev.is-movable,.scal-menu,.scal-sel,input,select,textarea'));
+			if (!on) { return; }
+			sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+		}, { passive: true });
+		body.addEventListener('touchend', function (e) {
+			if (!on || S.drag) { return; }
+			on = false;
+			var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+			if (Date.now() - st > 700 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) { return; }
+			if (scroller(e.target, dx)) { return; }
+			body.classList.remove('is-swl', 'is-swr'); void body.offsetWidth;
+			body.classList.add(dx < 0 ? 'is-swl' : 'is-swr');
+			go(dx < 0 ? 1 : -1);
+		}, { passive: true });
+		body.addEventListener('animationend', function () { body.classList.remove('is-swl', 'is-swr'); });
 	}
 
 	function go(n) {

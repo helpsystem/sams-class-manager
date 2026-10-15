@@ -217,3 +217,11 @@
 .scal-sc-blk { display: block; padding: 6px; font-size: 11.5px; font-weight: 700; color: #8a1c14; }
 .scal-sh-rest { margin: 0; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--mut); }
 @media print { .scal-sc-add { visibility: hidden; } .scal-sheet tbody tr { height: 62px; } }
+
+/* swipe between days on phones */
+.scal-body.is-swl > * { animation: scal-in-l .22s ease-out; }
+.scal-body.is-swr > * { animation: scal-in-r .22s ease-out; }
+@keyframes scal-in-l { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes scal-in-r { from { transform: translateX(-28px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .scal-body.is-swl > *, .scal-body.is-swr > * { animation: none; } }
+@media (hover: none) and (pointer: coarse) { .scal-title::after { content: "  ‹ swipe ›"; font-size: 11px; font-weight: 600; color: var(--mut); } }
