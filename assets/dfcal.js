@@ -54,7 +54,7 @@
 		return fetch(C.ajax, { method: 'POST', credentials: 'same-origin', body: fd }).then(function (r) { return r.json().catch(function () { return { success: false, data: { msg: 'The server did not answer (' + r.status + ').' } }; }); });
 	}
 
-	var OPEN = C.open * 60, CLOSE = C.close * 60, STEP = 30, ROW = 26; // px per 30 minutes
+	var OPEN = C.open * 60, CLOSE = C.close * 60, DAY = (C.day || C.open) * 60, STEP = 30, ROW = 26; // px per 30 minutes
 	var STATUS = { upcoming: 'Booked', active: 'In the car now', completed: 'Completed', cancelled: 'Cancelled' };
 	var OUT = { no_show: 'No-show', no_permit: 'No permit', late_cancel: 'Late cancel', cancelled: 'Cancelled', done: 'Completed' };
 	var insColor = {}; C.ins.forEach(function (i) { insColor[i.name.toLowerCase()] = i.color; });
@@ -224,7 +224,7 @@
 		nowLine();
 		// Start the day view near the first lesson or the current time.
 		var sc = body.querySelector('.scal-scroll');
-		if (sc && !S.scrolled) { S.scrolled = true; var first = ev.filter(function (e) { return dkey(e.a) === cols[0].key || S.view === 'week'; }).map(function (e) { return mins(e.a); }).sort(function (a, b) { return a - b; })[0]; var target = first != null ? first : mins(now()); sc.scrollTop = Math.max(0, (target - OPEN - 60) / STEP * ROW); }
+		if (sc && !S.scrolled) { S.scrolled = true; var first = ev.filter(function (e) { return dkey(e.a) === cols[0].key || S.view === 'week'; }).map(function (e) { return mins(e.a); }).sort(function (a, b) { return a - b; })[0]; var target = first != null && first < DAY ? first : DAY; sc.scrollTop = Math.max(0, (target - OPEN - 30) / STEP * ROW); }
 	}
 
 	function stats(ev) {
@@ -260,6 +260,7 @@
 		cols.forEach(function (c, ci) {
 			html += '<div class="scal-col' + (c.today ? ' is-today' : '') + '" data-col="' + ci + '" data-day="' + c.key + '">';
 			var d0 = parse(c.key + ' 00:00');
+			if (DAY > OPEN) { html += '<div class="scal-early" style="height:' + ((DAY - OPEN) / STEP * ROW) + 'px"' + (ci === 0 ? '><span>Early — ' + (C.early ? 'manager only' : 'the manager books these') + '</span>' : '>') + '</div>'; }
 			// Blocked time.
 			S.blocked.filter(blkVisible).forEach(function (b) {
 				if (c.ins !== undefined && b.type === 'vehicle') { return; }
@@ -442,9 +443,9 @@
 	}
 
 	function slotMenu(box, a, b, c) {
-		var past = a < now() - 5 * 60000;
+		var past = a < now() - 5 * 60000, early = mins(a) < DAY;
 		var m = document.createElement('div'); m.className = 'scal-menu';
-		m.innerHTML = '<p>' + esc(dlong(a) + ', ' + hm(a) + ' – ' + hm(b)) + '</p>' + (past ? '<p class="scal-mnote">This time has passed.</p>' : '<button type="button" data-a="book">＋ Book a lesson here</button>') + '<button type="button" data-a="block">⛔ Block this time</button><button type="button" data-a="x" class="scal-ghostbtn">Close</button>';
+		m.innerHTML = '<p>' + esc(dlong(a) + ', ' + hm(a) + ' – ' + hm(b)) + '</p>' + (past ? '<p class="scal-mnote">This time has passed.</p>' : (early && !C.early ? '<p class="scal-mnote">Before ' + (DAY / 60) + ' AM — only the school manager books early lessons.</p>' : (early ? '<p class="scal-mnote">Early start — instructors normally start at ' + (DAY / 60) + ' AM.</p>' : '') + '<button type="button" data-a="book">＋ Book a lesson here</button>')) + '<button type="button" data-a="block">⛔ Block this time</button><button type="button" data-a="x" class="scal-ghostbtn">Close</button>';
 		box.appendChild(m);
 		function close() { if (box.parentNode) { box.parentNode.removeChild(box); } document.removeEventListener('pointerdown', outside, true); }
 		function outside(e) { if (!box.contains(e.target)) { close(); } }

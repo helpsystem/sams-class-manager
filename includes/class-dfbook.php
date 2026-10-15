@@ -19,6 +19,7 @@ class SDSC_DFBook {
 
 	const OPENS  = 7;   // earliest start hour
 	const CLOSES = 21;  // a lesson must end by this hour
+	const DAY    = 9;   // instructors start at 9 AM; earlier (from 7) only when the school manager books it
 
 	public static function init() {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
@@ -26,6 +27,11 @@ class SDSC_DFBook {
 		add_action( 'wp_ajax_sdsc_dfb_check', array( __CLASS__, 'ajax_check' ) );
 		add_action( 'admin_post_sdsc_dfb_book', array( __CLASS__, 'h_book' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
+	}
+
+	/** Early lessons (before 9 AM) are booked by the administrator or the school manager only. */
+	public static function early_ok() {
+		return current_user_can( 'manage_options' ) || ( class_exists( 'SDSC_Board' ) && SDSC_Board::can() );
 	}
 
 	public static function can() {
@@ -158,6 +164,10 @@ class SDSC_DFBook {
 		$h1 = (int) wp_date( 'G', $a ) + (int) wp_date( 'i', $a ) / 60;
 		$h2 = $h1 + $min / 60;
 		if ( $h1 < self::OPENS || $h2 > self::CLOSES ) { $err[] = 'Lessons run between ' . self::OPENS . ':00 AM and ' . ( self::CLOSES - 12 ) . ':00 PM.'; }
+		elseif ( $h1 < self::DAY ) {
+			if ( ! empty( $d['early_ok'] ) || self::early_ok() ) { $warn[] = 'Starts before ' . self::DAY . ':00 AM — instructors normally start at ' . self::DAY . '. Make sure the instructor agreed to the early start.'; }
+			else { $err[] = 'Lessons start at ' . self::DAY . ':00 AM. Only the school manager can book earlier (from ' . self::OPENS . ':00 AM).'; }
+		}
 
 		$ins = $d['ins'] ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}driveflow_instructors WHERE id = %d", $d['ins'] ), ARRAY_A ) : null; // phpcs:ignore
 		if ( ! $ins && '' !== $d['ins_new'] ) {

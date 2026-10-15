@@ -73,6 +73,8 @@ class SDSC_DFCal {
 			'tzShort' => wp_date( 'T' ),
 			'open'    => SDSC_DFBook::OPENS,
 			'close'   => SDSC_DFBook::CLOSES,
+			'day'     => SDSC_DFBook::DAY,
+			'early'   => SDSC_DFBook::early_ok(),
 			'hours'   => (int) $s['hours'],
 			'ins'     => self::instructors(),
 			'cars'    => self::cars(),

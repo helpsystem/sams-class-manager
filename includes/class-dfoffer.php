@@ -239,7 +239,7 @@ class SDSC_DFOffer {
 		$out = array();
 		foreach ( $o['slots'] as $i => $s ) {
 			if ( SDSC_Lessons::ts( $s['start'] ) < time() + HOUR_IN_SECONDS ) { continue; }
-			list( $err ) = SDSC_DFBook::check( self::d( $o['student'], $s ) );
+			list( $err ) = SDSC_DFBook::check( array_merge( self::d( $o['student'], $s ), array( 'early_ok' => 1 ) ) ); // the office already approved these times
 			if ( ! $err ) { $out[ $i ] = $s; }
 		}
 		return $out;
@@ -260,6 +260,7 @@ class SDSC_DFOffer {
 			$d = self::d( $o['student'], $o['slots'][ $i ] );
 			$d['no']    = $no++;
 			$d['offer'] = (int) $o['id'];
+			$d['early_ok'] = 1; // the office already approved these times
 			list( $err ) = SDSC_DFBook::check( $d );
 			if ( $err ) { $miss[] = SDSC_Lessons::when( $d['start'], $o['student']['lang'] ) . ( false !== strpos( implode( ' ', $err ), '2 hours a day' ) ? ( $es ? ' (máximo 2 horas por día)' : ' (2 hours a day at most)' ) : '' ); continue; }
 			$r = SDSC_DFBook::book( $d );

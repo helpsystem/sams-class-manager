@@ -168,3 +168,5 @@
 	.scal-body { border: 0; }
 	@page { size: letter landscape; margin: 0.4in; }
 }
+.scal-early { position: absolute; left: 0; right: 0; top: 0; z-index: 0; background: repeating-linear-gradient(135deg, rgba(91,100,109,.07) 0 6px, transparent 6px 12px); border-bottom: 1px dashed #b8c0c7; pointer-events: none; }
+.scal-early span { position: absolute; left: 6px; bottom: 3px; font-size: 10.5px; font-weight: 700; color: var(--mut); white-space: nowrap; }
