@@ -43,7 +43,9 @@
 .srp-parts legend { display: flex; align-items: center; gap: 8px; }
 .srp-part { display: flex !important; align-items: flex-start; gap: 8px; padding: 10px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px #e3e7ea; cursor: pointer; }
 .srp-part:has(input:checked) { box-shadow: 0 0 0 2px #00703c; background: #f3faf6; }
-.srp-part input { margin-top: 3px; }
+.srp-part input { margin-top: 3px; width: auto !important; min-width: 0 !important; flex: 0 0 auto; }
+.srp-part > span:last-child { flex: 1 1 auto; min-width: 0; }
+.srp-part-ic { flex: 0 0 auto; }
 .srp-part-ic { font-size: 18px; line-height: 1; }
 .srp-part b { display: block; font-size: 13.5px; } .srp-part small { display: block; color: #5b646d; font-size: 12px; font-weight: 400; }
 .srp-link-btn { border: 0; background: none; color: #00703c; font-weight: 700; cursor: pointer; padding: 0 4px; text-decoration: underline; }
