@@ -29,7 +29,7 @@ class SDSC_Onboard {
 	}
 
 	public static function can() {
-		return current_user_can( 'manage_options' ) || current_user_can( 'driveflow_manage' );
+		return current_user_can( 'manage_options' ) || current_user_can( 'driveflow_manage' ) || ( class_exists( 'SDSC_Board' ) && SDSC_Board::can() );
 	}
 
 	protected static function agreement_required() {

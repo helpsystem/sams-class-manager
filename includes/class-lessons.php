@@ -15,8 +15,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  *  - Every fee is a record: due → paid (online or at the office) or waived. A waiver needs a reason,
  *    nothing is charged, and the record stays visible to the staff and to the student.
  *
- * Nothing is ever charged automatically: a fee becomes a WooCommerce order the student pays through
- * the "Pay" link (or a payment link set in Settings, or at the office).
+ * Nothing is ever charged automatically, and nothing reaches the student by itself: a new fee waits as
+ * "To decide" and the manager (and administrator) get a message and see it on their dashboard. Only if
+ * the manager decides to charge it does she send the payment link (e-mail, and a text from the school
+ * phone); otherwise she waives it or records a payment at the office.
  */
 class SDSC_Lessons {
 	const DBV  = '2';
@@ -36,7 +38,7 @@ class SDSC_Lessons {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 32 );
 		add_action( 'admin_menu', array( __CLASS__, 'badge' ), 1001 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
-		foreach ( array( 'book', 'edit', 'cancel', 'outcome', 'waive', 'paid', 'resend', 'set' ) as $a ) {
+		foreach ( array( 'book', 'edit', 'cancel', 'outcome', 'waive', 'paid', 'resend', 'set', 'sendpay' ) as $a ) {
 			add_action( 'admin_post_sdsc_ls_' . $a, array( __CLASS__, 'h_' . $a ) );
 		}
 		add_action( self::HOOK, array( __CLASS__, 'tick' ) );
@@ -202,13 +204,44 @@ class SDSC_Lessons {
 			'email'      => $l['email'],
 			'amount'     => (float) self::settings()['fee'],
 			'reason'     => $reason,
-			'status'     => 'due',
+			'status'     => 'review',   // waits for the manager's decision; the student is not told
 			'created_by' => get_current_user_id(),
 			'created_at' => self::now(),
 		) );
 		$f = self::fee( $wpdb->insert_id );
-		self::add_log( $l['id'], sprintf( 'Fee of $%s added: %s', self::money( $f['amount'] ), self::reason_text( $reason ) ) );
+		self::add_log( $l['id'], sprintf( 'Fee of $%s noted for the manager to decide: %s', self::money( $f['amount'] ), self::reason_text( $reason ) ) );
+		self::notify_review( $f, $l );
 		return $f;
+	}
+
+	/** A new fee: tell the administrator and the school manager (bilingual e-mail); it also shows on their dashboard. */
+	public static function notify_review( $f, $l ) {
+		if ( ! class_exists( 'SDSC_Mailer' ) || ! SDSC_Mailer::ready() ) { return; }
+		$to   = class_exists( 'SDSC_Refunds' ) ? SDSC_Refunds::approvers() : array( get_option( 'admin_email' ) );
+		$name = trim( $l['first_name'] . ' ' . $l['last_name'] );
+		$when = self::when( $l['starts_at'], 'en' );
+		SDSC_Mailer::admin_report( array(
+			'to'         => implode( ',', $to ),
+			'subject_en' => 'Lesson fee to decide: ' . $name . ' — $' . self::money( $f['amount'] ),
+			'subject_fa' => 'جریمه جلسه رانندگی برای تصمیم: ' . $name,
+			'title_en'   => 'A lesson fee is waiting for your decision',
+			'title_fa'   => 'یک جریمه جلسه رانندگی منتظر تصمیم شماست',
+			'lead_en'    => 'Nothing was charged and the student has not been told. Open the lesson to send the payment link (e-mail and text), waive the fee, or record a payment at the office.',
+			'lead_fa'    => 'هیچ مبلغی گرفته نشده و به شاگرد هم چیزی گفته نشده. لینک پرداخت را (ایمیل و پیامک) بفرستید، یا جریمه را ببخشید، یا پرداخت حضوری را ثبت کنید.',
+			'rows'       => array(
+				array( 'en' => 'Student', 'fa' => 'شاگرد', 'v' => $name, 'ltr' => true ),
+				array( 'en' => 'Lesson', 'fa' => 'جلسه', 'v' => $when . ( $l['instructor'] ? ' · ' . $l['instructor'] : '' ), 'ltr' => true ),
+				array( 'en' => 'Reason', 'fa' => 'دلیل', 'v' => self::reason_text( $f['reason'] ), 'ltr' => true ),
+				array( 'en' => 'Amount', 'fa' => 'مبلغ', 'v' => '$' . self::money( $f['amount'] ), 'ltr' => true ),
+			),
+			'buttons'    => array( array( 'en' => 'Decide', 'fa' => 'تصمیم', 'url' => self::url( 'schedule', array( 'id' => $l['id'] ) ) ) ),
+		) );
+	}
+
+	/** Fees waiting for the manager's decision. */
+	public static function review_fees() {
+		global $wpdb;
+		return (array) $wpdb->get_results( 'SELECT f.*, l.first_name, l.last_name, l.starts_at, l.instructor FROM ' . self::t_fees() . ' f LEFT JOIN ' . self::t_lessons() . " l ON l.id = f.lesson_id WHERE f.status = 'review' ORDER BY f.id DESC LIMIT 50", ARRAY_A ); // phpcs:ignore
 	}
 
 	public static function money( $n ) {
@@ -416,6 +449,15 @@ class SDSC_Lessons {
 					. '<p style="margin:0 0 16px">' . ( $es ? 'Para reservar una nueva fecha, llame o envíe un texto al ' . $ph . '.' : 'To book a new date, call or text ' . $ph . '.' ) . '</p>';
 				return array( $subj, self::wrap( $es ? 'Clase cancelada' : 'Lesson cancelled', $body, '📅' ) );
 
+			case 'cancelled_late':
+				// Late cancellation: confirm the cancellation only; whether a fee is charged is the office's decision.
+				$subj = $es ? 'Su clase de manejo fue cancelada' : 'Your driving lesson has been cancelled';
+				$body = $hi . '<p style="margin:0 0 16px">' . ( $es
+						? 'Cancelamos su clase del <b>' . esc_html( self::when( $l['starts_at'], $lang ) ) . '</b>.'
+						: 'Your lesson on <b>' . esc_html( self::when( $l['starts_at'], $lang ) ) . '</b> has been cancelled.' ) . '</p>'
+					. '<p style="margin:0 0 16px">' . ( $es ? 'Para reservar una nueva fecha, llame o envíe un texto al ' . $ph . '.' : 'To book a new date, call or text ' . $ph . '.' ) . '</p>';
+				return array( $subj, self::wrap( $es ? 'Clase cancelada' : 'Lesson cancelled', $body, '📅' ) );
+
 			case 'fee':
 				$url  = $f ? self::pay_url( $f ) : '';
 				$why  = self::reason_text( $f['reason'], $lang );
@@ -564,7 +606,7 @@ class SDSC_Lessons {
 	public static function badge() {
 		global $submenu;
 		if ( ! self::can() ) { return; }
-		$n = count( self::needs_outcome() );
+		$n = count( self::needs_outcome() ) + self::count_fees( 'review' );
 		if ( ! $n ) { return; }
 		foreach ( (array) ( $submenu['sdsc-dashboard'] ?? array() ) as $i => $it ) {
 			if ( self::PAGE === $it[2] ) { $submenu['sdsc-dashboard'][ $i ][0] .= ' <span class="update-plugins count-' . $n . '"><span class="plugin-count">' . $n . '</span></span>'; } // phpcs:ignore
@@ -607,6 +649,7 @@ class SDSC_Lessons {
 		$m = '$' . self::money( $f['amount'] );
 		if ( 'paid' === $f['status'] ) { return '<span class="sdo-chip sdo-chip--ok">' . esc_html( 'Fee ' . $m . ' · paid' ) . '</span>'; }
 		if ( 'waived' === $f['status'] ) { return '<span class="sdo-chip sdl-waived">' . esc_html( 'Fee ' . $m . ' · waived' ) . '</span>'; }
+		if ( 'review' === $f['status'] ) { return '<span class="sdo-chip sdl-due">' . esc_html( 'Fee ' . $m . ' · to decide' ) . '</span>'; }
 		return '<span class="sdo-chip sdl-due">' . esc_html( 'Fee ' . $m . ' · due' ) . '</span>';
 	}
 
@@ -636,7 +679,8 @@ class SDSC_Lessons {
 				<?php foreach ( $tabs as $k => $label ) : $on = $k === $tab || ( 'lesson' === $tab && 'schedule' === $k ); ?>
 					<a class="sdo-tab<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo esc_url( self::url( $k ) ); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?><?php
 					if ( 'schedule' === $k && ( $n = count( self::needs_outcome() ) ) ) { echo ' <span class="sdo-count" title="Lessons waiting for an outcome">' . (int) $n . '</span>'; }
-					if ( 'fees' === $k && $due ) { echo ' <span class="sdo-count" title="Fees not paid yet">' . (int) $due . '</span>'; }
+					if ( 'fees' === $k && ( $rv = self::count_fees( 'review' ) ) ) { echo ' <span class="sdo-count" title="Fees waiting for your decision">' . (int) $rv . '</span>'; }
+					elseif ( 'fees' === $k && $due ) { echo ' <span class="sdo-count" title="Fees not paid yet">' . (int) $due . '</span>'; }
 					?></a>
 				<?php endforeach; ?>
 				<?php if ( $df ) : ?><a class="sdo-tab" href="<?php echo esc_url( SDSC_DriveFlow::calendar_url() ); ?>">Book or move a lesson &rarr; DriveFlow calendar</a><?php endif; ?>
@@ -646,7 +690,7 @@ class SDSC_Lessons {
 		<?php
 	}
 
-	protected static function count_fees( $st ) {
+	public static function count_fees( $st ) {
 		global $wpdb;
 		return (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::t_fees() . ' WHERE status = %s', $st ) ); // phpcs:ignore
 	}
@@ -842,16 +886,24 @@ class SDSC_Lessons {
 			<?php elseif ( 'paid' === $f['status'] ) : ?>
 				<p><b>Paid</b> on <?php echo esc_html( wp_date( 'M j, Y', self::ts( $f['paid_at'] ) ) ); ?> — <?php echo esc_html( $f['paid_how'] ); ?>.</p>
 			<?php else : ?>
+				<?php if ( 'review' === $f['status'] ) : ?>
+				<div class="sdo-hold"><b>Waiting for your decision.</b> Nothing has been charged and the student has not been told about this fee. Send the payment link only if the school decides to charge it.</div>
+				<div class="sdo-actions">
+					<?php echo self::form_open( 'sendpay', 'sdl-inline' ) . '<input type="hidden" name="fid" value="' . (int) $f['id'] . '"><button class="sdo-btn sdo-btn--go">Charge it: e-mail the payment link</button></form>'; // phpcs:ignore ?>
+				</div>
+				<p class="sdo-muted">After the e-mail, a &ldquo;Text about the fee&rdquo; button appears here so you can also text the link from the school phone.</p>
+				<?php else : ?>
 				<div class="sdo-actions">
 					<?php echo self::sms_link( $l['phone'], self::sms( 'fee', $l, $f ), 'Text about the fee' ); // phpcs:ignore ?>
 					<?php echo self::form_open( 'resend', 'sdl-inline' ) . '<input type="hidden" name="id" value="' . (int) $l['id'] . '"><input type="hidden" name="what" value="fee"><button class="sdo-btn sdo-btn--ghost">' . ( $f['mailed_at'] ? 'E-mail the fee again' : 'E-mail the fee' ) . '</button></form>'; // phpcs:ignore ?>
 				</div>
+				<?php endif; ?>
 				<details class="sdl-det" open>
 					<summary>Waive this fee</summary>
 					<?php echo self::form_open( 'waive', 'sdl-form' ); // phpcs:ignore ?>
 						<input type="hidden" name="fid" value="<?php echo (int) $f['id']; ?>">
 						<label class="sdo-f"><span>Reason (kept on the record)</span><input type="text" name="why" required maxlength="200" placeholder="e.g. family emergency, first time"></label>
-						<label class="sdo-check"><input type="checkbox" name="mail" value="1" checked> Tell the student by e-mail that nothing is owed</label>
+						<label class="sdo-check"><input type="checkbox" name="mail" value="1"<?php checked( 'due' === $f['status'] ); ?>> Tell the student by e-mail that nothing is owed<?php echo 'review' === $f['status'] ? ' <span class="sdo-muted">(they were never told about it)</span>' : ''; ?></label>
 						<p><button class="sdo-btn sdo-btn--go">Waive the fee</button></p>
 					</form>
 				</details>
@@ -971,16 +1023,16 @@ class SDSC_Lessons {
 
 	protected static function tab_fees() {
 		global $wpdb;
-		$st   = isset( $_GET['st'] ) && in_array( $_GET['st'], array( 'due', 'paid', 'waived', 'all' ), true ) ? sanitize_key( $_GET['st'] ) : 'due'; // phpcs:ignore
+		$st   = isset( $_GET['st'] ) && in_array( $_GET['st'], array( 'review', 'due', 'paid', 'waived', 'all' ), true ) ? sanitize_key( $_GET['st'] ) : ( self::count_fees( 'review' ) ? 'review' : 'due' ); // phpcs:ignore
 		$sql  = 'SELECT f.*, l.first_name, l.last_name, l.starts_at, l.phone FROM ' . self::t_fees() . ' f LEFT JOIN ' . self::t_lessons() . ' l ON l.id = f.lesson_id';
 		$rows = (array) $wpdb->get_results( 'all' === $st ? $sql . ' ORDER BY f.id DESC LIMIT 300' : $wpdb->prepare( $sql . ' WHERE f.status = %s ORDER BY f.id DESC LIMIT 300', $st ), ARRAY_A ); // phpcs:ignore
 		$sum  = array();
-		foreach ( array( 'due', 'paid', 'waived' ) as $k ) {
+		foreach ( array( 'review', 'due', 'paid', 'waived' ) as $k ) {
 			$sum[ $k ] = $wpdb->get_row( $wpdb->prepare( 'SELECT COUNT(*) n, COALESCE(SUM(amount),0) s FROM ' . self::t_fees() . ' WHERE status = %s', $k ), ARRAY_A ); // phpcs:ignore
 		}
 		?>
 		<div class="sdl-sum">
-			<?php foreach ( array( 'due' => 'Not paid yet', 'paid' => 'Paid', 'waived' => 'Waived' ) as $k => $t ) : ?>
+			<?php foreach ( array( 'review' => 'To decide', 'due' => 'Link sent, not paid', 'paid' => 'Paid', 'waived' => 'Waived' ) as $k => $t ) : ?>
 				<a class="sdl-sum-i sdl-sum-i--<?php echo esc_attr( $k ); ?><?php echo $k === $st ? ' is-on' : ''; ?>" href="<?php echo esc_url( self::url( 'fees', array( 'st' => $k ) ) ); ?>"><b>$<?php echo esc_html( self::money( $sum[ $k ]['s'] ) ); ?></b><span><?php echo esc_html( $t . ' · ' . (int) $sum[ $k ]['n'] ); ?></span></a>
 			<?php endforeach; ?>
 			<a class="sdl-sum-i<?php echo 'all' === $st ? ' is-on' : ''; ?>" href="<?php echo esc_url( self::url( 'fees', array( 'st' => 'all' ) ) ); ?>"><b>All</b><span>every fee</span></a>
@@ -1049,6 +1101,7 @@ class SDSC_Lessons {
 					: ( $es ? 'Faltan menos de ' . (int) $s['hours'] . ' horas: cancelar ahora tiene un cargo de $' . esc_html( self::money( $s['fee'] ) ) . '.' : 'Less than ' . (int) $s['hours'] . ' hours to go: cancelling now carries the $' . esc_html( self::money( $s['fee'] ) ) . ' fee.' ) ) . '</p>';
 			}
 			foreach ( self::fees_for_lesson( $l['id'] ) as $f ) {
+				if ( 'review' === $f['status'] && 'student' === $who ) { continue; } // not decided yet: the student does not see it
 				$m  = '$' . self::money( $f['amount'] );
 				$h .= '<div class="sdl-fee-s sdl-fee-s--' . esc_attr( $f['status'] ) . '"><div><b>' . esc_html( self::reason_title( $f['reason'], $lang ) . ' · ' . $m ) . '</b><br><span class="sdl-m">' . esc_html( self::reason_text( $f['reason'], $lang ) ) . '</span></div><div>';
 				if ( 'waived' === $f['status'] ) {
@@ -1227,9 +1280,8 @@ class SDSC_Lessons {
 			self::add_log( $nid, 'Booked as the new time for the lesson of ' . self::when( $l['starts_at'], 'en' ) );
 			if ( ! empty( $_POST['mail'] ) ) {
 				if ( self::mail( 'confirm', self::lesson( $nid ) ) ) { $wpdb->update( self::t_lessons(), array( 'conf_at' => self::now() ), array( 'id' => $nid ) ); }
-				self::send_fee( $f );
 			}
-			self::back( 'schedule', array( 'id' => $id, 'msg' => 'Moved with less than ' . (int) self::settings()['hours'] . ' hours’ notice: the original time is recorded as a late cancellation with the fee (you can waive it below), and the new time is booked.' ) );
+			self::back( 'schedule', array( 'id' => $id, 'msg' => 'Moved with less than ' . (int) self::settings()['hours'] . ' hours’ notice: the original time is recorded as a late cancellation, the fee waits for the manager’s decision (nothing was sent to the student), and the new time is booked.' ) );
 		}
 		$wpdb->update( self::t_lessons(), array_merge( $d, array( 'remind_at' => $moved ? null : $l['remind_at'] ) ), array( 'id' => $id ) );
 		self::add_log( $id, $moved ? 'Moved from ' . self::when( $l['starts_at'], 'en' ) . ' to ' . self::when( $d['starts_at'], 'en' ) : 'Details changed' );
@@ -1265,9 +1317,9 @@ class SDSC_Lessons {
 		if ( ! empty( $l['df_id'] ) && class_exists( 'SDSC_DriveFlow' ) ) { SDSC_DriveFlow::cancel_session( $l['df_id'] ); }
 		$l = self::lesson( $id );
 		if ( $late ) {
-			$f = self::make_fee( $l, 'late_cancel' );
-			if ( ! empty( $_POST['mail'] ) ) { self::send_fee( $f ); }
-			self::back( 'schedule', array( 'id' => $id, 'msg' => 'Cancelled late: the fee was added. You can waive it below.' ) );
+			self::make_fee( $l, 'late_cancel' );
+			if ( ! empty( $_POST['mail'] ) ) { self::mail( 'cancelled_late', $l ); }
+			self::back( 'schedule', array( 'id' => $id, 'msg' => 'Cancelled late. The fee waits for the manager’s decision below — nothing was charged or sent to the student.' ) );
 		}
 		if ( ! empty( $_POST['mail'] ) ) { self::mail( 'cancelled', $l ); }
 		self::back( 'schedule', array( 'id' => $id, 'msg' => 'Cancelled in time — no fee.' ) );
@@ -1284,9 +1336,8 @@ class SDSC_Lessons {
 		$wpdb->update( self::t_lessons(), array( 'status' => $o ), array( 'id' => $id ) );
 		self::add_log( $id, 'Marked: ' . self::statuses()[ $o ][0] );
 		if ( 'done' === $o ) { self::back( 'schedule', array( 'msg' => self::name( $l ) . ': lesson completed.' ) ); }
-		$f = self::make_fee( self::lesson( $id ), $o );
-		$sent = self::send_fee( $f );
-		self::back( 'schedule', array( 'id' => $id, 'msg' => 'Fee added' . ( $sent ? ' and e-mailed to the student' : '' ) . '. You can waive it below.' ) );
+		self::make_fee( self::lesson( $id ), $o );
+		self::back( 'schedule', array( 'id' => $id, 'msg' => 'Recorded. The fee waits for the manager’s decision below — nothing was charged or sent to the student.' ) );
 	}
 
 	public static function h_waive() {
@@ -1294,7 +1345,7 @@ class SDSC_Lessons {
 		self::guard();
 		$f   = self::fee( (int) ( $_POST['fid'] ?? 0 ) );
 		$why = sanitize_text_field( wp_unslash( $_POST['why'] ?? '' ) );
-		if ( ! $f || 'due' !== $f['status'] ) { self::back( 'fees', array( 'err' => 'This fee is not open.' ) ); }
+		if ( ! $f || ! in_array( $f['status'], array( 'due', 'review' ), true ) ) { self::back( 'fees', array( 'err' => 'This fee is not open.' ) ); }
 		if ( '' === $why ) { self::back( 'schedule', array( 'id' => $f['lesson_id'], 'err' => 'Please write a reason for the waiver.' ) ); }
 		$wpdb->update( self::t_fees(), array( 'status' => 'waived', 'waived_at' => self::now(), 'waived_by' => get_current_user_id(), 'waive_note' => $why ), array( 'id' => $f['id'] ) );
 		self::cancel_order( $f, 'Fee waived by the school: ' . $why );
@@ -1309,11 +1360,23 @@ class SDSC_Lessons {
 		self::guard();
 		$f   = self::fee( (int) ( $_POST['fid'] ?? 0 ) );
 		$how = sanitize_text_field( wp_unslash( $_POST['how'] ?? 'Office' ) );
-		if ( ! $f || 'due' !== $f['status'] ) { self::back( 'fees', array( 'err' => 'This fee is not open.' ) ); }
+		if ( ! $f || ! in_array( $f['status'], array( 'due', 'review' ), true ) ) { self::back( 'fees', array( 'err' => 'This fee is not open.' ) ); }
 		$wpdb->update( self::t_fees(), array( 'status' => 'paid', 'paid_at' => self::now(), 'paid_how' => $how . ' (recorded by ' . wp_get_current_user()->display_name . ')' ), array( 'id' => $f['id'] ) );
 		self::cancel_order( $f, 'Paid at the office instead.' );
 		self::add_log( $f['lesson_id'], 'Fee marked paid: ' . $how );
 		self::back( 'schedule', array( 'id' => $f['lesson_id'], 'msg' => 'Fee marked as paid.' ) );
+	}
+
+	/** The manager decided to charge: the fee becomes due and the student is e-mailed the payment link. */
+	public static function h_sendpay() {
+		global $wpdb;
+		self::guard();
+		$f = self::fee( (int) ( $_POST['fid'] ?? 0 ) );
+		if ( ! $f || 'review' !== $f['status'] ) { self::back( 'fees', array( 'err' => 'This fee is not waiting for a decision.' ) ); }
+		$wpdb->update( self::t_fees(), array( 'status' => 'due' ), array( 'id' => $f['id'] ) );
+		self::add_log( $f['lesson_id'], 'Manager decided to charge the fee; payment link sent by ' . wp_get_current_user()->display_name );
+		$sent = self::send_fee( self::fee( $f['id'] ) );
+		self::back( 'schedule', array( 'id' => $f['lesson_id'], 'msg' => $sent ? 'Payment link e-mailed. Use “Text about the fee” to text it from the school phone too.' : 'The fee is now due, but the e-mail could not be sent — text the student or e-mail again.' ) );
 	}
 
 	public static function h_resend() {

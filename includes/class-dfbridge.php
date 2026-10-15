@@ -169,7 +169,16 @@ class SDSC_DriveFlow {
 	protected static function fields( $s ) {
 		$a = SDSC_Lessons::ts( $s['scheduled_start'] );
 		$b = SDSC_Lessons::ts( $s['scheduled_end'] );
-		return array_merge( self::student( $s ), array(
+		// Details from the "Schedule a lesson" form (meeting place, permit, language, note for the team).
+		$fd = json_decode( (string) ( $s['form_data'] ?? '' ), true );
+		$x  = array();
+		if ( is_array( $fd ) && 'sdsc_book' === ( $fd['source'] ?? '' ) ) {
+			foreach ( array( 'place', 'permit', 'lang', 'note', 'practice' ) as $k ) { if ( isset( $fd[ $k ] ) && '' !== $fd[ $k ] ) { $x[ $k ] = (string) $fd[ $k ]; } }
+			if ( ! empty( $fd['email'] ) && is_email( $fd['email'] ) ) { $x['email'] = strtolower( $fd['email'] ); }
+			if ( ! empty( $fd['phone'] ) ) { $x['phone'] = (string) $fd['phone']; }
+			if ( ! empty( $fd['first'] ) ) { $x['first_name'] = (string) $fd['first']; $x['last_name'] = (string) ( $fd['last'] ?? '' ); }
+		}
+		return array_merge( self::student( $s ), $x, array(
 			'lesson_no'  => min( 250, max( 0, (int) $s['session_number'] ) ),
 			'starts_at'  => $s['scheduled_start'],
 			'minutes'    => max( 30, min( 480, (int) round( ( $b - $a ) / 60 ) ) ),
@@ -177,7 +186,7 @@ class SDSC_DriveFlow {
 		) );
 	}
 
-	protected static function apply( $s, $mail ) {
+	public static function apply( $s, $mail ) {
 		global $wpdb;
 		$T      = SDSC_Lessons::t_lessons();
 		$l      = self::by_df( $s['id'] );
@@ -192,8 +201,8 @@ class SDSC_DriveFlow {
 				'df_id'      => (int) $s['id'],
 				'ckey'       => SDSC_Outreach::key( $d['email'] ?: $d['phone'], $d['first_name'] ),
 				'user_id'    => $u ? $u->ID : 0,
-				'lang'       => class_exists( 'SDSC_Schedule' ) && $d['email'] ? SDSC_Schedule::lang( $d['email'] ) : 'en',
-				'place'      => SDSC_Lessons::settings()['place'],
+				'lang'       => ! empty( $d['lang'] ) ? $d['lang'] : ( class_exists( 'SDSC_Schedule' ) && $d['email'] ? SDSC_Schedule::lang( $d['email'] ) : 'en' ),
+				'place'      => ! empty( $d['place'] ) ? $d['place'] : SDSC_Lessons::settings()['place'],
 				'status'     => 'completed' === $st ? 'done' : 'booked',
 				'created_by' => (int) $s['created_by'],
 				'created_at' => current_time( 'mysql' ),
@@ -214,7 +223,7 @@ class SDSC_DriveFlow {
 			$notice = (string) $s['updated_at'];
 			$late   = SDSC_Lessons::ts( $notice ) > SDSC_Lessons::ts( SDSC_Lessons::deadline( $l ) );
 			$wpdb->update( $T, array( 'status' => $late ? 'late_cancel' : 'cancelled', 'notice_at' => $notice ), array( 'id' => $l['id'] ) );
-			SDSC_Lessons::add_log( $l['id'], 'Cancelled in DriveFlow ' . SDSC_Lessons::when( $notice, 'en' ) . ( $late ? ' — less than ' . (int) SDSC_Lessons::settings()['hours'] . ' hours before: fee added (waive it if the school cancelled)' : ' — in time, no fee' ) );
+			SDSC_Lessons::add_log( $l['id'], 'Cancelled in DriveFlow ' . SDSC_Lessons::when( $notice, 'en' ) . ( $late ? ' — less than ' . (int) SDSC_Lessons::settings()['hours'] . ' hours before: fee noted for the manager to decide' : ' — in time, no fee' ) );
 			if ( $late ) {
 				SDSC_Lessons::make_fee( SDSC_Lessons::lesson( $l['id'] ), 'late_cancel' );
 			} elseif ( $mail && $future ) {

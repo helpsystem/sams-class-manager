@@ -215,6 +215,8 @@ class SDSC_Overview {
 		$h .= self::tile( count( $missing ), 'Attendance sheets to submit', $missing ? 'is-warn' : 'is-ok', class_exists( 'SDSC_ZoomRoll' ) ? SDSC_ZoomRoll::url() : '' );
 		$h .= self::tile( $new7, 'New registrations (7 days)', '', self::admin( 'sdsc-registrations' ) );
 		if ( $money ) { $h .= self::tile( self::money( $paid30 / 100 ), 'Paid online (30 days)' . ( 'test' === $mode ? ' · test' : '' ), 'is-ok', self::admin( 'sdsc-refunds' ) ); }
+		$rv = ( class_exists( 'SDSC_Lessons' ) && self::exists( SDSC_Lessons::t_fees() ) ) ? SDSC_Lessons::count_fees( 'review' ) : 0;
+		if ( $rv ) { $h .= self::tile( $rv, 'Lesson fees to decide', 'is-warn', add_query_arg( array( 'page' => 'sdsc-lessons', 'tab' => 'fees', 'st' => 'review' ), admin_url( 'admin.php' ) ) ); }
 		$h .= self::tile( (int) $fees['n'], 'Fees due' . ( $fees['n'] ? ' · ' . self::money( $fees['s'] ) : '' ), $fees['n'] ? 'is-warn' : '', self::admin( 'sdsc-lessons' ) );
 		$h .= '</div>';
 		if ( class_exists( 'SDSC_Onboard' ) && in_array( $k, array( 'admin', 'manager' ), true ) ) { $h .= SDSC_Onboard::card(); }

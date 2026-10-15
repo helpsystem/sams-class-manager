@@ -241,7 +241,7 @@ class SDSC_Reports {
 			if ( ! class_exists( 'SDSC_Lessons' ) ) { return new WP_Error( 'x', 'Fees are not available.' ); }
 			$sql  = 'SELECT f.*, l.first_name, l.last_name, l.starts_at FROM ' . SDSC_Lessons::t_fees() . ' f LEFT JOIN ' . SDSC_Lessons::t_lessons() . ' l ON l.id = f.lesson_id WHERE f.created_at BETWEEN %s AND %s' . self::not_demo( 'f.email' );
 			$args = array( $from, $to );
-			if ( in_array( $a['status'], array( 'due', 'paid', 'waived' ), true ) ) { $sql .= ' AND f.status = %s'; $args[] = $a['status']; }
+			if ( in_array( $a['status'], array( 'review', 'due', 'paid', 'waived' ), true ) ) { $sql .= ' AND f.status = %s'; $args[] = $a['status']; }
 			$res  = (array) $wpdb->get_results( $wpdb->prepare( $sql . ' ORDER BY f.created_at', $args ), ARRAY_A ); // phpcs:ignore
 			$rows = array();
 			$tot  = array( 'due' => 0, 'paid' => 0, 'waived' => 0 );
@@ -303,7 +303,7 @@ class SDSC_Reports {
 					$h .= '</select></label>';
 				}
 				if ( in_array( $a['r'], array( 'lessons', 'fees' ), true ) ) {
-					$opts = 'fees' === $a['r'] ? array( 'due' => 'Due', 'paid' => 'Paid', 'waived' => 'Waived' ) : array( 'booked' => 'Booked', 'done' => 'Done', 'cancelled' => 'Cancelled', 'late_cancel' => 'Late cancel', 'no_show' => 'No-show' );
+					$opts = 'fees' === $a['r'] ? array( 'review' => 'To decide', 'due' => 'Due', 'paid' => 'Paid', 'waived' => 'Waived' ) : array( 'booked' => 'Booked', 'done' => 'Done', 'cancelled' => 'Cancelled', 'late_cancel' => 'Late cancel', 'no_show' => 'No-show' );
 					$h   .= '<label>Status <select name="status"><option value="">All</option>';
 					foreach ( $opts as $k => $l ) { $h .= '<option value="' . esc_attr( $k ) . '"' . selected( $a['status'], $k, false ) . '>' . esc_html( $l ) . '</option>'; }
 					$h .= '</select></label>';
