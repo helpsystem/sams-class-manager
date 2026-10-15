@@ -15,7 +15,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const PORT = 52700;
 const ALLOWED = [/^https:\/\/(www\.)?samsdrivingschool\.org$/, /^https:\/\/testsaman\.samsdrivingschool\.org$/];
 if (process.env.SDS_SCAN_DEV_ORIGIN) { ALLOWED.push(new RegExp('^' + process.env.SDS_SCAN_DEV_ORIGIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')); }
@@ -44,6 +44,7 @@ function req(url, opt = {}) {
       hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: opt.method || 'GET',
       headers: Object.assign({ 'User-Agent': 'SDS-Scan/' + VERSION }, opt.body ? { 'Content-Type': 'text/xml', 'Content-Length': Buffer.byteLength(opt.body) } : {}, opt.headers || {}),
       timeout: opt.timeout || 8000,
+      agent: u.protocol === 'https:' ? AG.https : AG.http,
       rejectUnauthorized: false, // printers use their own self-made certificate; this client only ever talks to the scanner
     }, res => {
       const chunks = [];
@@ -56,6 +57,7 @@ function req(url, opt = {}) {
     r.end();
   });
 }
+const AG = { http: new http.Agent({ keepAlive: true, maxSockets: 4 }), https: new https.Agent({ keepAlive: true, maxSockets: 4, rejectUnauthorized: false }) };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function tag(xml, name) { const m = new RegExp('<(?:\\w+:)?' + name + '>([^<]*)</(?:\\w+:)?' + name + '>').exec(xml); return m ? m[1].trim() : ''; }
 
@@ -66,7 +68,10 @@ async function probe(base) {
     if (r.status !== 200) { return null; }
     const x = r.body.toString('utf8');
     if (!/ScannerCapabilities/.test(x)) { return null; }
-    return { base, model: tag(x, 'MakeAndModel') || 'eSCL scanner', platen: /Platen/.test(x) };
+    // Size of the glass (in 1/300 inch) from the platen section.
+    const pl = (/<scan:Platen>([\s\S]*?)<\/scan:Platen>/.exec(x) || [])[1] || x;
+    const mw = +tag(pl, 'MaxWidth') || 2550, mh = +tag(pl, 'MaxHeight') || 3508;
+    return { base, model: tag(x, 'MakeAndModel') || 'eSCL scanner', platen: /Platen/.test(x), maxW: mw, maxH: mh };
   } catch (e) { return null; }
 }
 async function probeHost(ip, port, rs) {
@@ -124,7 +129,14 @@ async function sweep() {
   return hit;
 }
 let finding = null;
+let known = null, knownAt = 0;
 async function scanner(force) {
+  if (!force && known && Date.now() - knownAt < 120000) { return known; }
+  const s0 = await scanner0(force);
+  if (s0) { known = s0; knownAt = Date.now(); }
+  return s0;
+}
+async function scanner0(force) {
   const cfg = readCfg();
   if (!force && cfg.base) {
     const s = await probe(cfg.base);
@@ -152,27 +164,32 @@ async function scanner(force) {
 
 /* ---------------------------------------------------------------- scanning */
 let busy = false;
+let cleanup = null;
 async function scan(o) {
+  if (cleanup) { await cleanup; cleanup = null; }
   const s = await scanner(false);
   if (!s) { throw Object.assign(new Error('The office scanner was not found on the network. Check that the Brother is on and on the same Wi-Fi, or enter its IP address.'), { code: 404 }); }
-  const dpi = [150, 200, 300, 600].includes(+o.dpi) ? +o.dpi : 300;
+  const dpi = [75, 100, 150, 200, 300, 600].includes(+o.dpi) ? +o.dpi : 300;
   // Region in 1/300 inch, from the top-left corner of the glass. Default: the whole Letter glass.
-  const W = Math.round((+o.w || 8.5) * 300), H = Math.round((+o.h || 11) * 300);
+  // Region in 1/300 inch from the scanner's own corner; "full" = the whole glass.
+  const MW = s.maxW || 2550, MH = s.maxH || 3508;
+  const X = Math.max(0, Math.min(MW - 30, Math.round((+o.x || 0) * 300))), Y = Math.max(0, Math.min(MH - 30, Math.round((+o.y || 0) * 300)));
+  const W = Math.min(MW - X, o.w ? Math.round(+o.w * 300) : MW), H = Math.min(MH - Y, o.h ? Math.round(+o.h * 300) : MH);
   const color = o.gray ? 'Grayscale8' : 'RGB24';
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<scan:ScanSettings xmlns:scan="http://schemas.hp.com/imaging/escl/2011/05/03" xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm">' +
     '<pwg:Version>2.0</pwg:Version>' +
-    '<pwg:ScanRegions><pwg:ScanRegion><pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits><pwg:XOffset>0</pwg:XOffset><pwg:YOffset>0</pwg:YOffset><pwg:Width>' + W + '</pwg:Width><pwg:Height>' + H + '</pwg:Height></pwg:ScanRegion></pwg:ScanRegions>' +
+    '<pwg:ScanRegions><pwg:ScanRegion><pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits><pwg:XOffset>' + X + '</pwg:XOffset><pwg:YOffset>' + Y + '</pwg:YOffset><pwg:Width>' + W + '</pwg:Width><pwg:Height>' + H + '</pwg:Height></pwg:ScanRegion></pwg:ScanRegions>' +
     '<pwg:InputSource>Platen</pwg:InputSource>' +
     '<scan:ColorMode>' + color + '</scan:ColorMode>' +
     '<scan:XResolution>' + dpi + '</scan:XResolution><scan:YResolution>' + dpi + '</scan:YResolution>' +
     '<pwg:DocumentFormat>image/jpeg</pwg:DocumentFormat><scan:DocumentFormatExt>image/jpeg</scan:DocumentFormatExt>' +
     '</scan:ScanSettings>';
   let job = null;
-  for (let i = 0; i < 6 && !job; i++) {
+  for (let i = 0; i < 12 && !job; i++) {
     const r = await req(s.base + '/ScanJobs', { method: 'POST', body: xml, timeout: 15000 });
     if (r.status === 201 && r.headers.location) { job = r.headers.location; break; }
-    if (r.status === 503) { await sleep(1500); continue; } // busy (warming up / another job)
+    if (r.status === 503) { await sleep(800); continue; } // busy (warming up / another job)
     throw Object.assign(new Error('The scanner refused the scan (' + r.status + '). Is the cover closed and the glass free?'), { code: 502 });
   }
   if (!job) { throw Object.assign(new Error('The scanner is busy. Try again in a moment.'), { code: 503 }); }
@@ -180,8 +197,11 @@ async function scan(o) {
   log('scan job', jobUrl, dpi + 'dpi', W + 'x' + H);
   for (let i = 0; i < 60; i++) {
     const r = await req(jobUrl.replace(/\/$/, '') + '/NextDocument', { timeout: 90000 });
-    if (r.status === 200 && r.body.length > 1000) { return { img: r.body, type: r.headers['content-type'] || 'image/jpeg', model: s.model }; }
-    if (r.status === 503 || r.status === 404 && i < 3) { await sleep(1000); continue; }
+    if (r.status === 200 && r.body.length > 1000) {
+      // Close the job the way the scanner expects (ask for the next page → 404), so the next scan starts at once.
+      cleanup = req(jobUrl.replace(/\/$/, '') + '/NextDocument', { timeout: 15000 }).catch(() => null).then(() => null);
+      return { img: r.body, type: r.headers['content-type'] || 'image/jpeg', model: s.model, glass: MW + 'x' + MH }; }
+    if (r.status === 503 || (r.status === 404 && i < 3)) { await sleep(400); continue; }
     throw Object.assign(new Error('The scanner did not return the picture (' + r.status + ').'), { code: 502 });
   }
   throw Object.assign(new Error('The scan took too long.'), { code: 504 });
@@ -196,7 +216,7 @@ function cors(req0, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Scanner');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Scanner, X-Glass');
     return true;
   }
   return false;
@@ -211,7 +231,7 @@ const server = http.createServer(async (rq, res) => {
   try {
     if (u.pathname === '/status') {
       const s = await scanner(u.searchParams.get('find') === '1');
-      json(res, 200, { ok: true, version: VERSION, scanner: s ? { model: s.model, base: s.base.replace(/\/eSCL.*$/i, '') } : null });
+      json(res, 200, { ok: true, version: VERSION, scanner: s ? { model: s.model, base: s.base.replace(/\/eSCL.*$/i, ''), glass: [s.maxW || 2550, s.maxH || 3508] } : null });
       return;
     }
     if (u.pathname === '/config' && rq.method === 'POST') {
@@ -227,8 +247,8 @@ const server = http.createServer(async (rq, res) => {
       if (busy) { json(res, 409, { ok: false, msg: 'A scan is already running.' }); return; }
       busy = true;
       try {
-        const r = await scan({ dpi: u.searchParams.get('dpi'), w: u.searchParams.get('w'), h: u.searchParams.get('h'), gray: u.searchParams.get('gray') === '1' });
-        res.writeHead(200, { 'Content-Type': r.type, 'Content-Length': r.img.length, 'X-Scanner': r.model, 'Cache-Control': 'no-store' });
+        const r = await scan({ dpi: u.searchParams.get('dpi'), x: u.searchParams.get('x'), y: u.searchParams.get('y'), w: u.searchParams.get('w'), h: u.searchParams.get('h'), gray: u.searchParams.get('gray') === '1' });
+        res.writeHead(200, { 'Content-Type': r.type, 'Content-Length': r.img.length, 'X-Scanner': r.model, 'X-Glass': r.glass, 'Cache-Control': 'no-store' });
         res.end(r.img);
       } finally { busy = false; }
       return;
@@ -236,6 +256,7 @@ const server = http.createServer(async (rq, res) => {
     json(res, 404, { ok: false, msg: 'Unknown request.' });
   } catch (e) {
     log('error', e.message);
+    known = null;
     json(res, e.code && e.code >= 400 && e.code < 600 ? e.code : 500, { ok: false, msg: e.message });
   }
 });

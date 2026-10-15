@@ -200,6 +200,62 @@
 		return [c];
 	}
 	function fix(c) { try { return enhance(autoCrop(canvasFrom(c, 2600))); } catch (e) { return c; } }
+
+	/* ------------------------------------------------------------ finding the card on a scanner page */
+	/** The card(s) on a scanner page: connected blobs that differ from the white lid. Returns boxes in source pixels. */
+	function blobs(c, max) {
+		var k = Math.min(1, (max || 320) / Math.max(c.width, c.height)), w = Math.max(8, Math.round(c.width * k)), h = Math.max(8, Math.round(c.height * k));
+		var t = document.createElement('canvas'); t.width = w; t.height = h; var x = t.getContext('2d'); x.filter = 'blur(1px)'; x.drawImage(c, 0, 0, w, h); x.filter = 'none';
+		var d = x.getImageData(0, 0, w, h).data, g = new Uint8Array(w * h), i, hist = new Uint32Array(256);
+		for (i = 0; i < w * h; i++) { var r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], l = (r * 0.299 + gg * 0.587 + b * 0.114) | 0, sat = Math.max(r, gg, b) - Math.min(r, gg, b); g[i] = l; hist[l]++; d[i * 4 + 3] = sat; }
+		var acc = 0, bg = 255; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > w * h * 0.35) { bg = i; break; } } // the lid is the most common bright tone
+		var m = new Uint8Array(w * h), edge = Math.max(1, Math.round(Math.min(w, h) * 0.012));
+		for (var yy = edge; yy < h - edge; yy++) { for (var xx = edge; xx < w - edge; xx++) { i = yy * w + xx; var gr = Math.abs(g[i + 1] - g[i - 1]) + Math.abs(g[i + w] - g[i - w]); if (Math.abs(bg - g[i]) > 8 || d[i * 4 + 3] > 18 || gr > 9) { m[i] = 1; } } }
+		// close small gaps (white parts of the card) with a 2-pixel dilation
+		var m2 = new Uint8Array(w * h);
+		for (yy = 3; yy < h - 3; yy++) { for (xx = 3; xx < w - 3; xx++) { if (m[yy * w + xx]) { for (var dy = -3; dy <= 3; dy++) { for (var dx = -3; dx <= 3; dx++) { m2[(yy + dy) * w + xx + dx] = 1; } } } } }
+		var seen = new Int32Array(w * h), out = [], id = 0, st = [];
+		for (i = 0; i < w * h; i++) {
+			if (!m2[i] || seen[i]) { continue; }
+			id++; var x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0; st.push(i); seen[i] = id;
+			while (st.length) { var j = st.pop(), jx = j % w, jy = (j / w) | 0; n++; if (jx < x0) { x0 = jx; } if (jx > x1) { x1 = jx; } if (jy < y0) { y0 = jy; } if (jy > y1) { y1 = jy; }
+				[j - 1, j + 1, j - w, j + w].forEach(function (q) { if (q >= 0 && q < w * h && m2[q] && !seen[q] && Math.abs((q % w) - jx) <= 1) { seen[q] = id; st.push(q); } }); }
+			if (n > w * h * 0.004) { out.push({ x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k, n: n / (k * k) }); }
+		}
+		return out.sort(function (a, b) { return b.w * b.h - a.w * a.h; }); // a card outline encloses its printing
+	}
+	/** The ID card among the blobs (about 3.4 × 2.1 in, any rotation); dpi = pixels per inch of the page. */
+	function cardOn(c, dpi) {
+		var list = blobs(c), best = null;
+		list.forEach(function (b) { var lo = Math.min(b.w, b.h) / dpi, hi = Math.max(b.w, b.h) / dpi; if (lo > 1.3 && lo < 4.2 && hi > 2.4 && hi < 6.5 && (!best || b.w * b.h > best.w * best.h)) { best = b; } });
+		return best || list[0] || null;
+	}
+	/** Straighten a card that lies crooked on the glass and cut it out tightly. */
+	function deskewCrop(c) {
+		var k = Math.min(1, 700 / Math.max(c.width, c.height)), w = Math.round(c.width * k), h = Math.round(c.height * k);
+		var t = document.createElement('canvas'); t.width = w; t.height = h; var tx = t.getContext('2d'); tx.filter = 'blur(1px)'; tx.drawImage(c, 0, 0, w, h); tx.filter = 'none';
+		var b = blobs(t, 700)[0]; if (!b) { return c; }
+		var d = t.getContext('2d').getImageData(0, 0, w, h).data, hist = new Uint32Array(256), i, pts = [];
+		for (i = 0; i < w * h; i++) { hist[(d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0]++; }
+		var acc = 0, bg = 255; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > w * h * 0.35) { bg = i; break; } }
+		var L = function (q) { return d[q * 4] * 0.299 + d[q * 4 + 1] * 0.587 + d[q * 4 + 2] * 0.114; };
+		for (var y = Math.max(1, Math.floor(b.y)); y < Math.min(h - 1, b.y + b.h); y += 1) { for (var x = Math.max(1, Math.floor(b.x)); x < Math.min(w - 1, b.x + b.w); x += 1) { i = (y * w + x) * 4; var q = y * w + x, l = L(q), sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]), gr = Math.abs(L(q + 1) - L(q - 1)) + Math.abs(L(q + w) - L(q - w)); if (Math.abs(bg - l) > 8 || sat > 18 || gr > 9) { pts.push(x, y); } } }
+		if (pts.length < 200) { return c; }
+		var best = 0, area = Infinity, box = null;
+		for (var a = -12; a <= 12; a += 0.5) {
+			var r = a * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), mx = 1e9, my = 1e9, Mx = -1e9, My = -1e9;
+			for (i = 0; i < pts.length; i += 2) { var px = pts[i] * cs - pts[i + 1] * sn, py = pts[i] * sn + pts[i + 1] * cs; if (px < mx) { mx = px; } if (px > Mx) { Mx = px; } if (py < my) { my = py; } if (py > My) { My = py; } }
+			var ar = (Mx - mx) * (My - my); if (ar < area - 0.5) { area = ar; best = a; box = [mx, my, Mx, My]; }
+		}
+		// Rotate the full picture by the same angle (around the origin, then shift) and cut the box out.
+		var R = best * Math.PI / 180, s1 = 1 / k, pad = 0.012 * Math.max(box[2] - box[0], box[3] - box[1]);
+		var bx = (box[0] - pad) * s1, by = (box[1] - pad) * s1, bw = (box[2] - box[0] + 2 * pad) * s1, bh = (box[3] - box[1] + 2 * pad) * s1;
+		var o = document.createElement('canvas'); o.width = Math.round(bw); o.height = Math.round(bh);
+		var ox = o.getContext('2d'); ox.fillStyle = '#fff'; ox.fillRect(0, 0, o.width, o.height);
+		ox.translate(-bx, -by); ox.rotate(R); ox.drawImage(c, 0, 0);
+		return o.height > o.width * 1.15 ? rotate(o, 90) : o;
+	}
+	function fixScan(c) { try { return enhance(deskewCrop(c)); } catch (e) { return fix(c); } }
 	function blobOf(c) { return new Promise(function (ok) { c.toBlob(function (b) { ok(b); }, 'image/jpeg', 0.9); }); }
 	function beep() { try { var A = window.AudioContext || window.webkitAudioContext, a = new A(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1200; g.gain.value = 0.08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.09); setTimeout(function () { a.close(); }, 300); } catch (e) {} if (navigator.vibrate) { navigator.vibrate(60); } }
 	var DOCN = { permit: 'Learner’s permit', license: 'Driver’s license', id: 'ID card' };
@@ -221,7 +277,7 @@
 		function last() { el.querySelector('.ids-last').textContent = S.check && S.check.summary ? 'Last check: ' + S.check.summary : ''; }
 		post('reg', { email: email }).then(function (d) { S.reg = d.reg; S.check = d.check; last(); if (S.fields) { show(); } }).catch(function () {});
 
-		function reset() { S.front = S.back = S.code = S.fields = null; S.saved = false; S.src = ''; out.innerHTML = ''; steps(); }
+		function reset() { S.front = S.back = S.code = S.fields = null; S.saved = false; S.imgsSaved = false; S.spot = null; S.src = ''; out.innerHTML = ''; steps(); }
 
 		el.querySelector('.ids-bar').addEventListener('click', function (e) {
 			var b = e.target.closest('[data-ids]'); if (!b) { return; }
@@ -244,9 +300,9 @@
 			});
 		}
 		/** Put a picture where it belongs: with a barcode it is the back, otherwise the front. */
-		function place(c) {
+		function place(c, scanned) {
 			return zx().then(function (Z) {
-				var f = fix(c), t = quickCode(Z, f);
+				var f = scanned ? fixScan(c) : fix(c), t = quickCode(Z, f);
 				if (t) { S.back = f; S.code = t; } else if (!S.front) { S.front = f; } else if (!S.back) { S.back = f; }
 				steps();
 			});
@@ -255,7 +311,7 @@
 		function files(list) {
 			if (!list.length) { return; }
 			status('Opening the scan…');
-			list.slice(0, 2).reduce(function (p, f) { return p.then(function () { return open(f); }).then(function (c) { var parts = list.length === 1 ? splitTwo(c) : [c]; return parts.reduce(function (q, x) { return q.then(function () { return place(x); }); }, Promise.resolve()); }); }, Promise.resolve())
+			list.slice(0, 2).reduce(function (p, f) { return p.then(function () { return open(f); }).then(function (c) { var parts = list.length === 1 ? splitTwo(c) : [c]; return parts.reduce(function (q, x) { return q.then(function () { return place(x, true); }); }, Promise.resolve()); }); }, Promise.resolve())
 				.then(function () {
 					if (!S.front && !S.back) { status('No card was found on this scan.', true); return; }
 					finish();
@@ -294,7 +350,7 @@
 				return ocr(o, status).then(function (d) { S.fields = parseFront(d.text); S.src = 'ocr'; });
 			}).then(function () {
 				steps(); show();
-				if (!Object.keys(S.fields || {}).length) { status('The card could not be read. Try again with more light and the card flat, or type the values below.', true); return; }
+				if (!Object.keys(S.fields || {}).length) { saveImgs().then(function () { status('Pictures saved to documents. The text could not be read — type the values below and press Save, or scan again.', true); }); return; }
 				return save(true);
 			}).catch(function (e) { status(e.message, true); });
 		}
@@ -349,15 +405,21 @@
 		}
 
 		/** Save: both pictures into the student's documents (once) and the check. */
+		/** Both pictures into the student's documents — once per scan. */
+		function saveImgs() {
+			if (S.imgsSaved || !opts.upload) { return Promise.resolve(); }
+			S.imgsSaved = true;
+			var name = DOCN[docv()] || 'ID', ups = [];
+			[['front', S.front, 'id_front'], ['back', S.back, 'id_back']].forEach(function (p) {
+				if (!p[1]) { return; }
+				ups.push(blobOf(p[1]).then(function (bl) { return opts.upload(new File([bl], name.replace(/\W+/g, '-').toLowerCase() + '-' + p[0] + '.jpg', { type: 'image/jpeg' }), p[2], name + ' — ' + p[0] + (p[0] === 'back' && S.src === 'barcode' ? ' (barcode read)' : '') + ' · scanned'); }));
+			});
+			return Promise.all(ups);
+		}
 		function save(first) {
-			var f = values(), doc = docv(), name = DOCN[doc] || 'ID', ups = [];
+			var f = values(), doc = docv();
 			status(first ? 'Saving the pictures and the check…' : 'Saving…');
-			if (first && opts.upload) {
-				[['front', S.front, 'id_front'], ['back', S.back, 'id_back']].forEach(function (p) {
-					if (!p[1]) { return; }
-					ups.push(blobOf(p[1]).then(function (bl) { return opts.upload(new File([bl], name.replace(/\W+/g, '-').toLowerCase() + '-' + p[0] + '.jpg', { type: 'image/jpeg' }), p[2], name + ' — ' + p[0] + (p[0] === 'back' && S.src === 'barcode' ? ' (barcode read)' : '') + ' · scanned'); }));
-				});
-			}
+			var ups = [saveImgs()];
 			return Promise.all(ups).then(function () { return post('save', { email: email, fields: JSON.stringify(f), doc: doc, src: S.src, diff: JSON.stringify(marks()) }); })
 				.then(function (d) {
 					S.saved = true; steps();
@@ -384,10 +446,13 @@
 			var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, o.timeout || 2500) : null;
 			return fetch(BR + path, { method: o.method || 'GET', signal: ctl ? ctl.signal : undefined, targetAddressSpace: 'loopback' }).then(function (r) { if (t) { clearTimeout(t); } return r; });
 		}
+		var NEED = [1, 1, 0];
+		function older(v) { var a = String(v || '0').split('.').map(Number); for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== NEED[i]) { return (a[i] || 0) < NEED[i]; } } return false; }
 		function office() {
 			out.innerHTML = '';
 			status('Connecting to the office scanner…');
 			bridge('/status', { timeout: 20000 }).then(function (r) { return r.json(); }).then(function (d) {
+				if (older(d.version)) { setup('update'); return; }
 				if (!d.scanner) { setup('found'); return; }
 				scanSide('front', d.scanner.model);
 			}).catch(function () { setup('app'); });
@@ -395,36 +460,68 @@
 		function setup(why) {
 			var mac = /Mac/.test(navigator.platform || navigator.userAgent), dl = mac ? C.scanMac : C.scanWin;
 			status('');
-			out.innerHTML = why === 'app'
-				? '<div class="ids-next ids-setup"><p>🖨 One-time setup on this computer</p><ol><li><a class="sdd-b" href="' + esc(dl) + '" download>⬇ Download SDS Scan for ' + (mac ? 'Mac' : 'Windows') + '</a> <a href="' + esc(mac ? C.scanWin : C.scanMac) + '" download>(' + (mac ? 'Windows' : 'Mac') + ' version)</a></li><li>Open the downloaded file and run <b>Install SDS Scan</b>' + (mac ? ' (right-click → Open the first time)' : ' (if Windows warns: More info → Run anyway; firewall: Allow)') + '.</li><li>If the browser asks to let this site use devices on your local network, choose <b>Allow</b>.</li></ol><button type="button" class="sdd-b" data-again>↻ Check again</button></div>'
+			out.innerHTML = why === 'app' || why === 'update'
+				? '<div class="ids-next ids-setup"><p>🖨 ' + (why === 'update' ? 'A faster version of SDS Scan is ready — please install it once more' : 'One-time setup on this computer') + '</p><ol><li><a class="sdd-b" href="' + esc(dl) + '" download>⬇ Download SDS Scan for ' + (mac ? 'Mac' : 'Windows') + '</a> <a href="' + esc(mac ? C.scanWin : C.scanMac) + '" download>(' + (mac ? 'Windows' : 'Mac') + ' version)</a></li><li>Open the downloaded file and run <b>Install SDS Scan</b>' + (mac ? ' (right-click → Open the first time)' : ' (if Windows warns: More info → Run anyway; firewall: Allow)') + '.' + (why === 'update' ? ' It replaces the old one.' : '') + '</li><li>If the browser asks to let this site use devices on your local network, choose <b>Allow</b>.</li></ol><button type="button" class="sdd-b" data-again>↻ Check again</button></div>'
 				: '<div class="ids-next ids-setup"><p>SDS Scan is running, but the Brother scanner was not found on the network.</p><p class="ids-m2">Check that the Brother is on and on the office Wi-Fi. Or type its IP address (on the Brother: Menu → Network → WLAN → TCP/IP → IP Address):</p><input class="ids-ip" placeholder="192.168.1.40" inputmode="decimal"> <button type="button" class="sdd-b" data-ip>Use this address</button> <button type="button" class="sdd-b sdd-b--ghost" data-again>↻ Search again</button></div>';
 			out.querySelector('[data-again]').addEventListener('click', function () { if (why === 'found') { status('Searching the network…'); bridge('/status?find=1', { timeout: 60000 }).then(function (r) { return r.json(); }).then(function (d) { if (d.scanner) { scanSide('front', d.scanner.model); } else { setup('found'); status('Still not found.', true); } }).catch(function () { setup('app'); }); } else { office(); } });
 			var ip = out.querySelector('[data-ip]');
 			if (ip) { ip.addEventListener('click', function () { var v = out.querySelector('.ids-ip').value.trim(); status('Checking ' + v + '…'); bridge('/config?ip=' + encodeURIComponent(v), { method: 'POST', timeout: 15000 }).then(function (r) { return r.json(); }).then(function (d) { if (d.ok) { scanSide('front', d.scanner.model); } else { status(d.msg, true); } }).catch(function () { status('SDS Scan did not answer.', true); }); }); }
 		}
-		function scanSide(side, model) {
-			var tell = side === 'front' ? 'Put the card <b>face down</b> in the <b>top corner</b> of the glass (by the arrow) and close the lid.' : 'Now turn the card over (same corner) and close the lid.';
-			var n = side === 'front' ? 3 : 8, tmr = null;
-			out.innerHTML = '<div class="ids-next"><p>🖨 ' + esc(model || 'Office scanner') + ' — ' + (side === 'front' ? 'front' : 'back') + ' side</p><p class="ids-m2">' + tell + '</p><button type="button" class="sdd-b" data-go>Scan now</button> <button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
+		/** One picture from the scanner; region in inches from the scanner's corner. */
+		function grab(q) {
+			return bridge('/scan?' + q, { method: 'POST', timeout: 120000 }).then(function (r) {
+				if (!r.ok) { return r.json().then(function (j) { throw new Error(j.msg || 'Scan failed.'); }); }
+				return r.blob();
+			}).then(function (b) { return open(new File([b], 'scan.jpg', { type: 'image/jpeg' })); });
+		}
+		function r2(n) { return Math.max(0, Math.round(n * 100) / 100); }
+		/** Quick low-resolution look at the whole glass to find where the card lies. */
+		function locate() {
+			status('Finding the card on the glass…');
+			return grab('dpi=75&gray=1').then(function (c) {
+				var b = cardOn(c, 75);
+				if (!b) { throw new Error('No card was found on the glass. Put it face down and close the lid.'); }
+				var r = { x: b.x / 75, y: b.y / 75, w: b.w / 75, h: b.h / 75 };
+				if (Math.max(r.w, r.h) < 3.1) { var cx = r.x + r.w / 2, cy = r.y + r.h / 2; r = { x: cx - 1.95, y: cy - 1.95, w: 3.9, h: 3.9 }; } // only part of a white card was seen
+				return r;
+			});
+		}
+		/** Sharp colour picture of just that part of the glass (fast), straightened and cut out. */
+		function sharp(box, m) {
+			status('Scanning the card…');
+			var x = r2(box.x - m), y = r2(box.y - m);
+			return grab('dpi=300&x=' + x + '&y=' + y + '&w=' + r2(box.w + 2 * m) + '&h=' + r2(box.h + 2 * m)).then(function (c) {
+				var b = cardOn(c, 300), e = 6;
+				var inside = b && b.x > e && b.y > e && b.x + b.w < c.width - e && b.y + b.h < c.height - e;
+				return { c: c, inside: inside, box: b ? { x: x + b.x / 300, y: y + b.y / 300, w: b.w / 300, h: b.h / 300 } : box };
+			});
+		}
+		function scanSide(side, model, manual) {
+			var tell = side === 'front' ? 'Put the card <b>face down</b> anywhere on the glass and close the lid.' : 'Now turn the card over in the same place and close the lid.';
+			var n = side === 'front' ? 2 : 6, tmr = null;
+			out.innerHTML = '<div class="ids-next"><p>🖨 ' + esc(model || 'Office scanner') + ' — ' + side + ' side</p><p class="ids-m2">' + tell + '</p><button type="button" class="sdd-b" data-go>Scan now</button> <button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
 			var cd = out.querySelector('.ids-cd');
 			function go() {
 				if (tmr) { clearInterval(tmr); tmr = null; }
 				out.innerHTML = '<div class="ids-next"><p>Scanning the ' + side + '… <span class="ids-spin"></span></p></div>';
-				status('The scanner is working (about 10–20 seconds)…');
-				// The card sits in the top corner: scan the top half of the glass only (twice as fast).
-				bridge('/scan?dpi=300&w=8.5&h=5.5', { method: 'POST', timeout: 120000 }).then(function (r) {
-					if (!r.ok) { return r.json().then(function (j) { throw new Error(j.msg || 'Scan failed.'); }); }
-					return r.blob();
-				}).then(function (b) {
-					return open(new File([b], side + '.jpg', { type: 'image/jpeg' }));
-				}).then(place).then(function () {
+				var t0 = Date.now();
+				// The back lies where the front was: skip the search and scan that spot with a wider margin.
+				var hint = side === 'back' && S.spot ? S.spot : null;
+				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (b) { return sharp(b, 0.2); }); })
+					: locate().then(function (b) { return sharp(b, 0.2); })
+				).then(function (r) {
+					S.spot = r.box;
+					return place(r.c, true);
+				}).then(function () {
+					beep();
 					if (S.front && S.back) { finish(); return; }
-					beep(); scanSide(S.front ? 'back' : 'front', model);
-				}).catch(function (e) { status(e.message || 'Scan failed.', true); scanSide(side, model); });
+					status('✓ ' + (S.front ? 'Front' : 'Back') + ' scanned in ' + Math.round((Date.now() - t0) / 1000) + ' s.');
+					scanSide(S.front ? 'back' : 'front', model);
+				}).catch(function (e) { scanSide(side, model, true); status(e.message || 'Scan failed.', true); });
 			}
 			out.querySelector('[data-go]').addEventListener('click', go);
 			out.querySelector('[data-x]').addEventListener('click', function () { if (tmr) { clearInterval(tmr); } out.innerHTML = ''; status('Scan cancelled.'); reset(); });
-			status(side === 'back' ? '✓ Front scanned.' : '');
+			if (manual) { return; } // after a problem: wait for "Scan now"
 			tmr = setInterval(function () { n--; cd.textContent = n > 0 ? 'Scanning by itself in ' + n + '…' : ''; if (n <= 0) { go(); } }, 1000);
 			cd.textContent = 'Scanning by itself in ' + n + '…';
 		}
@@ -492,5 +589,5 @@
 		}
 	}
 
-	window.SDSC_IDSCAN = { mount: mount, _aamva: aamva, _front: parseFront, _barcode: barcode, _ocr: ocr, _fix: function (c) { return enhance(autoCrop(c)); } };
+	window.SDSC_IDSCAN = { mount: mount, _aamva: aamva, _front: parseFront, _barcode: barcode, _ocr: ocr, _fix: function (c) { return enhance(autoCrop(c)); }, _blobs: blobs, _card: cardOn, _deskew: deskewCrop };
 })();
