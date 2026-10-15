@@ -280,5 +280,10 @@ class SDSC_Preview {
 			echo '<button type="button" onclick="this.parentNode.remove()" style="border:0;background:none;color:#8c8f94;font-size:16px;cursor:pointer;padding:0 6px" aria-label="Hide">×</button>';
 		}
 		echo '</div>';
+		// Phones: a small pill above the bottom menu, on the left (the chat and bell buttons are on the right);
+		// tap it to show the choices.
+		echo '<style>@media (max-width:600px){#sdsc-preview-bar{left:12px!important;right:auto!important;transform:none!important;bottom:calc(84px + env(safe-area-inset-bottom))!important;border-radius:16px!important;max-width:calc(100% - 92px)!important;font-size:12px!important;padding:6px 8px!important}'
+			. '#sdsc-preview-bar:not(.is-open)>:not(:first-child){display:none!important}#sdsc-preview-bar>:first-child{cursor:pointer}#sdsc-preview-bar a{padding:8px 10px!important}}</style>'
+			. '<script>(function(){var b=document.getElementById("sdsc-preview-bar");if(!b)return;b.firstElementChild.addEventListener("click",function(){b.classList.toggle("is-open");});})();</script>';
 	}
 }
