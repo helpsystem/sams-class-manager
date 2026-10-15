@@ -50,3 +50,6 @@
 .sdfb-tgrid td button.is-sel { background: #00703c; border-color: #00703c; color: #fff; }
 .sdfb-tgrid td button.is-sel::before { content: '✓ '; }
 #sdfb-add[hidden], .sdfb-tick[hidden], .sdfb-sec label[hidden] { display: none !important; }
+.sdfb-tgrid tbody th { text-align: left; color: #15191d; font-weight: 800; }
+.sdfb-tgrid tbody th small { font-weight: 600; color: #8a5a00; text-transform: uppercase; font-size: 10px; }
+.sdfb-tgrid td button { min-height: 34px; font-weight: 700; }

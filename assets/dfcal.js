@@ -55,6 +55,20 @@
 	}
 
 	var OPEN = C.open * 60, CLOSE = C.close * 60, DAY = (C.day || C.open) * 60, STEP = 30, ROW = 26; // px per 30 minutes
+	// The school's time sheet: 2-hour blocks (7–9 early, 9–11, 11–1, 1–3, 3–5, 5–7). Booking and moving snap to them.
+	var SL = (C.slots || []).map(function (m) { return +m; }).sort(function (a, b) { return a - b; }), SLEN = 120;
+	var SLEND = SL.length ? SL[SL.length - 1] + SLEN : CLOSE;
+	function h12(m) { var h = Math.floor(m / 60), mm = m % 60; return ((h + 11) % 12 + 1) + (mm ? ':' + pad(mm) : ''); }
+	function slotName(m) { return h12(m) + '–' + h12(m + SLEN); }
+	function onSlot(m) { return SL.indexOf(m) > -1; }
+	/* The block a minute falls in, or the nearest block start. */
+	function snap(m) {
+		if (!SL.length) { return Math.round(m / STEP) * STEP; }
+		for (var i = 0; i < SL.length; i++) { if (m >= SL[i] && m < SL[i] + SLEN) { return SL[i]; } }
+		return near(m);
+	}
+	function near(m) { var best = SL[0]; SL.forEach(function (x) { if (Math.abs(x - m) < Math.abs(best - m)) { best = x; } }); return best; }
+	function rawMinute(col, clientY) { var r = col.getBoundingClientRect(); return OPEN + Math.max(0, Math.min(CLOSE - OPEN - 1, (clientY - r.top) / ROW * STEP)); }
 	var STATUS = { upcoming: 'Booked', active: 'In the car now', completed: 'Completed', cancelled: 'Cancelled' };
 	var OUT = { no_show: 'No-show', no_permit: 'No permit', late_cancel: 'Late cancel', cancelled: 'Cancelled', done: 'Completed' };
 	var insColor = {}; C.ins.forEach(function (i) { insColor[i.name.toLowerCase()] = i.color; });
@@ -68,14 +82,14 @@
 		ins: store('ins') || '', car: store('car') || '', q: '', showCancelled: store('cx') === true,
 		events: [], blocked: [], loaded: '', busy: false
 	};
-	if (['day', 'week', 'month', 'list', 'byins', 'bycar'].indexOf(S.view) < 0) { S.view = 'week'; }
+	if (['day', 'week', 'month', 'list', 'byins', 'bycar', 'sheet'].indexOf(S.view) < 0) { S.view = 'week'; }
 
 	function start(root) {
 		root.innerHTML =
 			'<div class="scal-bar">' +
 				'<div class="scal-nav"><button type="button" class="scal-b" data-go="-1" aria-label="Previous">‹</button><button type="button" class="scal-b" data-go="0">Today</button><button type="button" class="scal-b" data-go="1" aria-label="Next">›</button><h2 class="scal-title" aria-live="polite"></h2></div>' +
 				'<div class="scal-views" role="tablist">' +
-					[['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List'], ['byins', 'By instructor'], ['bycar', 'By car']].map(function (v) { return '<button type="button" role="tab" class="scal-v" data-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') +
+					[['sheet', 'Time sheet'], ['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List'], ['byins', 'By instructor'], ['bycar', 'By car']].map(function (v) { return '<button type="button" role="tab" class="scal-v" data-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') +
 				'</div>' +
 			'</div>' +
 			'<div class="scal-filters">' +
@@ -191,7 +205,7 @@
 		if (S.view === 'week') { title = MN[d0.getUTCMonth()] + ' ' + d0.getUTCDate() + ' – ' + (d0.getUTCMonth() !== d1.getUTCMonth() ? MN[d1.getUTCMonth()] + ' ' : '') + d1.getUTCDate() + ', ' + d1.getUTCFullYear(); }
 		else if (S.view === 'month') { var md = new Date(S.date); title = MNL[md.getUTCMonth()] + ' ' + md.getUTCFullYear(); }
 		else if (S.view === 'list') { title = MN[d0.getUTCMonth()] + ' ' + d0.getUTCDate() + ' – ' + MN[d1.getUTCMonth()] + ' ' + d1.getUTCDate() + ', ' + d1.getUTCFullYear(); }
-		else { title = dlong(S.date) + ', ' + d0.getUTCFullYear() + (S.view === 'byins' ? ' · by instructor' : S.view === 'bycar' ? ' · by car' : ''); }
+		else { title = dlong(S.date) + ', ' + d0.getUTCFullYear() + (S.view === 'byins' ? ' · by instructor' : S.view === 'bycar' ? ' · by car' : S.view === 'sheet' ? ' · time sheet' : ''); }
 		var root = document.getElementById('scal');
 		root.querySelector('.scal-title').textContent = title;
 		root.querySelectorAll('[data-view]').forEach(function (b) { var on = b.getAttribute('data-view') === S.view; b.classList.toggle('is-on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
@@ -202,6 +216,7 @@
 		stats(ev);
 		if (S.view === 'month') { body.innerHTML = month(ev); bindMonth(body); return; }
 		if (S.view === 'list') { body.innerHTML = list(ev); bindList(body); return; }
+		if (S.view === 'sheet') { body.innerHTML = sheet(ev); bindSheet(body); return; }
 		var cols = [];
 		if (S.view === 'week') { for (var i = 0; i < 7; i++) { var t = addDays(monday(S.date), i); cols.push({ day: t, key: dkey(t), head: '<b>' + DN[new Date(t).getUTCDay()] + '</b><span>' + new Date(t).getUTCDate() + '</span>', today: dkey(t) === dkey(now()) }); } }
 		else if (S.view === 'day') { cols.push({ day: S.date, key: dkey(S.date), head: '<b>' + DN[new Date(S.date).getUTCDay()] + '</b><span>' + new Date(S.date).getUTCDate() + '</span>', today: dkey(S.date) === dkey(now()) }); }
@@ -255,12 +270,15 @@
 			cols.map(function (c, i) { return '<div class="scal-colh' + (c.today ? ' is-today' : '') + '" data-col="' + i + '"' + (S.view === 'week' ? ' data-day="' + c.key + '" role="button" tabindex="0" title="Open this day"' : '') + '>' + c.head + '</div>'; }).join('') + '</div>';
 		html += '<div class="scal-scroll"><div class="scal-cols" style="height:' + h + 'px">';
 		html += '<div class="scal-gut">';
-		for (var m = OPEN; m < CLOSE; m += 60) { html += '<span style="top:' + ((m - OPEN) / STEP * ROW) + 'px">' + ((m / 60 + 11) % 12 + 1) + (m < 720 ? ' AM' : ' PM') + '</span>'; }
+		for (var m = OPEN; m < CLOSE; m += 60) { html += '<span' + (onSlot(m) ? ' class="is-slot"' : '') + ' style="top:' + ((m - OPEN) / STEP * ROW) + 'px">' + ((m / 60 + 11) % 12 + 1) + (m < 720 ? ' AM' : ' PM') + '</span>'; }
+		SL.forEach(function (sm) { if (sm >= OPEN && sm + SLEN <= CLOSE) { html += '<em class="scal-slotlab" style="top:' + ((sm - OPEN) / STEP * ROW) + 'px;height:' + (SLEN / STEP * ROW) + 'px">' + slotName(sm) + '</em>'; } });
 		html += '</div>';
 		cols.forEach(function (c, ci) {
 			html += '<div class="scal-col' + (c.today ? ' is-today' : '') + '" data-col="' + ci + '" data-day="' + c.key + '">';
 			var d0 = parse(c.key + ' 00:00');
 			if (DAY > OPEN) { html += '<div class="scal-early" style="height:' + ((DAY - OPEN) / STEP * ROW) + 'px"' + (ci === 0 ? '><span>Early — ' + (C.early ? 'manager only' : 'the manager books these') + '</span>' : '>') + '</div>'; }
+			SL.forEach(function (sm, si) { if (sm >= DAY && sm + SLEN <= CLOSE) { html += '<div class="scal-band' + (si % 2 ? ' is-alt' : '') + '" style="top:' + ((sm - OPEN) / STEP * ROW) + 'px;height:' + (SLEN / STEP * ROW) + 'px"></div>'; } });
+			if (SLEND < CLOSE) { html += '<div class="scal-after" style="top:' + ((SLEND - OPEN) / STEP * ROW) + 'px;height:' + ((CLOSE - SLEND) / STEP * ROW) + 'px">' + (ci === 0 ? '<span>After ' + h12(SLEND) + ' PM — off the time sheet</span>' : '') + '</div>'; }
 			// Blocked time.
 			S.blocked.filter(blkVisible).forEach(function (b) {
 				if (c.ins !== undefined && b.type === 'vehicle') { return; }
@@ -278,6 +296,14 @@
 				return true;
 			});
 			layout(mine);
+			if (c.ins !== undefined || c.plate !== undefined || (S.view === 'day' && (S.ins || S.car))) {
+				SL.forEach(function (sm) {
+					var a = d0 + sm * 60000, b = a + SLEN * 60000;
+					if (b < now() || sm < DAY && !C.early) { return; }
+					if (mine.some(function (e) { return e.a < b && e.b > a && !isCancelled(e); })) { return; }
+					html += '<div class="scal-free" style="top:' + ((sm - OPEN) / STEP * ROW) + 'px;height:' + (SLEN / STEP * ROW) + 'px"><span>Free · ' + slotName(sm) + '</span></div>';
+				});
+			}
 			mine.forEach(function (e) {
 				var top = (mins(e.a) - OPEN) / STEP * ROW, len = (e.b - e.a) / 60000, hgt = Math.max(ROW - 2, len / STEP * ROW - 2);
 				var early = mins(e.a) < OPEN, late = mins(e.a) + len > CLOSE;
@@ -285,7 +311,8 @@
 				if (top + hgt > h) { hgt = h - top - 1; }
 				var w = 100 / e._lanes, left = e._lane * w;
 				var movable = (e.status === 'upcoming' || e.status === 'active') && e.a > now() - 5 * 60000;
-				html += '<div class="' + cls(e) + (movable ? ' is-movable' : '') + '" data-id="' + e.id + '" role="button" tabindex="0" style="top:' + top + 'px;height:' + hgt + 'px;left:calc(' + left + '% + 2px);width:calc(' + w + '% - 4px);--c:' + color(e) + '" aria-label="' + esc(e.name + ', ' + hm(e.a) + ' to ' + hm(e.b) + ', ' + (e.ins || 'no instructor') + ', ' + label(e)) + '">' +
+				var offs = !onSlot(mins(e.a)) && !isCancelled(e);
+				html += '<div class="' + cls(e) + (movable ? ' is-movable' : '') + (offs ? ' is-offslot' : '') + '"' + (offs ? ' title="Starts off the time sheet blocks"' : '') + ' data-id="' + e.id + '" role="button" tabindex="0" style="top:' + top + 'px;height:' + hgt + 'px;left:calc(' + left + '% + 2px);width:calc(' + w + '% - 4px);--c:' + color(e) + '" aria-label="' + esc(e.name + ', ' + hm(e.a) + ' to ' + hm(e.b) + ', ' + (e.ins || 'no instructor') + ', ' + label(e)) + '">' +
 					'<span class="scal-t">' + (early ? '↑ ' : '') + hmShort(e.a) + '–' + hm(e.b) + (late ? ' ↓' : '') + '</span>' +
 					'<b class="scal-n">' + esc(e.name) + (e.no ? ' <small>#' + e.no + '</small>' : '') + '</b>' +
 					'<span class="scal-m">' + esc([S.view === 'byins' ? '' : e.ins || '⚠ no instructor', S.view === 'bycar' ? '' : e.plate || '⚠ no car'].filter(Boolean).join(' · ')) + '</span>' +
@@ -343,6 +370,51 @@
 		return html + '</div>';
 	}
 
+	/* Time sheet: one day, the 2-hour blocks down the side, one column per car — like the paper sheet. */
+	function sheet(ev) {
+		var day = S.date, k = dkey(day), d0 = parse(k + ' 00:00');
+		var plates = C.cars.map(function (c) { return c.plate; });
+		var todays = ev.filter(function (e) { return dkey(e.a) === k; });
+		todays.forEach(function (e) { if (e.plate && plates.indexOf(e.plate) < 0) { plates.push(e.plate); } });
+		if (S.car) { plates = plates.filter(function (p) { return p.toLowerCase() === S.car.toLowerCase(); }); }
+		var cols = plates.slice(); if (todays.some(function (e) { return !e.plate; })) { cols.push(''); }
+		if (!cols.length) { return '<p class="scal-empty">No cars to show. Add cars under Cars.</p>'; }
+		var used = {}, html = '<div class="scal-sheet-wrap"><table class="scal-sheet"><thead><tr><th class="scal-sh-t">Time</th>' + cols.map(function (p) { var c = C.cars.filter(function (x) { return x.plate === p; })[0]; return '<th>' + (p ? '<b class="scal-plate">' + esc(p) + '</b><small>' + esc(c ? c.model : '') + (c && c.down ? ' · ' + esc(c.down) : '') + '</small>' : '<b>No car yet</b>') + '</th>'; }).join('') + '</tr></thead><tbody>';
+		SL.forEach(function (sm) {
+			var a = d0 + sm * 60000, b = a + SLEN * 60000, early = sm < DAY;
+			html += '<tr' + (early ? ' class="is-early"' : '') + '><th class="scal-sh-t"><b>' + slotName(sm) + '</b><small>' + (early ? 'early · manager' : (sm < 720 ? 'morning' : sm < 1020 ? 'afternoon' : 'evening')) + '</small></th>';
+			cols.forEach(function (p) {
+				var here = todays.filter(function (e) { return (e.plate || '') === p && e.a < b && e.b > a; });
+				here.forEach(function (e) { used[e.id] = 1; });
+				var blk = S.blocked.filter(function (x) { return blkVisible(x) && x.a < b && x.b > a && (x.type === 'all' || (x.type === 'vehicle' && x.target.toLowerCase() === p.toLowerCase())); })[0];
+				html += '<td' + (blk && !here.length ? ' class="is-blk"' : '') + '>';
+				here.forEach(function (e) {
+					html += '<div class="scal-sc ' + cls(e).replace('scal-ev', '') + (onSlot(mins(e.a)) ? '' : ' is-offslot') + '" style="--c:' + color(e) + '" data-id="' + e.id + '" role="button" tabindex="0">' +
+						'<b>' + esc(e.name) + (e.no ? ' <small>#' + e.no + '</small>' : '') + '</b>' +
+						'<span>' + esc(e.ins || '⚠ no instructor') + (onSlot(mins(e.a)) && (e.b - e.a) === SLEN * 60000 ? '' : ' · ' + hmShort(e.a) + '–' + hm(e.b)) + '</span>' +
+						(e.status !== 'upcoming' || e.out ? '<em>' + esc(label(e)) + '</em>' : '') + (e.fee ? '<i class="scal-fee" title="Open lesson fee">$</i>' : '') + '</div>';
+				});
+				if (!here.length) {
+					if (blk) { html += '<span class="scal-sc-blk">⛔ ' + esc(blk.reason || 'Blocked') + '</span>'; }
+					else if (b > now() && (!early || C.early) && p) { html += '<button type="button" class="scal-sc-add" data-a="' + a + '" data-p="' + esc(p) + '" aria-label="Book ' + esc(p) + ' ' + slotName(sm) + '">＋</button>'; }
+				}
+				html += '</td>';
+			});
+			html += '</tr>';
+		});
+		var rest = todays.filter(function (e) { return !used[e.id]; });
+		html += '</tbody></table></div>';
+		if (rest.length) { html += '<p class="scal-sh-rest"><b>Outside the blocks:</b> ' + rest.map(function (e) { return '<a href="#" data-id="' + e.id + '">' + esc(hm(e.a) + ' ' + e.name) + '</a>'; }).join(' · ') + '</p>'; }
+		return html;
+	}
+	function bindSheet(body) {
+		body.querySelectorAll('[data-id]').forEach(function (n) {
+			n.addEventListener('click', function (x) { x.preventDefault(); panel(byId(+n.getAttribute('data-id'))); });
+			n.addEventListener('keydown', function (x) { if (x.key === 'Enter') { panel(byId(+n.getAttribute('data-id'))); } });
+		});
+		body.querySelectorAll('.scal-sc-add').forEach(function (b) { b.addEventListener('click', function () { var a = +b.getAttribute('data-a'); book(a, a + SLEN * 60000, { plate: b.getAttribute('data-p') }); }); });
+	}
+
 	/* ------------------------------------------------------------ interaction */
 	function bindMonth(body) {
 		body.querySelectorAll('.scal-md').forEach(function (d) {
@@ -369,7 +441,7 @@
 			el.addEventListener('pointerdown', function (e) { if (e.button !== 0) { return; } dragStart(e, el, cols); });
 		});
 		body.querySelectorAll('.scal-col').forEach(function (col) {
-			col.addEventListener('pointerdown', function (e) { if (e.button !== 0 || e.target !== col) { return; } selectStart(e, col, cols); });
+			col.addEventListener('pointerdown', function (e) { if (e.button !== 0 || (e.target !== col && !e.target.closest('.scal-band,.scal-free,.scal-early,.scal-after'))) { return; } selectStart(e, col, cols); });
 		});
 	}
 
@@ -398,7 +470,7 @@
 			} else {
 				var c2 = colAt(m.clientX, m.clientY); if (!c2) { return; }
 				var off = Math.round((sy - el.getBoundingClientRect().top) / ROW) * STEP;
-				var st = minuteAt(c2, m.clientY) - off; st = Math.max(OPEN, Math.min(CLOSE - len, Math.round(st / STEP) * STEP));
+				var st = minuteAt(c2, m.clientY) - off; st = m.altKey || !SL.length ? Math.round(st / STEP) * STEP : near(st); st = Math.max(OPEN, Math.min(CLOSE - len, st)); // Alt: any half hour
 				if (ghost.parentNode !== c2) { c2.appendChild(ghost); }
 				ghost.style.top = ((st - OPEN) / STEP * ROW) + 'px'; ghost.style.left = '2px'; ghost.style.width = 'calc(100% - 4px)';
 				var d = parse(c2.getAttribute('data-day') + ' 00:00') + st * 60000;
@@ -428,11 +500,11 @@
 
 	/* Click or drag over empty time → book here / block it. */
 	function selectStart(e, col, cols) {
-		var a = Math.min(CLOSE - 120, minuteAt(col, e.clientY - ROW / 2)), b = a + 120, box = document.createElement('div');
+		var a = Math.min(CLOSE - 120, e.altKey ? minuteAt(col, e.clientY - ROW / 2) : snap(rawMinute(col, e.clientY))), b = a + 120, box = document.createElement('div');
 		box.className = 'scal-sel'; col.appendChild(box);
 		function paint() { var x = Math.min(a, b), y = Math.max(a, b); box.style.top = ((x - OPEN) / STEP * ROW) + 'px'; box.style.height = ((y - x) / STEP * ROW) + 'px'; box.textContent = hm(parse(col.getAttribute('data-day') + ' 00:00') + x * 60000) + ' – ' + hm(parse(col.getAttribute('data-day') + ' 00:00') + y * 60000); }
 		paint();
-		function mv(m) { var x = Math.min(CLOSE - 120, minuteAt(col, m.clientY - ROW / 2)); a = x; b = a + 120; paint(); }
+		function mv(m) { var x = Math.min(CLOSE - 120, m.altKey ? minuteAt(col, m.clientY - ROW / 2) : snap(rawMinute(col, m.clientY))); a = x; b = a + 120; paint(); }
 		function up() {
 			document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
 			var x = Math.min(a, b), y = Math.max(a, b), d0 = parse(col.getAttribute('data-day') + ' 00:00'), c = cols[+col.getAttribute('data-col')];
@@ -519,7 +591,7 @@
 		P.querySelector('.scal-x').focus();
 	}
 	function closePanel() { var P = document.getElementById('scal-panel'); if (P) { P.hidden = true; P.classList.remove('is-open'); } S.open = 0; }
-	function times(sel) { var h = ''; for (var m = OPEN; m <= CLOSE - 60; m += 30) { h += '<option value="' + pad(Math.floor(m / 60)) + ':' + pad(m % 60) + '"' + (m === sel ? ' selected' : '') + '>' + hm(Date.UTC(2000, 0, 1) + m * 60000) + '</option>'; } if ((sel - OPEN) % 30 || sel < OPEN || sel > CLOSE - 60) { h = '<option value="' + pad(Math.floor(sel / 60)) + ':' + pad(sel % 60) + '" selected>' + hm(Date.UTC(2000, 0, 1) + sel * 60000) + '</option>' + h; } return h; }
+	function times(sel) { var h = '<optgroup label="Time sheet blocks">' + SL.map(function (m) { return '<option value="' + pad(Math.floor(m / 60)) + ':' + pad(m % 60) + '"' + (m === sel ? ' selected' : '') + '>' + slotName(m) + (m < DAY ? ' (early)' : '') + '</option>'; }).join('') + '</optgroup><optgroup label="Other start">'; for (var m = OPEN; m <= CLOSE - 60; m += 30) { if (onSlot(m)) { continue; } h += '<option value="' + pad(Math.floor(m / 60)) + ':' + pad(m % 60) + '"' + (m === sel ? ' selected' : '') + '>' + hm(Date.UTC(2000, 0, 1) + m * 60000) + '</option>'; } h += '</optgroup>'; if ((sel - OPEN) % 30 || sel < OPEN || sel > CLOSE - 60) { h = '<option value="' + pad(Math.floor(sel / 60)) + ':' + pad(sel % 60) + '" selected>' + hm(Date.UTC(2000, 0, 1) + sel * 60000) + '</option>' + h; } return h; }
 
 	/* ------------------------------------------------------------ dialogs */
 	function dialog(html, onReady) {

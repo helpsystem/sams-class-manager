@@ -192,10 +192,12 @@
 				var days = r.data.days, times = Object.keys(days[0].cells);
 				var h = '<table><thead><tr><th></th>' + days.map(function (d) { return '<th>' + esc(d.label) + '<br><small>' + esc(d.num) + '</small></th>'; }).join('') + '</tr></thead><tbody>';
 				times.forEach(function (t) {
-					var hm = t.split(':'), hh = +hm[0], lab = ((hh + 11) % 12 + 1) + ':' + hm[1] + (hh < 12 ? ' AM' : ' PM');
-					h += '<tr><th>' + lab + '</th>' + days.map(function (d) {
+					var hm = t.split(':'), a0 = +hm[0] * 60 + +hm[1], a1 = a0 + (+$('sdfb-min').value || 120);
+					function h12(m, ap) { var hh = Math.floor(m / 60), mm = m % 60; return ((hh + 11) % 12 + 1) + (mm ? ':' + pad(mm) : (ap ? ':00' : '')) + (ap ? (hh < 12 ? ' AM' : ' PM') : ''); }
+					var blk = h12(a0) + '–' + h12(a1), lab = h12(a0, 1) + ' – ' + h12(a1, 1);
+					h += '<tr' + (a0 < 540 ? ' class="is-earlyrow"' : '') + '><th>' + blk + (a0 < 540 ? '<br><small>early</small>' : '') + '</th>' + days.map(function (d) {
 						var c = d.cells[t], st = d.date + ' ' + t + ':00';
-						return '<td><button type="button" data-s="' + st + '" data-l="' + esc(lab) + '" data-d="' + d.date + '" class="' + (c[0] === 2 ? 'is-no' : c[0] === 1 ? 'is-early' : 'is-ok') + '"' + (c[0] === 2 ? ' disabled' : '') + ' title="' + esc(c[1] || 'Free') + '">' + (c[0] === 2 ? '' : lab.replace(/:00/, '').replace(' ', '')) + '</button></td>';
+						return '<td><button type="button" data-s="' + st + '" data-l="' + esc(lab) + '" data-d="' + d.date + '" class="' + (c[0] === 2 ? 'is-no' : c[0] === 1 ? 'is-early' : 'is-ok') + '"' + (c[0] === 2 ? ' disabled' : '') + ' title="' + esc(c[1] || 'Free') + '">' + (c[0] === 2 ? '' : blk) + '</button></td>';
 					}).join('') + '</tr>';
 				});
 				G.innerHTML = h + '</tbody></table>';

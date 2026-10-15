@@ -74,6 +74,7 @@ class SDSC_DFCal {
 			'open'    => SDSC_DFBook::OPENS,
 			'close'   => SDSC_DFBook::CLOSES,
 			'day'     => SDSC_DFBook::DAY,
+			'slots'   => SDSC_DFBook::slots(),
 			'early'   => SDSC_DFBook::early_ok(),
 			'hours'   => (int) $s['hours'],
 			'ins'     => self::instructors(),

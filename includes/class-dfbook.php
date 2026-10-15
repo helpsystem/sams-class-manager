@@ -20,6 +20,17 @@ class SDSC_DFBook {
 	const OPENS  = 7;   // earliest start hour
 	const CLOSES = 21;  // a lesson must end by this hour
 	const DAY    = 9;   // instructors start at 9 AM; earlier (from 7) only when the school manager books it
+	/** The school's time sheet: 2-hour lesson blocks (start hours). 7–9 is the early block (manager only). */
+	const SLOTS  = array( 7, 9, 11, 13, 15, 17 );
+
+	/** Slot starts in minutes after midnight. */
+	public static function slots() { return array_map( function ( $h ) { return $h * 60; }, self::SLOTS ); }
+
+	/** "9–11" style label of the block that starts at $min. */
+	public static function slot_label( $min ) {
+		$f = function ( $m ) { $h = intdiv( $m, 60 ); return ( ( $h + 11 ) % 12 + 1 ) . ( $m % 60 ? ':' . sprintf( '%02d', $m % 60 ) : '' ); };
+		return $f( $min ) . '–' . $f( $min + 120 );
+	}
 
 	public static function init() {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
@@ -309,7 +320,8 @@ class SDSC_DFBook {
 		for ( $i = 0; $i < 7; $i++ ) {
 			$day  = wp_date( 'Y-m-d', strtotime( $from . ' 12:00:00 +' . $i . ' days' ) );
 			$row  = array( 'date' => $day, 'label' => wp_date( 'D', strtotime( $day . ' 12:00:00' ) ), 'num' => wp_date( 'M j', strtotime( $day . ' 12:00:00' ) ), 'cells' => array() );
-			for ( $m = self::OPENS * 60; $m + $d['minutes'] <= self::CLOSES * 60; $m += 30 ) {
+			foreach ( self::slots() as $m ) { // the time sheet's 2-hour blocks
+				if ( $m + $d['minutes'] > self::CLOSES * 60 ) { continue; }
 				$t = sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 );
 				$x = array_merge( $d, array( 'start' => $day . ' ' . $t . ':00' ) );
 				if ( self::ts( $x['start'] ) < $now + HOUR_IN_SECONDS ) { $row['cells'][ $t ] = array( 2, 'Past' ); continue; }
@@ -425,7 +437,9 @@ class SDSC_DFBook {
 	public static function modal() {
 		if ( ! self::on_page() ) { return; }
 		$times = array();
-		for ( $m = self::OPENS * 60; $m <= ( self::CLOSES - 1 ) * 60; $m += 30 ) { $times[ sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 ) ] = gmdate( 'g:i A', $m * 60 ); }
+		$other = array();
+		foreach ( self::slots() as $m ) { $times[ sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 ) ] = self::slot_label( $m ) . ( $m < self::DAY * 60 ? ' (early)' : '' ); }
+		for ( $m = self::OPENS * 60; $m <= ( self::CLOSES - 1 ) * 60; $m += 30 ) { $k = sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 ); if ( ! isset( $times[ $k ] ) ) { $other[ $k ] = gmdate( 'g:i A', $m * 60 ); } }
 		?>
 		<div class="df-modal-backdrop sdfb" id="sdfb-modal" role="dialog" aria-modal="true" aria-labelledby="sdfb-h">
 			<div class="df-modal-dialog sdfb-dialog">
@@ -458,7 +472,7 @@ class SDSC_DFBook {
 							<div class="sdfb-grid">
 								<label class="sdfb-wide">Kind of lesson<select name="type" id="sdfb-type"><?php foreach ( self::types() as $k => $t ) : ?><option value="<?php echo esc_attr( $k ); ?>"><?php echo esc_html( $t[0] ); ?></option><?php endforeach; ?></select></label>
 								<label class="sdfb-one">Date<input type="date" name="date" id="sdfb-date" required min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>"></label>
-								<label class="sdfb-one">Start<select name="time" id="sdfb-time" required><option value="">—</option><?php foreach ( $times as $v => $l ) : ?><option value="<?php echo esc_attr( $v ); ?>"><?php echo esc_html( $l ); ?></option><?php endforeach; ?></select></label>
+								<label class="sdfb-one">Start<select name="time" id="sdfb-time" required><option value="">—</option><optgroup label="Time sheet blocks"><?php foreach ( $times as $v => $l ) : ?><option value="<?php echo esc_attr( $v ); ?>"><?php echo esc_html( $l ); ?></option><?php endforeach; ?></optgroup><optgroup label="Other start (off the time sheet)"><?php foreach ( $other as $v => $l ) : ?><option value="<?php echo esc_attr( $v ); ?>"><?php echo esc_html( $l ); ?></option><?php endforeach; ?></optgroup></select></label>
 								<label>Length<select name="minutes" id="sdfb-min"><option value="60">1 hour</option><option value="90">1½ hours</option><option value="120" selected>2 hours</option><option value="180">3 hours</option></select></label>
 								<label>Lesson number<input type="number" name="no" id="sdfb-no" min="1" max="99" value="1"></label>
 								<label class="sdfb-wide">Focus <small>(optional)</small><input name="topic" id="sdfb-topic" list="sdfb-topics" maxlength="150" placeholder="e.g. lane changes and merging"><datalist id="sdfb-topics"><option value="Basic control, mirrors, turns"><option value="Residential streets and intersections"><option value="Lane changes and merging"><option value="Highway driving"><option value="Parallel parking and backing"><option value="MVA test route practice"><option value="Night driving"></datalist></label>
