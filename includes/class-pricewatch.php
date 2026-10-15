@@ -851,10 +851,10 @@ class SDSC_PriceWatch {
 				var last={},pts=[],days={};
 				h.forEach(function(r){last[r.school]=parseFloat(r.price);var d=r.at.slice(0,10);var others=Object.keys(last).filter(function(k){return k!=='self';}).map(function(k){return last[k];}).sort(function(a,b){return a-b;});
 					var med=others.length?(others.length%2?others[(others.length-1)/2]:(others[others.length/2-1]+others[others.length/2])/2):null;
-					days[d]={t:Date.parse(d),us:last.self,med:med,min:others[0],max:others[others.length-1]};});
+					days[d]={t:Date.parse(d+'T12:00:00'),us:last.self,med:med,min:others[0],max:others[others.length-1]};});
 				Object.keys(days).sort().forEach(function(d){pts.push(days[d]);});
-				var now=Date.now(); var lastp=pts[pts.length-1]; pts.push({t:now,us:lastp.us,med:lastp.med,min:lastp.min,max:lastp.max});
-				var W=480,H=220,L=46,R=10,T=10,B=26, t0=pts[0].t, t1=Math.max(now,t0+86400000);
+				var now=Date.now(), t0=pts[0].t, t1=Math.max(now,t0+7*86400000); var lastp=pts[pts.length-1]; pts.push({t:t1,us:lastp.us,med:lastp.med,min:lastp.min,max:lastp.max});
+				var W=480,H=220,L=46,R=10,T=10,B=26;
 				var vals=[];pts.forEach(function(p){[p.us,p.med,p.min,p.max].forEach(function(v){if(v!=null)vals.push(v);});});
 				var lo=Math.min.apply(null,vals)*0.92, hi=Math.max.apply(null,vals)*1.05;
 				function X(t){return L+(W-L-R)*(t-t0)/(t1-t0);} function Y(v){return T+(H-T-B)*(1-(v-lo)/(hi-lo));}
