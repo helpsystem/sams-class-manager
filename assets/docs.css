@@ -89,12 +89,14 @@
 	.sdd-q-s { grid-column: 1 / -1; }
 }
 /* Students / Instructors tabs and instructor files */
-.sdd-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
-.sdd-tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid #cfd6dc; background: #fff; font-weight: 700; font-size: 13.5px; cursor: pointer; }
-.sdd-tabs button[aria-selected="true"] { background: #00703c; border-color: #00703c; color: #fff; }
-.sdd-staff { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.sdd-staff button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 14px; border: 1px solid #e3e7ea; border-radius: 10px; background: #fff; text-align: left; cursor: pointer; }
-.sdd-staff button:hover { border-color: #00703c; }
-.sdd-staff small { color: #5b646d; }
-.sdd-miss { color: #b42318; font-weight: 700; } .sdd-okk { color: #0b7a3b; font-weight: 700; }
-.sdd-note { margin: 6px 0 12px; padding: 8px 12px; border-radius: 8px; background: #f6f8f9; font-size: 13px; color: #3c434a; }
+#sdd .sdd-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+#sdd .sdd-tabs button { padding: 8px 14px; border-radius: 999px; border: 1px solid #cfd6dc; background: #fff; color: #15191d; font: 700 13.5px/1.2 inherit; cursor: pointer; box-shadow: none; text-transform: none; }
+#sdd .sdd-tabs button[aria-selected="true"] { background: #00703c; border-color: #00703c; color: #fff; }
+#sdd .sdd-staff { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+#sdd .sdd-staff button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 12px 14px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px var(--line, #e3e7ea); color: #15191d; font: inherit; text-align: left; cursor: pointer; text-transform: none; }
+#sdd .sdd-staff button:hover { box-shadow: 0 0 0 2px #00703c; }
+#sdd .sdd-staff b { font-size: 15px; color: #15191d; }
+#sdd .sdd-staff small { color: #5b646d; font-size: 12.5px; }
+#sdd .sdd-staff .sdd-n { font-size: 12.5px; color: #3c434a; }
+#sdd .sdd-miss { color: #b42318; font-weight: 700; } #sdd .sdd-okk { color: #0b7a3b; font-weight: 700; }
+#sdd .sdd-note { margin: 6px 0 12px; padding: 8px 12px; border-radius: 8px; background: #f6f8f9; font-size: 13px; color: #3c434a; }
