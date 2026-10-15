@@ -16,6 +16,24 @@ class SDSC_Chrome {
 
 	public static function init() {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ), 7 );
+		// The old theme's script stops on its first line on every page ("$ is not a function": WordPress loads
+		// jQuery without "$"), and what it drove — loader, theme menu, theme sliders — is no longer on the site.
+		// Its one live job, the back-to-top button, is done in chrome.js.
+		add_action( 'wp_enqueue_scripts', function () { if ( self::on() ) { wp_dequeue_script( 'ruzbahani-custom' ); } }, 100 );
+		// DriveFlow's own full-page portals (Book a driving lesson, …) use jQuery in the page before the jQuery
+		// file is loaded at the bottom, so their buttons never worked. Load jQuery first.
+		add_action( 'template_redirect', array( __CLASS__, 'portal_buffer' ), 0 );
+	}
+
+	public static function portal_buffer() {
+		if ( is_admin() || wp_doing_ajax() ) { return; }
+		ob_start( function ( $html ) {
+			if ( false === strpos( $html, 'driveflow-standalone-portal' ) ) { return $html; }
+			$tag = '<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>';
+			if ( false === strpos( $html, $tag ) ) { return $html; }
+			$html = str_replace( $tag, '', $html );
+			return preg_replace( '/<head(\s[^>]*)?>/i', '$0' . "\n" . $tag, $html, 1 );
+		} );
 	}
 
 	public static function on() {

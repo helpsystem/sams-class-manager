@@ -150,4 +150,14 @@
 		[].forEach.call(document.querySelectorAll('[data-bwf]'), footer);
 	}
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+
+	/* Back-to-top button (.scrollup): shows after a little scrolling; one tap goes to the top. */
+	function scrollUp() {
+		var up = document.querySelector('.scrollup');
+		if (!up) { return; }
+		function sync() { up.style.display = window.pageYOffset > 150 ? 'block' : 'none'; }
+		window.addEventListener('scroll', sync, { passive: true }); sync();
+		up.addEventListener('click', function (e) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+	}
+	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', scrollUp); } else { scrollUp(); }
 })();
