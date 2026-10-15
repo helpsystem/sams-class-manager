@@ -312,6 +312,7 @@ class SDSC_Mailer {
 	 *     buttons => array( array( 'en' => text, 'fa' => text, 'url' => url ) ), note_en, note_fa, to, from
 	 */
 	public static function admin_report( $a ) {
+		if ( false !== strpos( home_url(), 'testsaman.' ) ) { return false; } // the test site never e-mails the office
 		$a = wp_parse_args( $a, array( 'to' => get_option( 'admin_email' ), 'from' => 'noreply', 'subject_en' => '', 'subject_fa' => '', 'title_en' => '', 'title_fa' => '', 'lead_en' => '', 'lead_fa' => '', 'rows' => array(), 'buttons' => array(), 'note_en' => '', 'note_fa' => '' ) );
 		$f   = 'font-family:Arial,Helvetica,sans-serif;';
 		$ffa = 'font-family:Tahoma,Vazirmatn,Arial,sans-serif;';
