@@ -138,7 +138,7 @@ class SDSC_Pins {
 			. '.spn-opt{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border:0;border-radius:8px;background:none;text-align:left;font-size:13px;color:#15191d;cursor:pointer}.spn-opt:hover{background:#f3f6f7}.spn-opt.is-on{font-weight:700}'
 			. '.spn-s{color:#c99500;font-size:15px}'
 			. '.spn-msg{margin:6px 0 0;font-size:12.5px;color:#8a4b00}.spn-msg:empty{display:none}'
-			. '.spn-star{position:absolute;top:6px;right:6px;border:0;background:none;font-size:17px;line-height:1;color:#9aa3ab;cursor:pointer;padding:4px}.spn-star.is-on{color:#c99500}.spn-star:hover{color:#c99500}'
+			. '.spn-star{position:absolute;top:2px;right:2px;border:0;background:none;font-size:17px;line-height:1;color:#9aa3ab;cursor:pointer;padding:9px;min-width:36px;min-height:36px}.spn-star.is-on{color:#c99500}.spn-star:hover{color:#c99500}'
 			. '.sov-tool-w{position:relative}.sov-tool-w .sov-tool{padding-right:30px}'
 			. '@media(max-width:600px){.spn-panel{position:fixed;left:4vw;right:4vw;top:auto;bottom:12px;width:auto}}';
 		$js  = '(function(){var AJ=' . wp_json_encode( admin_url( 'admin-ajax.php' ) ) . ',N=' . wp_json_encode( wp_create_nonce( 'sdsc_pin' ) ) . ';'

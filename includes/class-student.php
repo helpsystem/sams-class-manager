@@ -73,7 +73,7 @@ class SDSC_Student {
 	/** Everyone on the dashboard: the main column never pushes the page wider than the screen (wide tables scroll in place). */
 	public static function fit() {
 		if ( ! is_user_logged_in() || ! function_exists( 'tutor_utils' ) || ! is_page( (int) tutor_utils()->get_option( 'tutor_dashboard_page_id' ) ) ) { return; }
-		echo '<style id="sdsc-dash-fit">.tutor-dashboard-layout>.tutor-dashboard-main{min-width:0;max-width:100%}.tutor-dashboard-main .tutor-table-responsive,.tutor-dashboard-main .tutor-table-wrapper{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.tutor-dashboard-main .tutor-dashboard-content{min-width:0}</style>' . "\n";
+		echo '<style id="sdsc-dash-fit">.tutor-dashboard-layout>.tutor-dashboard-main{min-width:0;max-width:100%}.tutor-dashboard-main .tutor-table-responsive,.tutor-dashboard-main .tutor-table-wrapper{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.tutor-dashboard-main .tutor-dashboard-content{min-width:0}@media (max-width:767px){.tutor-profile-card-body{flex-wrap:wrap}.tutor-profile-card-body-left,.tutor-profile-card-body-right,.tutor-profile-member-since{min-width:0;max-width:100%;flex:1 1 100%;overflow-wrap:anywhere}}</style>' . "\n";
 	}
 
 	/** Hides Tutor's built-in cards and fields that our school does not use (students only, dashboard only). */

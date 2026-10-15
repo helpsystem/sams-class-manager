@@ -77,7 +77,7 @@
 .sdq-card.is-done { opacity: .45; }
 .sdq-card.is-done .sdo-actions { display: none; }
 .sdq-note { margin: 6px 0 0; font-weight: 600; color: #00653a; }
-.sdq-open { font-size: 13px; align-self: center; }
+.sdq-open { font-size: 13px; align-self: center; display: inline-block; padding: 9px 6px; }
 .sdq-next { font-size: 16px; padding: 12px 22px; }
 @media (max-width: 782px) { .sdq .sdo-btn--text { flex: 1 1 100%; justify-content: center; padding: 14px; font-size: 16px; } }
 

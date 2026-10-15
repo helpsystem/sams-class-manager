@@ -155,3 +155,5 @@
 .sdsc-bad { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #d63638; color: #fff; font-weight: 700; font-size: 12px; }
 .sdsc-mail-prev { display: block; width: 100%; max-width: 680px; height: 640px; border: 0; border-radius: 12px; box-shadow: 0 0 0 1px #dcdcde; background: #f6f4ee; }
 .sdsc-tours-h2 { margin: 34px 0 4px; font-size: 18px; }
+/* Phones: on the dashboard the tour button sits above the bottom menu, never on it. */
+@media (max-width: 1199px) { body:has(.tutor-dashboard-nav-mobile) .sdt-launch:not(.sdt-launch--inline) { bottom: calc(78px + env(safe-area-inset-bottom)); } }
