@@ -30,6 +30,10 @@ class SDSC_Workspace {
 		add_filter( 'should_tutor_load_template', array( __CLASS__, 'bar_on_home' ), 5, 2 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_action( 'admin_head', array( __CLASS__, 'embedded_admin_css' ) );
+		// WooCommerce sends anyone without "edit posts" from wp-admin to My account. The front desk and the
+		// instructors have no such right, so every screen of theirs showed "My account" instead of the tool.
+		// Staff may open the school screens (each screen still checks its own permission).
+		add_filter( 'woocommerce_prevent_admin_access', function ( $prevent ) { return $prevent && ! self::is_staff() ? $prevent : false; }, 20 );
 		// Phones: staff screens fit the width (see assets/fit.js).
 		add_action( 'admin_enqueue_scripts', function () { wp_enqueue_script( 'sdsc-fit', SDSC_URL . 'assets/fit.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/fit.js' ), true ); } );
 	}
