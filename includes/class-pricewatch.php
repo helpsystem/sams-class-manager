@@ -224,6 +224,7 @@ class SDSC_PriceWatch {
 		$pat   = self::patterns()[ $svc ];
 		$sale  = '/(regular|reg\.|was\b|\[was|special|sale|down to|now\b|save|off\b|discount|promo)/i';
 		$n     = count( $lines );
+		$best  = null;
 		for ( $i = 0; $i < $n; $i++ ) {
 			if ( ! $whole_page && ! preg_match( $pat, $lines[ $i ] ) ) { continue; }
 			if ( 'course36' === $svc && preg_match( '/(practice|extra|additional|remedial|refresher)/i', $lines[ $i ] ) ) { continue; }
@@ -234,10 +235,12 @@ class SDSC_PriceWatch {
 			$win  = '';
 			$ps   = array();
 			for ( $j = $i; $j < min( $n, $i + ( $whole_page ? 1 : 3 ) ); $j++ ) {
+				if ( $j > $i && self::names_other( $lines[ $j ], $svc ) ) { break; } // the next service's heading
 				$ps = $inr( $lines[ $j ] );
 				if ( ! $ps ) { continue; }
 				$win = $lines[ $j ];
-				if ( isset( $lines[ $j + 1 ] ) && $inr( $lines[ $j + 1 ] ) && preg_match( $sale, $lines[ $j ] . ' ' . $lines[ $j + 1 ] ) ) {
+				$nx  = $lines[ $j + 1 ] ?? '';
+				if ( $nx && $inr( $nx ) && ( preg_match( $sale, $lines[ $j ] . ' ' . $nx ) || preg_match( '/^\$\s*[0-9][0-9,.]*$/', trim( $nx ) ) ) ) {
 					$win .= ' | ' . $lines[ $j + 1 ];
 					$ps   = $inr( $win );
 				}
@@ -265,10 +268,21 @@ class SDSC_PriceWatch {
 				$first = min( $ps[0][0], $ps[1][0] );
 				$disc  = 1;
 			}
-			$win = $ctx;
-			return array( 'price' => $first, 'reg' => $reg, 'disc' => $disc, 'snippet' => mb_substr( preg_replace( '/\s+/', ' ', $win ), 0, 250 ) );
+			$hit = array( 'price' => $first, 'reg' => $reg, 'disc' => $disc, 'snippet' => mb_substr( preg_replace( '/\s+/', ' ', $ctx ), 0, 250 ) );
+			// A school may list the same service more than once (online and in person): keep the lowest.
+			if ( ! $best || $hit['price'] < $best['price'] ) { $best = $hit; }
 		}
-		return null;
+		return $best;
+	}
+
+	/** True when a line names another service (and not this one) — the start of the next block. */
+	protected static function names_other( $line, $svc ) {
+		$pats = self::patterns();
+		if ( preg_match( $pats[ $svc ], $line ) ) { return false; }
+		foreach ( array( 'course36', 'rental', 'roadway3', 'dip' ) as $o ) {
+			if ( $o !== $svc && preg_match( $pats[ $o ], $line ) ) { return true; }
+		}
+		return false;
 	}
 
 	/** Sale / promo wording anywhere on the page. */
@@ -346,13 +360,14 @@ class SDSC_PriceWatch {
 				$pending[ $k ] = array_merge( $r, array( 'old' => null, 'new' => 1, 'first' => $pending[ $k ]['first'] ?? current_time( 'mysql' ) ) );
 				continue;
 			}
-			$p = $pending[ $k ] ?? null;
-			if ( $p && abs( (float) $p['price'] - $r['price'] ) < 0.5 ) {
+			$p   = $pending[ $k ] ?? null;
+			$big = abs( $r['price'] - (float) $last['price'] ) > 0.25 * (float) $last['price']; // > 25%: a person confirms
+			if ( $p && ! $big && abs( (float) $p['price'] - $r['price'] ) < 0.5 ) {
 				self::add( $id, $svc, $r['price'], $r['reg'], $r['disc'], 'auto', $r['url'], $r['snippet'] );
 				$events[] = array( 'type' => 'change', 'school' => $id, 'service' => $svc, 'old' => (float) $last['price'], 'new' => $r['price'], 'disc' => $r['disc'], 'reg' => $r['reg'] );
 				unset( $pending[ $k ] );
 			} else {
-				$pending[ $k ] = array_merge( $r, array( 'old' => (float) $last['price'], 'first' => current_time( 'mysql' ) ) );
+				$pending[ $k ] = array_merge( $r, array( 'old' => (float) $last['price'], 'big' => $big ? 1 : 0, 'first' => $p['first'] ?? current_time( 'mysql' ) ) );
 			}
 		}
 		update_option( self::PENDING, $pending, false );
