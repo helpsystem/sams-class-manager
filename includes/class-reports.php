@@ -120,7 +120,7 @@ class SDSC_Reports {
 			'course' => absint( $g( 'course', '0' ) ),
 			'rid'    => absint( $g( 'rid', '0' ) ),
 			'uid'    => absint( $g( 'uid', '0' ) ),
-			'parts'  => array_values( array_intersect( array( 'form', 'sheet', 'attendance' ), array_map( 'sanitize_key', (array) ( $_GET['parts'] ?? array( 'form', 'sheet', 'attendance' ) ) ) ) ), // phpcs:ignore
+			'parts'  => array_values( array_intersect( array( 'form', 'sheet', 'attendance', 'idcopy', 'de003' ), array_map( 'sanitize_key', (array) ( $_GET['parts'] ?? array( 'form', 'sheet', 'attendance' ) ) ) ) ), // phpcs:ignore
 		);
 		if ( in_array( $a['r'], array( 'exams', 'file' ), true ) && empty( $_GET['from'] ) ) { $a['from'] = wp_date( 'Y-m-d', time() - 90 * DAY_IN_SECONDS ); } // phpcs:ignore
 		if ( ! $a['parts'] ) { $a['parts'] = array( 'form', 'sheet', 'attendance' ); }
@@ -216,7 +216,7 @@ class SDSC_Reports {
 			$sub    = ( $a['class'] ? SDSC_Schedule::class_name( $a['class'], true ) : $range ) . ( $course ? ' · ' . get_the_title( $course ) : '' ) . ( '' !== $a['who'] ? ' · “' . $a['who'] . '”' : '' );
 			if ( 'exams' === $a['r'] ) {
 				list( $rows, $tot ) = SDSC_Student_File::exam_rows( array_merge( $a, array( 'course' => $course ) ) );
-				return array( 'Exam results', $sub, array( 'Student', 'E-mail', 'Class', 'Unit quizzes', 'Final exam', 'Tries', 'Exam date', 'Result' ), $rows, array( 'Students' => count( $rows ), 'Passed' => $tot['pass'], 'Not passed' => $tot['fail'], 'Final not taken' => $tot['none'] ), true );
+				return array( 'Exam results', $sub, array( 'File no.', 'Student', 'E-mail', 'Class', 'Unit quizzes', 'Final exam', 'Tries', 'Exam date', 'Result' ), $rows, array( 'Students' => count( $rows ), 'Passed' => $tot['pass'], 'Not passed' => $tot['fail'], 'Final not taken' => $tot['none'] ), true );
 			}
 			$people = SDSC_Student_File::people( array_merge( $a, array( 'course' => $course ) ), 400 );
 			$res    = SDSC_Student_File::results( $course, wp_list_pluck( $people, 'user_id' ) );
@@ -227,35 +227,35 @@ class SDSC_Reports {
 			foreach ( $people as $p ) {
 				$f      = $final && $p['user_id'] ? ( $res[ $p['user_id'] ][ $final[0][0] ] ?? null ) : null;
 				$miss  += $p['reg'] ? 0 : 1;
-				$rows[] = array( $p['name'], $p['email'], $p['class'] ? SDSC_Schedule::class_name( $p['class'], true ) : '—', $p['reg'] ? '#' . $p['reg']['id'] . ( isset( $links[ $p['email'] ] ) ? ' (linked by hand)' : '' ) . ( $p['reg']['student_sig'] ? ' · signed' : ' · no signature' ) : 'Missing', $p['user_id'] ? ( $f ? $f['pct'] . '%' : 'Not taken' ) : 'No online account' );
+				$rows[] = array( SDSC_Student_File::file_no( $p ), $p['name'], $p['email'], $p['class'] ? SDSC_Schedule::class_name( $p['class'], true ) : '—', $p['reg'] ? 'On file' . ( isset( $links[ $p['email'] ] ) ? ' (linked by hand)' : '' ) . ( $p['reg']['student_sig'] ? ' · signed' : ' · no signature' ) : 'Missing', $p['user_id'] ? ( $f ? $f['pct'] . '%' : 'Not taken' ) : 'No online account' );
 			}
-			return array( 'Student files', $sub, array( 'Student', 'E-mail', 'Class', 'Registration form', 'Final exam' ), $rows, array( 'Students' => count( $rows ), 'Without a form' => $miss ), false, array_values( $people ) );
+			return array( 'Student files', $sub, array( 'File no.', 'Student', 'E-mail', 'Class', 'Registration form', 'Final exam' ), $rows, array( 'Students' => count( $rows ), 'Without a form' => $miss ), false, array_values( $people ) );
 		}
 		if ( 'forms' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Registration' ) || 'instructor' === self::kind() ) { return new WP_Error( 'x', 'Registration forms are not available.' ); }
 			$ids = self::form_ids( $a );
-			$res = $ids ? (array) $wpdb->get_results( 'SELECT id, class_id, first_name, last_name, dob, age, email, phone, signed_date, created_at, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM ' . SDSC_Registration::table() . ' WHERE id IN (' . implode( ',', array_map( 'intval', $ids ) ) . ') ORDER BY created_at', ARRAY_A ) : array(); // phpcs:ignore
+			$res = $ids ? (array) $wpdb->get_results( 'SELECT id, source, source_entry_id, class_id, first_name, last_name, dob, age, email, phone, signed_date, created_at, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM ' . SDSC_Registration::table() . ' WHERE id IN (' . implode( ',', array_map( 'intval', $ids ) ) . ') ORDER BY created_at', ARRAY_A ) : array(); // phpcs:ignore
 			$rows = array();
 			$sig  = 0;
 			foreach ( $res as $r ) {
 				$sig   += $r['has_s'] ? 1 : 0;
-				$rows[] = array( self::d( $r['created_at'] ), trim( $r['first_name'] . ' ' . $r['last_name'] ), $r['class_id'] ? SDSC_Schedule::class_name( (int) $r['class_id'], true ) : '—', $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? ' (' . (int) $r['age'] . ')' : '' ) : '', $r['phone'], $r['has_s'] ? 'Signed' . ( $r['has_p'] ? ' + parent' : '' ) : 'No signature' );
+				$rows[] = array( SDSC_Registration::file_no( $r ), self::d( $r['created_at'] ), trim( $r['first_name'] . ' ' . $r['last_name'] ), $r['class_id'] ? SDSC_Schedule::class_name( (int) $r['class_id'], true ) : '—', $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? ' (' . (int) $r['age'] . ')' : '' ) : '', $r['phone'], $r['has_s'] ? 'Signed' . ( $r['has_p'] ? ' + parent' : '' ) : 'No signature' );
 			}
 			$sub = $a['class'] ? SDSC_Schedule::class_name( $a['class'], true ) : $range;
 			if ( '' !== $a['who'] ) { $sub .= ' · “' . $a['who'] . '”'; }
-			return array( 'Registration forms', $sub, array( 'Registered', 'Student', 'Class', 'Date of birth', 'Phone', 'Signature' ), $rows, array( 'Forms' => count( $rows ), 'Signed' => $sig ), false, wp_list_pluck( $res, 'id' ) );
+			return array( 'Registration forms', $sub, array( 'File no.', 'Registered', 'Student', 'Class', 'Date of birth', 'Phone', 'Signature' ), $rows, array( 'Forms' => count( $rows ), 'Signed' => $sig ), false, wp_list_pluck( $res, 'id' ) );
 		}
 		if ( 'registrations' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Registration' ) ) { return new WP_Error( 'x', 'Registrations are not available.' ); }
-			$res  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, class_id, first_name, last_name, email, phone, created_at FROM ' . SDSC_Registration::table() . " WHERE created_at BETWEEN %s AND %s AND source <> 'demo'" . self::not_demo( 'email' ) . ' ORDER BY created_at', $from, $to ), ARRAY_A ); // phpcs:ignore
+			$res  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, source, source_entry_id, class_id, first_name, last_name, email, phone, created_at FROM ' . SDSC_Registration::table() . " WHERE created_at BETWEEN %s AND %s AND source <> 'demo'" . self::not_demo( 'email' ) . ' ORDER BY created_at', $from, $to ), ARRAY_A ); // phpcs:ignore
 			$rows = array();
 			$paid = 0;
 			foreach ( $res as $r ) {
 				$p      = class_exists( 'SDSC_Pay' ) ? SDSC_Pay::paid_row( (int) $r['id'] ) : null;
 				$paid  += $p ? 1 : 0;
-				$rows[] = array( self::d( $r['created_at'] ), trim( $r['first_name'] . ' ' . $r['last_name'] ), $r['class_id'] ? SDSC_Schedule::class_name( (int) $r['class_id'], true ) : '—', $r['phone'], $r['email'], $p ? 'Paid ' . self::money( $p['amount'] / 100 ) : 'Not paid online' );
+				$rows[] = array( SDSC_Registration::file_no( $r ), self::d( $r['created_at'] ), trim( $r['first_name'] . ' ' . $r['last_name'] ), $r['class_id'] ? SDSC_Schedule::class_name( (int) $r['class_id'], true ) : '—', $r['phone'], $r['email'], $p ? 'Paid ' . self::money( $p['amount'] / 100 ) : 'Not paid online' );
 			}
-			return array( 'Registrations', $range, array( 'Date', 'Student', 'Class', 'Phone', 'E-mail', 'Payment' ), $rows, array( 'Registrations' => count( $rows ), 'Paid online' => $paid ), false );
+			return array( 'Registrations', $range, array( 'File no.', 'Date', 'Student', 'Class', 'Phone', 'E-mail', 'Payment' ), $rows, array( 'Registrations' => count( $rows ), 'Paid online' => $paid ), false );
 		}
 		if ( 'payments' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Pay' ) ) { return new WP_Error( 'x', 'Online payments are not available.' ); }
@@ -419,9 +419,18 @@ class SDSC_Reports {
 				$h .= '<label>From <input type="date" name="from" value="' . esc_attr( $a['from'] ) . '"></label><label>To <input type="date" name="to" value="' . esc_attr( $a['to'] ) . '"></label>'
 					. '<label>Student <input type="search" name="who" value="' . esc_attr( $a['who'] ) . '" placeholder="Name, e-mail or phone"></label>';
 				if ( 'file' === $a['r'] ) {
-					$h .= '<fieldset class="srp-parts"><legend>Print</legend>';
-					foreach ( array( 'form' => 'Registration form', 'sheet' => 'Test answer sheet', 'attendance' => 'Attendance' ) as $k => $l ) { $h .= '<label><input type="checkbox" name="parts[]" value="' . $k . '"' . checked( in_array( $k, $a['parts'], true ), true, false ) . '> ' . esc_html( $l ) . '</label>'; }
-					$h .= '</fieldset>';
+					$desc = array(
+						'form'       => array( '🖊️', 'Personal details, the full Responsibility Agreement and refund policies, signatures.' ),
+						'sheet'      => array( '📝', 'Unit quizzes 1–9 and the final exam: every answer, the correct one and the score.' ),
+						'attendance' => array( '🗓️', 'Every Zoom session: present, late, left early or absent.' ),
+						'idcopy'     => array( '🪪', 'The ID, learner’s permit or license scans from Student documents.' ),
+						'de003'      => array( '🏛️', 'The official MVA form, filled in: classroom sessions and scores, behind-the-wheel lessons.' ),
+					);
+					$h .= '<fieldset class="srp-parts"><legend>Forms to print <button type="button" class="srp-link-btn" data-all="1">All</button> <button type="button" class="srp-link-btn" data-all="0">None</button></legend>';
+					foreach ( SDSC_Student_File::parts() as $k => $l ) {
+						$h .= '<label class="srp-part"><input type="checkbox" name="parts[]" value="' . esc_attr( $k ) . '"' . checked( in_array( $k, $a['parts'], true ), true, false ) . '><span class="srp-part-ic" aria-hidden="true">' . $desc[ $k ][0] . '</span><span><b>' . esc_html( $l ) . '</b><small>' . esc_html( $desc[ $k ][1] ) . '</small></span></label>';
+					}
+					$h .= '</fieldset><script>document.querySelectorAll(".srp-parts [data-all]").forEach(function(b){b.addEventListener("click",function(){var on=b.getAttribute("data-all")==="1";b.closest("fieldset").querySelectorAll("input[type=checkbox]").forEach(function(c){c.checked=on;});});});</script>';
 				}
 			} elseif ( 'forms' === $def[2] ) {
 				$h .= '<label>Class <select name="class"><option value="">Any class (use the dates)</option>';
@@ -460,7 +469,7 @@ class SDSC_Reports {
 					if ( 'file' === $a['r'] ) { $q['parts'] = $a['parts']; }
 					$q['_wpnonce'] = wp_create_nonce( 'sdsc_report' );
 					$h  .= '<div class="srp-head"><div><b>' . esc_html( $rep[0] ) . '</b><small>' . esc_html( $rep[1] ) . '</small></div><div class="srp-actions">'
-						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 ' . ( 'forms' === $a['r'] ? 'Print all forms' : ( 'file' === $a['r'] ? 'Print all student files' : 'Print / Save PDF' ) ) . '</a>'
+						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 ' . ( 'forms' === $a['r'] ? 'Print all forms' : ( 'file' === $a['r'] ? 'Print the chosen forms' : 'Print / Save PDF' ) ) . '</a>'
 						. '<a class="srp-btn srp-btn--ghost" href="' . esc_url( add_query_arg( $q + array( 'out' => 'csv' ), home_url( '/' ) ) ) . '">⬇ Download CSV</a></div></div>';
 					if ( $rep[4] ) {
 						$h .= '<div class="srp-totals">';
@@ -490,7 +499,7 @@ class SDSC_Reports {
 					if ( 'forms' === $a['r'] && ! empty( $rep[6] ) ) {
 						$h .= '<details class="srp-access" open><summary>Print one student’s form</summary><div class="srp-one">';
 						foreach ( array_slice( $rep[6], 0, 300 ) as $i => $rid ) {
-							$h .= '<a class="srp-btn srp-btn--ghost" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( array( 'sdsc_report' => 'forms', 'one' => (int) $rid, 'out' => 'print', '_wpnonce' => wp_create_nonce( 'sdsc_report' ) ), home_url( '/' ) ) ) . '">🖨 ' . esc_html( $rep[3][ $i ][1] ) . '</a>';
+							$h .= '<a class="srp-btn srp-btn--ghost" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( array( 'sdsc_report' => 'forms', 'one' => (int) $rid, 'out' => 'print', '_wpnonce' => wp_create_nonce( 'sdsc_report' ) ), home_url( '/' ) ) ) . '">🖨 ' . esc_html( $rep[3][ $i ][0] . ' · ' . $rep[3][ $i ][2] ) . '</a>';
 						}
 						$h .= '</div></details>';
 					}
@@ -499,7 +508,7 @@ class SDSC_Reports {
 			}
 		}
 
-		if ( self::is_boss() ) { $h .= self::access_form(); }
+		if ( self::is_boss() ) { $h .= ( class_exists( 'SDSC_DE003' ) ? SDSC_DE003::settings_form() : '' ) . self::access_form(); }
 		return $h . '</div>';
 	}
 

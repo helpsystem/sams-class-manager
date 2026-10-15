@@ -169,7 +169,7 @@ class SDSC_Gate {
 
 	protected static function can_manage() {
 		if ( current_user_can( 'manage_options' ) ) { return true; }
-		return class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office();
+		return class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_front_office();
 	}
 
 	public static function toggle_url( $email, $open ) {

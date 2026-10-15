@@ -160,9 +160,12 @@
       (C.office ? '<p class="sdd-back"><a href="#" data-home>← All students</a></p>' +
         '<div class="sdd-person"><span class="sdd-av" aria-hidden="true">' + esc(((p.name || p.email || '?').match(/[A-Za-z]/g) || ['?']).slice(0, 2).join('').toUpperCase()) + '</span>' +
         '<div><h4>' + esc(p.name || p.email) + '</h4><p>' + esc(p.email) + (p.phone ? ' · ' + esc(p.phone) : '') + (p.from && p.from.length ? ' · ' + esc(p.from.join(', ')) : '') + '</p></div></div>' : '') +
+      (C.office && window.SDSC_IDSCAN ? '<section class="sdd-idscan" aria-label="Scan an ID"></section>' : '') +
       addBox() +
       '<section class="sdd-list"><h4>On file <span class="sdd-count">0</span></h4><ul class="sdd-docs"></ul></section>';
     paintSlots(); paintDocs();
+    var ids = root.querySelector('.sdd-idscan');
+    if (ids && S.email) { window.SDSC_IDSCAN.mount(ids, S.email, { upload: function (file, type, label) { upload([file], type, label); } }); }
   }
 
   function openStudent(email) {

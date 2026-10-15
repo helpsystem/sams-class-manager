@@ -109,11 +109,17 @@ class SDSC_Docs {
 		return $student ? array_intersect_key( $t, array_flip( array( 'id_front', 'id_back', 'permit', 'license', 'practice_log', 'other' ) ) ) : $t;
 	}
 
-	/** Administrator, school manager and front desk. */
+	/** The school team: administrator, school manager, front desk and instructors (they check permits in the car). */
 	public static function is_office() {
 		if ( current_user_can( 'manage_options' ) ) { return true; }
 		if ( ! class_exists( 'SDSC_Access' ) ) { return false; }
-		return (bool) array_intersect( (array) wp_get_current_user()->roles, array( SDSC_Access::MANAGER, SDSC_Access::FRONTDESK ) );
+		return (bool) array_intersect( (array) wp_get_current_user()->roles, array( SDSC_Access::MANAGER, SDSC_Access::FRONTDESK, 'tutor_instructor', 'sdsc_instructor', 'driveflow_instructor' ) );
+	}
+
+	/** Administrator, school manager and front desk (without instructors). */
+	public static function is_front_office() {
+		if ( current_user_can( 'manage_options' ) ) { return true; }
+		return class_exists( 'SDSC_Access' ) && (bool) array_intersect( (array) wp_get_current_user()->roles, array( SDSC_Access::MANAGER, SDSC_Access::FRONTDESK ) );
 	}
 
 	/** Remove a document: administrator and school manager only. */
@@ -382,8 +388,8 @@ class SDSC_Docs {
 
 	public static function assets() {
 		if ( ! is_user_logged_in() || self::TAB !== get_query_var( 'tutor_dashboard_page' ) ) { return; }
-		wp_enqueue_style( 'sdsc-docs', SDSC_URL . 'assets/docs.css', array(), SDSC_VERSION );
-		wp_enqueue_script( 'sdsc-docs', SDSC_URL . 'assets/docs.js', array(), SDSC_VERSION, true );
+		wp_enqueue_style( 'sdsc-docs', SDSC_URL . 'assets/docs.css', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/docs.css' ) );
+		wp_enqueue_script( 'sdsc-docs', SDSC_URL . 'assets/docs.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/docs.js' ), true );
 		$want = isset( $_GET['student'] ) ? strtolower( sanitize_email( wp_unslash( $_GET['student'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 		wp_localize_script( 'sdsc-docs', 'SDSC_DOCS', array(
 			'ajax'   => admin_url( 'admin-ajax.php' ),
@@ -395,6 +401,23 @@ class SDSC_Docs {
 			'open'   => self::is_office() ? $want : '',
 			'ok'     => self::dir() ? 1 : 0,
 		) );
+	}
+
+	/** The latest image of each of these types for a student, as data URIs (for printing the student file). */
+	public static function images( $email, $types ) {
+		global $wpdb;
+		$email = strtolower( trim( (string) $email ) );
+		if ( ! is_email( $email ) ) { return array(); }
+		$out = array();
+		foreach ( (array) $types as $t ) {
+			$r = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . self::t_docs() . " WHERE email = %s AND type = %s AND mime IN ('image/jpeg','image/png','image/webp') ORDER BY id DESC LIMIT 1", $email, $t ), ARRAY_A ); // phpcs:ignore
+			if ( ! $r ) { continue; }
+			$b = self::get( $r['file'] );
+			if ( '' === $b ) { continue; }
+			self::log( (int) $r['id'], 'print' );
+			$out[] = array( 'label' => ( self::types()[ $t ] ?? $t ) . ' · added ' . mysql2date( 'M j, Y', $r['created'] ), 'src' => 'data:' . $r['mime'] . ';base64,' . base64_encode( $b ) ); // phpcs:ignore
+		}
+		return $out;
 	}
 
 	/** Number of student uploads waiting for the office to check (for badges). */

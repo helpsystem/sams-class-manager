@@ -39,3 +39,14 @@
 .srp-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 10px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px #e3e7ea; }
 .srp-link b { font-size: 14px; } .srp-link small { color: #5b646d; font-size: 12px; flex: 1 1 160px; }
 .srp-link select { max-width: 340px; } .srp-link input[type=number] { width: 150px; }
+.srp-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; width: 100%; padding: 10px; }
+.srp-parts legend { display: flex; align-items: center; gap: 8px; }
+.srp-part { display: flex !important; align-items: flex-start; gap: 8px; padding: 10px; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px #e3e7ea; cursor: pointer; }
+.srp-part:has(input:checked) { box-shadow: 0 0 0 2px #00703c; background: #f3faf6; }
+.srp-part input { margin-top: 3px; }
+.srp-part-ic { font-size: 18px; line-height: 1; }
+.srp-part b { display: block; font-size: 13.5px; } .srp-part small { display: block; color: #5b646d; font-size: 12px; font-weight: 400; }
+.srp-link-btn { border: 0; background: none; color: #00703c; font-weight: 700; cursor: pointer; padding: 0 4px; text-decoration: underline; }
+.srp-de3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.srp-de3 label { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 13px; } .srp-de3 small { color: #5b646d; font-weight: 400; }
+.srp-de3 input { height: 34px; border: 1px solid #cfd6dc; border-radius: 8px; padding: 0 8px; } .srp-de3 p { grid-column: 1 / -1; margin: 0; }

@@ -16,6 +16,17 @@ class SDSC_Registration {
 	const DB_VERSION   = '3';
 	const DB_OPTION    = 'sdsc_registration_db_version';
 	const REPORT_SOURCE = -1; // pseudo "form id" used by the reports portal
+
+	/**
+	 * The student's file number, e.g. SDS-0353. Registrations that came from the earlier website form keep
+	 * their old number (the form entry number); newer ones use the registration number (both are unique —
+	 * the new numbers started after the last old one).
+	 */
+	public static function file_no( $r ) {
+		$r   = (array) $r;
+		$num = ( 'forminator' === ( $r['source'] ?? '' ) && ! empty( $r['source_entry_id'] ) ) ? (int) $r['source_entry_id'] : (int) ( $r['id'] ?? 0 );
+		return $num ? 'SDS-' . str_pad( (string) $num, 4, '0', STR_PAD_LEFT ) : '';
+	}
 	const MAX_SIG_BYTES = 400000;
 
 	public static function table() {
@@ -855,7 +866,7 @@ class SDSC_Registration {
 			$r = $wpdb->get_row( $wpdb->prepare( "SELECT id, created_at, source, source_entry_id, class_id, first_name, middle_name, last_name, dob, age, gender, email, phone, parent_name, parent_phone, parent_email, parent_consent, street, apt, city, state, zip, consent, signed_date, notes, (student_sig IS NOT NULL) has_s, (parent_sig IS NOT NULL) has_p FROM $t WHERE id = %d", $view ) );
 			echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations' ) ) . '">&larr; All registrations</a></p>';
 			if ( ! $r ) { echo '<p>Not found.</p></div>'; return; }
-			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . '</h1>';
+			echo '<h1>' . esc_html( trim( "$r->first_name $r->middle_name $r->last_name" ) ) . ' <small style="font-size:14px;color:#50575e;font-weight:600">File no. ' . esc_html( self::file_no( $r ) ) . '</small></h1>';
 			if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) { echo '<p>' . SDSC_Docs::link( $r->email ) . '</p>'; } // phpcs:ignore -- escaped inside
 			if ( isset( $_GET['sdsc_reminded'] ) ) { echo '<div class="notice notice-success"><p>Reminder e-mail sent.</p></div>'; } // phpcs:ignore
 			if ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ) { echo SDSC_Followup::panel( $r->id ); } // phpcs:ignore -- escaped inside
@@ -891,23 +902,24 @@ class SDSC_Registration {
 		$args  = array();
 		if ( $s ) {
 			$like  = '%' . $wpdb->esc_like( $s ) . '%';
-			$where = '(first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR phone LIKE %s)';
-			$args  = array( $like, $like, $like, $like );
+			$where = '(first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR phone LIKE %s OR (source <> %s AND id = %d) OR (source = %s AND source_entry_id = %d))';
+			$num   = preg_match( '/^\s*(?:SDS-?)?0*(\d+)\s*$/i', $s, $mm ) ? (int) $mm[1] : -1;
+			$args  = array( $like, $like, $like, $like, 'forminator', $num, 'forminator', $num );
 		}
 		$total = (int) $wpdb->get_var( $args ? $wpdb->prepare( "SELECT COUNT(*) FROM $t WHERE $where", $args ) : "SELECT COUNT(*) FROM $t" );
-		$sql   = "SELECT id, created_at, source, class_id, first_name, last_name, email, phone, age FROM $t WHERE $where ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d";
+		$sql   = "SELECT id, created_at, source, source_entry_id, class_id, first_name, last_name, email, phone, age FROM $t WHERE $where ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d";
 		$rows  = $wpdb->get_results( $wpdb->prepare( $sql, array_merge( $args, array( $per, ( $paged - 1 ) * $per ) ) ) );
 
 		echo '<h1>Registrations <span class="count">(' . (int) $total . ')</span></h1>';
 		echo '<p class="sdsc-lead" id="sdsc-reg-lead">Every sign-up from the website, newest first. Click a student’s name to see the whole form, the signed contract and the signatures.</p>';
 		if ( current_user_can( 'manage_options' ) ) { echo '<p class="description">Administrator note: the form is the <code>[sdsc_registration_form]</code> shortcode; add <code>?course=CODE</code> to a link to preselect a class.</p>'; }
-		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email or phone" aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
-		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th><th>Follow-up</th></tr></thead><tbody>';
+		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email, phone or file no." aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
+		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>File no.</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th><th>Follow-up</th></tr></thead><tbody>';
 		if ( ! $rows ) { echo '<tr><td colspan="7">No registrations yet.</td></tr>'; }
 		foreach ( $rows as $r ) {
 			$url  = admin_url( 'admin.php?page=sdsc-registrations&view=' . $r->id );
 			$code = $r->class_id ? get_post_meta( $r->class_id, '_sdsc_course_code', true ) : '';
-			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( array( 'native' => 'Website', 'forminator' => 'Website (old form)', 'demo' => 'Demo' )[ $r->source ] ?? ucfirst( (string) $r->source ) ) . '</td><td>' . ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ? SDSC_Followup::badges( $r->id ) : '' ) . '</td></tr>'; // phpcs:ignore -- escaped in badges()
+			echo '<tr><td>' . esc_html( mysql2date( 'M j, Y g:i a', $r->created_at ) ) . '</td><td>' . esc_html( self::file_no( $r ) ) . '</td><td><a href="' . esc_url( $url ) . '"><strong>' . esc_html( "$r->first_name $r->last_name" ) . '</strong></a></td><td>' . esc_html( (string) $r->age ) . '</td><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->phone ) . '</td><td>' . esc_html( $code ?: '—' ) . '</td><td>' . esc_html( array( 'native' => 'Website', 'forminator' => 'Website (old form)', 'demo' => 'Demo' )[ $r->source ] ?? ucfirst( (string) $r->source ) ) . '</td><td>' . ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ? SDSC_Followup::badges( $r->id ) : '' ) . '</td></tr>'; // phpcs:ignore -- escaped in badges()
 		}
 		echo '</tbody></table>';
 		$pages = (int) ceil( $total / $per );

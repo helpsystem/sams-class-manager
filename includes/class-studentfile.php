@@ -239,7 +239,7 @@ class SDSC_Student_File {
 			$f      = $final ? ( $r[ $final[0][0] ] ?? null ) : null;
 			$status = ! $p['user_id'] ? 'No online account' : ( $f ? ( $f['pct'] >= self::PASS ? 'Passed' : 'Not passed' ) : 'Final not taken' );
 			$tot[ $f ? ( $f['pct'] >= self::PASS ? 'pass' : 'fail' ) : 'none' ]++;
-			$rows[] = array( $p['name'], $p['email'], $p['class'] ? SDSC_Schedule::class_name( $p['class'], true ) : '—', $done . '/' . count( $units ) . ( $done ? ' (' . $passed . ' at ' . self::PASS . '%+)' : '' ), $f ? self::pct( $f['pct'] ) : '—', $f ? (string) $f['attempts'] : '', $f ? wp_date( 'm/d/Y', strtotime( get_gmt_from_date( $f['ended'] ) . ' UTC' ) ) : '', $status );
+			$rows[] = array( self::file_no( $p ), $p['name'], $p['email'], $p['class'] ? SDSC_Schedule::class_name( $p['class'], true ) : '—', $done . '/' . count( $units ) . ( $done ? ' (' . $passed . ' at ' . self::PASS . '%+)' : '' ), $f ? self::pct( $f['pct'] ) : '—', $f ? (string) $f['attempts'] : '', $f ? wp_date( 'm/d/Y', strtotime( get_gmt_from_date( $f['ended'] ) . ' UTC' ) ) : '', $status );
 		}
 		return array( $rows, $tot, $course );
 	}
@@ -317,6 +317,8 @@ table.f tr, .agree, .sigs, .office, .unit, .final { break-inside: avoid; page-br
 .policy h1, .policy h2, .policy h3, .policy h4 { all: unset; display: block; font-weight: 700; font-size: 8.8pt; margin: 6px 0 2px; color: #0b3d24; break-after: avoid; }
 .policy p { margin: 0 0 4px; } .policy ul, .policy ol { margin: 0 0 4px; padding-left: 14px; } .policy li { margin: 0 0 1px; }
 .policy a { color: inherit; text-decoration: none; }
+.policy p { text-align: justify; } .policy h4 { margin-top: 8px; }
+.keep { break-inside: avoid; page-break-inside: avoid; }
 .sigs { display: flex; gap: 18px; margin-top: 8px; }
 .sig { flex: 1; }
 .sig .pad { height: 0.95in; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1pt solid #15191d; }
@@ -347,6 +349,12 @@ table.t th { padding: 4pt 5pt; background: #e7f5ec; color: #0b3d24; text-align: 
 table.t td { padding: 3.5pt 5pt; border-bottom: 0.5pt solid #d5dbe0; font-size: 9pt; }
 table.t tr { break-inside: avoid; }
 .empty { padding: 30px; text-align: center; color: #5b646d; }
+.ids { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+.ids figure { margin: 0; break-inside: avoid; } .ids img { width: 100%; max-height: 3.4in; object-fit: contain; border: 0.75pt solid #cfd6dc; border-radius: 6px; }
+.ids figcaption { font-size: 8.5pt; color: #5b646d; margin-top: 2px; }
+.de3 { max-width: 8.5in; margin: 14px auto; } .de3-s { font: 600 13px Arial, sans-serif; color: #15191d; } .de3-w { font: 600 13px Arial, sans-serif; color: #8a4b00; background: #fff7e6; padding: 8px 12px; border-radius: 8px; }
+.de3 iframe { width: 100%; height: 88vh; border: 1px solid #cfd6dc; border-radius: 8px; background: #fff; }
+@media print { .de3 { display: none; } }
 @media screen { .sheet .pg + .pg { margin-top: 0.4in; padding-top: 0.4in; border-top: 2px dashed #cfd6dc; } }
 @media print { body { background: #fff; } .bar { display: none; } .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; } }
 ';
@@ -361,9 +369,7 @@ table.t tr { break-inside: avoid; }
 	}
 
 	public static function file_no( $p ) {
-		$code = $p['class'] ? (string) get_post_meta( $p['class'], '_sdsc_course_code', true ) : '';
-		$id   = $p['reg'] ? (int) $p['reg']['id'] : (int) $p['user_id'];
-		return ( $code ? $code : 'SDS' ) . '-' . str_pad( (string) $id, 4, '0', STR_PAD_LEFT );
+		return ! empty( $p['reg'] ) && class_exists( 'SDSC_Registration' ) ? SDSC_Registration::file_no( $p['reg'] ) : '—';
 	}
 
 	/** Registration form page(s). */
@@ -396,14 +402,17 @@ table.t tr { break-inside: avoid; }
 			$h .= '<h2>Parent / guardian</h2><table class="f"><tr><th>Name</th><td>' . $v( $r['parent_name'] ) . '</td></tr><tr><th>Phone</th><td>' . $v( $r['parent_phone'] ) . '</td></tr><tr><th>E-mail</th><td>' . $v( $r['parent_email'] ) . '</td></tr></table>';
 		}
 		if ( trim( (string) $r['notes'] ) ) { $h .= '<h2>Notes</h2><table class="f"><tr><td>' . nl2br( esc_html( $r['notes'] ) ) . '</td></tr></table>'; }
-		$h .= '<h2>Agreement</h2><p class="agree"><span class="box">' . ( $r['consent'] ? '✓' : '' ) . '</span>I confirm that I have read and fully understood the forms, policies, and terms and conditions, and I agree to all the stipulated terms.</p>';
+		// The full policy text first, then what the student (and parent) agreed to and signed.
+		if ( class_exists( 'SDSC_Agreement' ) ) { $h .= '<h2>' . esc_html( SDSC_Agreement::TITLE ) . '</h2><div class="policy">' . SDSC_Agreement::html() . '</div>'; }
+		if ( $pol ) { $h .= '<h2>Refund Policies — extra practice and car rental</h2><div class="policy">' . $pol . '</div>'; }
+		$h .= '<div class="keep"><h2>Agreement and signatures</h2><p class="agree"><span class="box">' . ( $r['consent'] ? '✓' : '' ) . '</span>I confirm that I have read and fully understood the forms, policies, and terms and conditions, and I agree to all the stipulated terms.</p>';
 		if ( $minor && ( $r['parent_consent'] || 'forminator' !== $r['source'] ) ) { $h .= '<p class="agree"><span class="box">' . ( $r['parent_consent'] ? '✓' : '' ) . '</span>I am the student’s parent or legal guardian. I have read the policies, terms and conditions and I agree to them for my child.</p>'; }
 		elseif ( $minor ) { $h .= '<p class="agree">The earlier website form had no separate parent check box; ' . ( $r['parent_sig'] ? 'the parent / guardian signed the form below.' : 'no parent / guardian signature was given.' ) . '</p>'; }
 		$h .= '<div class="sigs"><div class="sig"><div class="pad">' . $img( $r['student_sig'] ) . '</div><small><span>Student signature</span><span>Date: ' . esc_html( $r['student_sig'] ? $sd : '__________' ) . '</span></small></div>';
 		if ( $minor ) { $h .= '<div class="sig"><div class="pad">' . $img( $r['parent_sig'] ) . '</div><small><span>Parent / guardian signature</span><span>Date: ' . esc_html( $r['parent_sig'] ? $sd : '__________' ) . '</span></small></div>'; }
-		$h .= '</div><div class="office"><div>Received by (office)</div><div>Date</div><div>Permit / ID checked</div></div>';
-		$h .= '<p class="meta">Signed electronically on the school website' . ( $r['ip'] ? ' from IP ' . esc_html( $r['ip'] ) : '' ) . '. The policies below are the school policies as published on ' . esc_html( home_url( '/policy/' ) ) . ' when this page was printed.</p>';
-		if ( $pol ) { $h .= '<h2>School policies, terms and conditions</h2><div class="policy">' . $pol . '</div>'; }
+		$idc = class_exists( 'SDSC_IDScan' ) ? SDSC_IDScan::summary( $r['email'] ) : '';
+		$h .= '</div><div class="office"><div>Received by (office)</div><div>Date</div><div>' . ( $idc ? 'ID checked: ' . esc_html( $idc ) : 'Permit / ID checked' ) . '</div></div>';
+		$h .= '<p class="meta">Consent given and signed electronically on the school website' . ( $r['ip'] ? ' from IP ' . esc_html( $r['ip'] ) : '' ) . ' on ' . esc_html( $sd ) . '.</p></div>';
 		return $h . '</td></tr></tbody></table></section>';
 	}
 
@@ -473,26 +482,80 @@ table.t tr { break-inside: avoid; }
 	}
 
 	/** Whole printout: $parts = any of form, sheet, attendance. */
+	/** The forms that can be printed, in print order: key => exact name. */
+	public static function parts() {
+		return array(
+			'form'       => 'Student Registration Form',
+			'sheet'      => 'Driver Education Test Answer Sheet',
+			'attendance' => 'Class Attendance Record',
+			'idcopy'     => 'Copy of ID / Learner’s Permit',
+			'de003'      => 'Student Record and Completion Form (MVA DE-003)',
+		);
+	}
+
+	/** Copies of the student's ID / permit / license scans on file. */
+	public static function idcopy_html( $p ) {
+		$imgs = class_exists( 'SDSC_Docs' ) ? SDSC_Docs::images( $p['email'], array( 'id_front', 'id_back', 'permit', 'license' ) ) : array();
+		$h    = '<section class="pg"><table class="wrap">' . self::who( 'Copy of ID / Learner’s Permit', $p, self::file_no( $p ) ) . '<tbody><tr><td>';
+		if ( ! $imgs ) { return $h . '<p class="empty">No ID, learner’s permit or license is on file in Student documents.</p></td></tr></tbody></table></section>'; }
+		$h .= '<div class="ids">';
+		foreach ( $imgs as $i ) { $h .= '<figure><img alt="" src="' . esc_attr( $i['src'] ) . '"><figcaption>' . esc_html( $i['label'] ) . '</figcaption></figure>'; }
+		$idc = class_exists( 'SDSC_IDScan' ) ? SDSC_IDScan::summary( $p['email'] ) : '';
+		return $h . '</div>' . ( $idc ? '<p class="meta">Checked: ' . esc_html( $idc ) . '</p>' : '' ) . '<div class="office"><div>Copy made by (office)</div><div>Date</div></div></td></tr></tbody></table></section>';
+	}
+
+	/** Whole printout: $parts = any of the keys of parts(). */
 	public static function print_page( $people, $parts, $course, $title ) {
-		$quizzes = in_array( 'sheet', $parts, true ) ? self::quizzes( $course ) : array();
+		$need    = array_intersect( array( 'sheet', 'de003' ), $parts );
+		$quizzes = $need ? self::quizzes( $course ) : array();
 		$res     = $quizzes ? self::results( $course, wp_list_pluck( $people, 'user_id' ) ) : array();
 		$ans     = array();
-		if ( $res ) {
+		if ( $res && in_array( 'sheet', $parts, true ) ) {
 			$ids = array();
 			foreach ( $res as $by ) { foreach ( $by as $x ) { $ids[] = $x['attempt_id']; } }
 			$ans = self::answers( $ids );
 		}
+		$html_parts = array_values( array_diff( $parts, array( 'de003' ) ) );
+		$de3        = in_array( 'de003', $parts, true ) && class_exists( 'SDSC_DE003' );
+		$names      = self::parts();
 		nocache_headers();
 		header( 'Content-Type: text/html; charset=utf-8' );
 		echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . esc_html( $title ) . '</title><style>' . self::css() . '</style></head><body>'; // phpcs:ignore
-		echo '<div class="bar"><span>' . esc_html( $title ) . ' · ' . count( $people ) . ' student' . ( 1 === count( $people ) ? '' : 's' ) . ' · US Letter</span><button onclick="window.print()">🖨 Print / Save as PDF</button><a href="javascript:window.close()">Close</a></div><div class="sheet">';
-		if ( ! $people ) { echo '<p class="empty">No students for these filters.</p>'; }
-		foreach ( $people as $p ) {
-			if ( in_array( 'form', $parts, true ) ) { echo self::form_html( $p ); } // phpcs:ignore -- escaped inside
-			if ( in_array( 'sheet', $parts, true ) ) { echo self::sheet_html( $p, $course, $quizzes, $res, $ans ); } // phpcs:ignore
-			if ( in_array( 'attendance', $parts, true ) ) { echo self::attendance_html( $p ); } // phpcs:ignore
+		echo '<div class="bar"><span>' . esc_html( $title ) . ' · ' . count( $people ) . ' student' . ( 1 === count( $people ) ? '' : 's' ) . ' · US Letter</span>'
+			. ( $html_parts ? '<button onclick="window.print()">🖨 Print / Save as PDF</button>' : '' )
+			. ( $de3 ? '<button id="de3go" type="button">📄 ' . esc_html( $names['de003'] ) . '</button>' : '' )
+			. '<a href="javascript:window.close()">Close</a></div>';
+		if ( $de3 ) {
+			$data = array();
+			foreach ( $people as $p ) { $data[] = array( 'name' => $p['name'], 'file' => self::file_no( $p ), 'f' => SDSC_DE003::fields( $p, $quizzes, $res ) ); }
+			$set  = SDSC_DE003::settings();
+			$miss = array_filter( array( 'School number' => $set['number'], 'Maryland State ID of the authorized school official' => $set['rep_id'] ), function ( $v ) { return '' === $v; } );
+			echo '<div class="de3" id="de3"><p class="de3-s" id="de3s">' . ( $html_parts ? 'The DE-003 forms open as a separate PDF.' : 'Preparing the official MVA form…' ) . '</p>'
+				. ( $miss ? '<p class="de3-w">Not filled yet: ' . esc_html( implode( ', ', array_keys( $miss ) ) ) . ' — enter them once under Reports → “MVA form DE-003 — school details”.</p>' : '' )
+				. '<iframe id="de3f" title="' . esc_attr( $names['de003'] ) . '" hidden></iframe></div>';
+			echo '<script src="' . esc_url( SDSC_URL . 'assets/vendor/pdf-lib.min.js?ver=1.17.1' ) . '"></script>'; // bundled (MIT), see assets/vendor/README.txt
+			echo '<script>(function(){var D=' . wp_json_encode( $data ) . ',U=' . wp_json_encode( add_query_arg( array( 'action' => 'sdsc_de003_pdf', '_n' => wp_create_nonce( 'sdsc_de003' ) ), admin_url( 'admin-ajax.php' ) ) ) . ',dbg=/[?&]de3debug=1/.test(location.search),S=document.getElementById("de3s"),F=document.getElementById("de3f"),busy=false,url="";'
+				. 'function latin(v){return String(v==null?"":v).replace(/[‘’]/g,"\'").replace(/[“”]/g,"\"").replace(/[–—]/g,"-").normalize("NFKD").replace(/[^\x20-\x7E\xA0-\xFF]/g,"");}'
+				. 'async function make(){if(busy)return;if(url){show();return;}busy=true;S.textContent="Preparing the official MVA form…";try{if(!window.PDFLib)throw new Error("The PDF tool did not load. Reload the page.");var r=await fetch(U,{credentials:"same-origin"});if(!r.ok)throw new Error(await r.text());var src=await r.arrayBuffer(),out=await PDFLib.PDFDocument.create();'
+				. 'for(var i=0;i<D.length;i++){S.textContent="Filling "+(i+1)+" of "+D.length+": "+D[i].name;var doc=await PDFLib.PDFDocument.load(src),form=doc.getForm();form.getFields().forEach(function(fl){var n=fl.getName();if(!(fl instanceof PDFLib.PDFTextField))return;var v=dbg?n:D[i].f[n];if(v!==undefined&&v!==null&&v!==""){try{fl.setText(latin(v));}catch(e){}}});form.flatten();var pg=await out.copyPages(doc,doc.getPageIndices());pg.forEach(function(p){out.addPage(p);});}'
+				. 'out.setTitle(' . wp_json_encode( $names['de003'] ) . '+(D.length===1?" — "+D[0].name:""));var b=await out.save();url=URL.createObjectURL(new Blob([b],{type:"application/pdf"}));show();}catch(e){S.textContent="The form could not be prepared: "+e.message;}busy=false;}'
+				. 'function show(){S.textContent=D.length+" form"+(D.length===1?"":"s")+" ready — print or save with the buttons of the PDF viewer below.";F.hidden=false;F.src=url;F.scrollIntoView();}'
+				. 'document.getElementById("de3go").addEventListener("click",make);' . ( $html_parts ? '' : 'make();' ) . '})();</script>';
 		}
-		echo '</div><script>if(location.hash==="#print"){window.addEventListener("load",function(){window.print();});}</script></body></html>';
+		if ( $html_parts ) {
+			echo '<div class="sheet">';
+			if ( ! $people ) { echo '<p class="empty">No students for these filters.</p>'; }
+			foreach ( $people as $p ) {
+				foreach ( $html_parts as $k ) {
+					if ( 'form' === $k ) { echo self::form_html( $p ); } // phpcs:ignore -- escaped inside
+					if ( 'sheet' === $k ) { echo self::sheet_html( $p, $course, $quizzes, $res, $ans ); } // phpcs:ignore
+					if ( 'attendance' === $k ) { echo self::attendance_html( $p ); } // phpcs:ignore
+					if ( 'idcopy' === $k ) { echo self::idcopy_html( $p ); } // phpcs:ignore
+				}
+			}
+			echo '</div>';
+		}
+		echo '<script>if(location.hash==="#print"){window.addEventListener("load",function(){window.print();});}</script></body></html>';
 		exit;
 	}
 }
