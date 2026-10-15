@@ -22,15 +22,20 @@ class SDSC_Reports {
 			'roster'        => array( 'Class roster', 'Students registered in a class, with contact details and payment.', 'class', false, '👥' ),
 			'attendance'    => array( 'Class attendance', 'All sessions of a class: present, late, left early, absent.', 'class', true, '🗓️' ),
 			'registrations' => array( 'Registrations', 'Every registration in a date range, with class and payment.', 'range', false, '📝' ),
+			'exams'         => array( 'Exam results', 'Online unit quizzes and the final exam: best score, tries, date and passed / not passed.', 'people', false, '🎓' ),
+			'file'          => array( 'Student files', 'The whole student file in one printout: registration form with policies and signatures, test answer sheet, attendance.', 'people', false, '🗂️' ),
 			'forms'         => array( 'Registration forms', 'Each student’s full signed registration form, one page each — for a class, a date range or one student.', 'forms', false, '🖊️' ),
 			'payments'      => array( 'Online payments', 'Card payments received in a date range, with totals.', 'range', false, '💳' ),
 			'lessons'       => array( 'Driving lessons', 'Behind-the-wheel lessons in a date range, by instructor.', 'range', false, '🚗' ),
+			'refunds'       => array( 'Refunds', 'Refunds asked for and paid in a date range: amount, kind and status.', 'range', false, '↩️' ),
+			'documents'     => array( 'Student documents', 'IDs, permits, practice logs and certificates on file, with their check status.', 'range', false, '📎' ),
+			'offers'        => array( 'Lesson offers', 'Times offered to students by link: who picked, what was booked, what expired.', 'range', false, '🔗' ),
 			'fees'          => array( 'Lesson fees', 'Late-cancellation and no-show fees: due, paid and waived.', 'range', false, '🧾' ),
 		);
 	}
 
 	public static function defaults() {
-		return array( 'frontdesk' => array( 'roster', 'attendance', 'registrations', 'forms', 'lessons', 'fees' ), 'instructor' => array( 'roster', 'attendance', 'lessons' ) );
+		return array( 'frontdesk' => array( 'roster', 'attendance', 'registrations', 'forms', 'exams', 'file', 'lessons', 'fees' ), 'instructor' => array( 'roster', 'attendance', 'lessons' ) );
 	}
 
 	public static function init() {
@@ -112,7 +117,13 @@ class SDSC_Reports {
 			'who'    => mb_substr( $g( 'who' ), 0, 120 ),
 			'status' => sanitize_key( $g( 'status' ) ),
 			'one'    => absint( $g( 'one', '0' ) ),
+			'course' => absint( $g( 'course', '0' ) ),
+			'rid'    => absint( $g( 'rid', '0' ) ),
+			'uid'    => absint( $g( 'uid', '0' ) ),
+			'parts'  => array_values( array_intersect( array( 'form', 'sheet', 'attendance' ), array_map( 'sanitize_key', (array) ( $_GET['parts'] ?? array( 'form', 'sheet', 'attendance' ) ) ) ) ), // phpcs:ignore
 		);
+		if ( in_array( $a['r'], array( 'exams', 'file' ), true ) && empty( $_GET['from'] ) ) { $a['from'] = wp_date( 'Y-m-d', time() - 90 * DAY_IN_SECONDS ); } // phpcs:ignore
+		if ( ! $a['parts'] ) { $a['parts'] = array( 'form', 'sheet', 'attendance' ); }
 		if ( $a['from'] > $a['to'] ) { list( $a['from'], $a['to'] ) = array( $a['to'], $a['from'] ); }
 		if ( 'instructor' === self::kind() ) { $a['who'] = class_exists( 'SDSC_Overview' ) ? SDSC_Overview::instructor_name( wp_get_current_user() ) : wp_get_current_user()->display_name; }
 		return $a;
@@ -198,6 +209,28 @@ class SDSC_Reports {
 
 		$from = $a['from'] . ' 00:00:00';
 		$to   = $a['to'] . ' 23:59:59';
+		if ( in_array( $a['r'], array( 'exams', 'file' ), true ) ) {
+			if ( ! class_exists( 'SDSC_Student_File' ) || 'instructor' === self::kind() ) { return new WP_Error( 'x', 'This report is not available.' ); }
+			if ( $a['class'] && ! self::class_ok( $a['class'] ) ) { return new WP_Error( 'class', 'Choose a class.' ); }
+			$course = $a['course'] ? $a['course'] : SDSC_Student_File::default_course();
+			$sub    = ( $a['class'] ? SDSC_Schedule::class_name( $a['class'], true ) : $range ) . ( $course ? ' · ' . get_the_title( $course ) : '' ) . ( '' !== $a['who'] ? ' · “' . $a['who'] . '”' : '' );
+			if ( 'exams' === $a['r'] ) {
+				list( $rows, $tot ) = SDSC_Student_File::exam_rows( array_merge( $a, array( 'course' => $course ) ) );
+				return array( 'Exam results', $sub, array( 'Student', 'E-mail', 'Class', 'Unit quizzes', 'Final exam', 'Tries', 'Exam date', 'Result' ), $rows, array( 'Students' => count( $rows ), 'Passed' => $tot['pass'], 'Not passed' => $tot['fail'], 'Final not taken' => $tot['none'] ), true );
+			}
+			$people = SDSC_Student_File::people( array_merge( $a, array( 'course' => $course ) ), 400 );
+			$res    = SDSC_Student_File::results( $course, wp_list_pluck( $people, 'user_id' ) );
+			$final  = array_values( array_filter( SDSC_Student_File::quizzes( $course ), function ( $q ) { return $q[3]; } ) );
+			$links  = get_option( SDSC_Student_File::LINKS, array() );
+			$rows   = array();
+			$miss   = 0;
+			foreach ( $people as $p ) {
+				$f      = $final && $p['user_id'] ? ( $res[ $p['user_id'] ][ $final[0][0] ] ?? null ) : null;
+				$miss  += $p['reg'] ? 0 : 1;
+				$rows[] = array( $p['name'], $p['email'], $p['class'] ? SDSC_Schedule::class_name( $p['class'], true ) : '—', $p['reg'] ? '#' . $p['reg']['id'] . ( isset( $links[ $p['email'] ] ) ? ' (linked by hand)' : '' ) . ( $p['reg']['student_sig'] ? ' · signed' : ' · no signature' ) : 'Missing', $p['user_id'] ? ( $f ? $f['pct'] . '%' : 'Not taken' ) : 'No online account' );
+			}
+			return array( 'Student files', $sub, array( 'Student', 'E-mail', 'Class', 'Registration form', 'Final exam' ), $rows, array( 'Students' => count( $rows ), 'Without a form' => $miss ), false, array_values( $people ) );
+		}
 		if ( 'forms' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Registration' ) || 'instructor' === self::kind() ) { return new WP_Error( 'x', 'Registration forms are not available.' ); }
 			$ids = self::form_ids( $a );
@@ -253,6 +286,46 @@ class SDSC_Reports {
 			}
 			return array( 'Driving lessons' . ( $a['who'] ? ' — ' . $a['who'] : '' ), $range, array( 'Date', 'Time', 'Student', 'Instructor', 'Lesson', 'Place', 'Status' ), $rows, array( 'Lessons' => count( $rows ) ) + $by, false );
 		}
+		if ( 'refunds' === $a['r'] ) {
+			if ( ! class_exists( 'SDSC_Refunds' ) ) { return new WP_Error( 'x', 'Refunds are not available.' ); }
+			$res  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Refunds::table() . ' WHERE created_at BETWEEN %s AND %s' . self::not_demo( 'email' ) . ' ORDER BY created_at', $from, $to ), ARRAY_A ); // phpcs:ignore
+			$rows = array();
+			$sum  = 0;
+			foreach ( $res as $r ) {
+				$sum   += in_array( $r['status'], array( 'refunded', 'done', 'paid' ), true ) ? (float) $r['amount'] : 0;
+				$rows[] = array( self::d( $r['created_at'] ), $r['name'] ? $r['name'] : $r['email'], $r['email'], self::money( $r['paid'] ), self::money( $r['amount'] ), ucfirst( $r['kind'] ), ucfirst( str_replace( '_', ' ', $r['status'] ) ), $r['note'] );
+			}
+			return array( 'Refunds', $range, array( 'Date', 'Student', 'E-mail', 'Paid', 'Refund', 'Kind', 'Status', 'Note' ), $rows, array( 'Refunds' => count( $rows ), 'Refunded' => self::money( $sum ) ), true );
+		}
+		if ( 'documents' === $a['r'] ) {
+			if ( ! class_exists( 'SDSC_Docs' ) ) { return new WP_Error( 'x', 'Student documents are not available.' ); }
+			$types = SDSC_Docs::types();
+			$res   = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_Docs::t_docs() . " WHERE created BETWEEN %s AND %s AND status <> 'deleted'" . self::not_demo( 'email' ) . ' ORDER BY name, created', $from, $to ), ARRAY_A ); // phpcs:ignore
+			$rows  = array();
+			$by    = array();
+			foreach ( $res as $r ) {
+				$st        = ucfirst( $r['status'] );
+				$by[ $st ] = ( $by[ $st ] ?? 0 ) + 1;
+				$rows[]    = array( $r['name'] ? $r['name'] : $r['email'], $r['email'], $types[ $r['type'] ] ?? ucfirst( $r['type'] ), $r['label'], self::d( $r['created'] ), 'student' === $r['source'] ? 'Student' : 'Office', $st );
+			}
+			return array( 'Student documents', $range, array( 'Student', 'E-mail', 'Document', 'Label', 'Added', 'Added by', 'Status' ), $rows, array( 'Documents' => count( $rows ) ) + $by, true );
+		}
+		if ( 'offers' === $a['r'] ) {
+			if ( ! class_exists( 'SDSC_DFOffer' ) ) { return new WP_Error( 'x', 'Lesson offers are not available.' ); }
+			$res  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . SDSC_DFOffer::t() . ' WHERE created_at BETWEEN %s AND %s ORDER BY created_at', $from, $to ), ARRAY_A ); // phpcs:ignore
+			$rows = array();
+			$by   = array();
+			foreach ( $res as $r ) {
+				$st        = json_decode( (string) $r['student'], true );
+				$sl        = json_decode( (string) $r['slots'], true );
+				$bk        = json_decode( (string) $r['booked'], true );
+				$stt       = 'open' === $r['status'] && $r['expires_at'] && $r['expires_at'] < current_time( 'mysql' ) ? 'expired' : $r['status'];
+				$by[ ucfirst( $stt ) ] = ( $by[ ucfirst( $stt ) ] ?? 0 ) + 1;
+				$u         = $r['created_by'] ? get_userdata( (int) $r['created_by'] ) : null;
+				$rows[]    = array( self::d( $r['created_at'], 'M j, Y g:i A' ), trim( ( $st['first'] ?? '' ) . ' ' . ( $st['last'] ?? '' ) ), is_array( $sl ) ? count( $sl ) : 0, is_array( $bk ) ? count( $bk ) : 0, ucfirst( $stt ), $r['expires_at'] ? self::d( $r['expires_at'], 'M j, g:i A' ) : '', $u ? $u->display_name : '' );
+			}
+			return array( 'Lesson offers', $range, array( 'Sent', 'Student', 'Times offered', 'Booked', 'Status', 'Link works until', 'Sent by' ), $rows, array( 'Offers' => count( $rows ) ) + $by, false );
+		}
 		if ( 'fees' === $a['r'] ) {
 			if ( ! class_exists( 'SDSC_Lessons' ) ) { return new WP_Error( 'x', 'Fees are not available.' ); }
 			$sql  = 'SELECT f.*, l.first_name, l.last_name, l.starts_at FROM ' . SDSC_Lessons::t_fees() . ' f LEFT JOIN ' . SDSC_Lessons::t_lessons() . ' l ON l.id = f.lesson_id WHERE f.created_at BETWEEN %s AND %s' . self::not_demo( 'f.email' );
@@ -298,106 +371,6 @@ class SDSC_Reports {
 		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( $sql . ' ORDER BY created_at, id LIMIT 400', $args ) ) ); // phpcs:ignore
 	}
 
-	/** The printable forms: one US Letter page per registration, with the agreement wording and both signatures. */
-	protected static function print_forms( $ids ) {
-		global $wpdb;
-		$t    = SDSC_Registration::table();
-		$rows = $ids ? (array) $wpdb->get_results( "SELECT * FROM $t WHERE id IN (" . implode( ',', array_map( 'intval', $ids ) ) . ') ORDER BY created_at, id', ARRAY_A ) : array(); // phpcs:ignore
-		$u    = wp_get_current_user();
-		$logo = class_exists( 'SDSC_Brand' ) ? SDSC_Brand::logo( 'wide', 'rp-logo', 40 ) : '<b>Sam’s Driving School</b>';
-		$pol  = home_url( '/policy/' );
-		$v    = function ( $x ) { $x = trim( (string) $x ); return '' === $x ? '<span class="blank">—</span>' : esc_html( $x ); };
-		$img  = function ( $bin ) { return ( $bin && 0 === strpos( $bin, "\x89PNG" ) ) ? '<img alt="" src="data:image/png;base64,' . base64_encode( $bin ) . '">' : ''; }; // phpcs:ignore
-		header( 'Content-Type: text/html; charset=utf-8' );
-		?><!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
-<title><?php echo esc_html( 1 === count( $rows ) ? 'Registration form — ' . trim( $rows[0]['first_name'] . ' ' . $rows[0]['last_name'] ) : 'Registration forms (' . count( $rows ) . ')' ); ?></title>
-<style>
-@page { size: letter portrait; margin: 0.5in 0.55in 0.6in; @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8.5pt Arial, sans-serif; color: #5b646d; } }
-* { box-sizing: border-box; }
-body { margin: 0; font: 10.5pt/1.4 Arial, Helvetica, sans-serif; color: #15191d; background: #eef1f3; }
-.bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; justify-content: center; align-items: center; padding: 10px; background: #15191d; color: #fff; font: 13px Arial, sans-serif; }
-.bar button, .bar a { padding: 9px 16px; border: 0; border-radius: 999px; background: #00703c; color: #fff; font: 700 13px Arial, sans-serif; text-decoration: none; cursor: pointer; }
-.bar a { background: #3c434a; }
-.form { max-width: 8.5in; margin: 18px auto; padding: 26px 30px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.08); break-after: page; page-break-after: always; }
-.form:last-child { break-after: auto; page-break-after: auto; }
-header.rh { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 8px; border-bottom: 3px solid #00703c; }
-.rh .rp-logo { height: 0.48in; width: auto; }
-.rh .org { text-align: right; font-size: 8.5pt; color: #5b646d; line-height: 1.4; }
-.road { height: 4px; margin: 0 0 10px; background: repeating-linear-gradient(90deg, #ffc20e 0 22px, transparent 22px 38px); }
-.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 8px; }
-h1 { margin: 0; font-size: 15pt; }
-.no { font-size: 9pt; color: #5b646d; text-align: right; }
-h2 { margin: 12px 0 4px; padding: 3px 8px; font-size: 9pt; letter-spacing: .6px; text-transform: uppercase; background: #e7f5ec; color: #0b3d24; border-radius: 3px; }
-table.f { width: 100%; border-collapse: collapse; }
-table.f th { width: 1.55in; padding: 4px 8px; text-align: left; font-size: 8.5pt; font-weight: 700; color: #5b646d; text-transform: uppercase; letter-spacing: .3px; vertical-align: top; border-bottom: 0.5pt solid #e1e5e8; }
-table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-align: top; }
-.blank { color: #9aa3ab; }
-.agree { margin: 4px 0; padding: 6px 8px; border: 0.75pt solid #d5dbe0; border-radius: 4px; font-size: 9.5pt; break-inside: avoid; }
-.agree b.box { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 1pt solid #15191d; text-align: center; line-height: 9px; font-size: 9px; vertical-align: -1px; }
-.sigs { display: flex; gap: 18px; margin-top: 6px; break-inside: avoid; }
-.sig { flex: 1; }
-.sig .pad { height: 1.05in; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1pt solid #15191d; }
-.sig .pad img { max-height: 1in; max-width: 100%; }
-.sig small { display: flex; justify-content: space-between; font-size: 8.5pt; color: #5b646d; padding-top: 2px; }
-.office { display: flex; gap: 18px; margin-top: 14px; font-size: 8.5pt; color: #5b646d; break-inside: avoid; }
-.office div { flex: 1; border-top: 0.75pt solid #9aa3ab; padding-top: 2px; }
-.meta { margin-top: 10px; font-size: 8pt; color: #7b838a; }
-.none { max-width: 8.5in; margin: 40px auto; padding: 30px; background: #fff; text-align: center; }
-@media print { body { background: #fff; } .bar { display: none; } .form { max-width: none; margin: 0; padding: 0; box-shadow: none; } }
-</style></head><body>
-<div class="bar"><span><?php echo (int) count( $rows ); ?> form<?php echo 1 === count( $rows ) ? '' : 's'; ?> · one page each</span><button onclick="window.print()">🖨 Print / Save as PDF</button><a href="javascript:window.close()">Close</a></div>
-		<?php
-		if ( ! $rows ) { echo '<div class="none">No registration forms for these filters.</div>'; }
-		foreach ( $rows as $r ) {
-			$minor = ( $r['age'] && (int) $r['age'] < 18 ) || $r['parent_name'] || $r['parent_sig'];
-			$paid  = class_exists( 'SDSC_Pay' ) ? SDSC_Pay::paid_row( (int) $r['id'] ) : null;
-			$addr  = trim( $r['street'] . ( $r['apt'] ? ', ' . $r['apt'] : '' ) . ', ' . $r['city'] . ', ' . $r['state'] . ' ' . $r['zip'], ' ,' );
-			$sd    = $r['signed_date'] ? wp_date( 'm/d/Y', strtotime( $r['signed_date'] . ' 12:00:00' ) ) : self::d( $r['created_at'], 'm/d/Y' );
-			?>
-<section class="form">
-<header class="rh"><div><?php echo $logo; // phpcs:ignore ?></div><div class="org">Sam’s Driving School LLC · MVA-licensed driving school<br>751 Rockville Pike, Unit 9B, Rockville, MD 20852<br>(301) 726-3030 · info@samsdrivingschool.org</div></header>
-<div class="road"></div>
-<div class="top"><h1>Student Registration Form</h1><div class="no">Registration #<?php echo (int) $r['id']; ?><br>Submitted <?php echo esc_html( self::d( $r['created_at'], 'm/d/Y g:i A' ) ); ?><?php echo 'forminator' === $r['source'] ? ' (earlier form)' : ''; ?></div></div>
-<h2>Course</h2>
-<table class="f">
-<tr><th>Class</th><td><?php echo $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : '' ); ?></td></tr>
-<tr><th>Payment</th><td><?php echo $v( $paid ? 'Paid online ' . self::money( $paid['amount'] / 100 ) . ( ! empty( $paid['paid_at'] ) ? ' on ' . self::d( $paid['paid_at'], 'm/d/Y' ) : '' ) : 'Not paid online (check the office records)' ); ?></td></tr>
-</table>
-<h2>Student</h2>
-<table class="f">
-<tr><th>Full name</th><td><?php echo $v( trim( $r['first_name'] . ' ' . $r['middle_name'] . ' ' . $r['last_name'] ) ); ?></td></tr>
-<tr><th>Date of birth</th><td><?php echo $v( $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? '  (age ' . (int) $r['age'] . ' when registered)' : '' ) : '' ); ?></td></tr>
-<tr><th>Gender</th><td><?php echo $v( ucfirst( $r['gender'] ) ); ?></td></tr>
-<tr><th>Phone</th><td><?php echo $v( $r['phone'] ); ?></td></tr>
-<tr><th>E-mail</th><td><?php echo $v( $r['email'] ); ?></td></tr>
-<tr><th>Home address</th><td><?php echo $v( $addr ); ?></td></tr>
-</table>
-<?php if ( $minor ) : ?>
-<h2>Parent / guardian</h2>
-<table class="f">
-<tr><th>Name</th><td><?php echo $v( $r['parent_name'] ); ?></td></tr>
-<tr><th>Phone</th><td><?php echo $v( $r['parent_phone'] ); ?></td></tr>
-<tr><th>E-mail</th><td><?php echo $v( $r['parent_email'] ); ?></td></tr>
-</table>
-<?php endif; ?>
-<?php if ( trim( (string) $r['notes'] ) ) : ?><h2>Notes</h2><table class="f"><tr><td><?php echo nl2br( esc_html( $r['notes'] ) ); ?></td></tr></table><?php endif; ?>
-<h2>Agreement</h2>
-<p class="agree"><b class="box"><?php echo $r['consent'] ? '✓' : ''; ?></b>I confirm that I have read and fully understood the forms, policies, and terms and conditions, and I agree to all the stipulated terms. <span class="blank">(<?php echo esc_html( $pol ); ?>)</span></p>
-<?php if ( $minor ) : ?><p class="agree"><b class="box"><?php echo $r['parent_consent'] ? '✓' : ''; ?></b>I am the student’s parent or legal guardian. I have read the policies, terms and conditions and I agree to them for my child.</p><?php endif; ?>
-<div class="sigs">
-<div class="sig"><div class="pad"><?php echo $img( $r['student_sig'] ); // phpcs:ignore ?></div><small><span>Student signature</span><span>Date: <?php echo esc_html( $r['student_sig'] ? $sd : '__________' ); ?></span></small></div>
-<?php if ( $minor ) : ?><div class="sig"><div class="pad"><?php echo $img( $r['parent_sig'] ); // phpcs:ignore ?></div><small><span>Parent / guardian signature</span><span>Date: <?php echo esc_html( $r['parent_sig'] ? $sd : '__________' ); ?></span></small></div><?php endif; ?>
-</div>
-<div class="office"><div>Received by (office)</div><div>Date</div><div>Permit / ID checked</div></div>
-<p class="meta">Signed electronically on the school website<?php echo $r['ip'] ? ' from IP ' . esc_html( $r['ip'] ) : ''; ?>. Printed <?php echo esc_html( wp_date( 'm/d/Y g:i A' ) ); ?> by <?php echo esc_html( $u->display_name ); ?>. Confidential — student file.</p>
-</section>
-			<?php
-		}
-		echo '<script>if (location.hash === "#print") { window.addEventListener("load", function(){ window.print(); }); }</script></body></html>';
-		exit;
-	}
-
 	/* ------------------------------------------------------------ dashboard screen */
 
 	protected static function table( $cols, $rows, $limit = 0 ) {
@@ -433,7 +406,24 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 		if ( $a['r'] ) {
 			$def = self::reports()[ $a['r'] ];
 			$h  .= '<form method="get" class="srp-filters" action="' . esc_url( self::url() ) . '"><input type="hidden" name="r" value="' . esc_attr( $a['r'] ) . '">';
-			if ( 'forms' === $def[2] ) {
+			if ( 'people' === $def[2] ) {
+				$courses = class_exists( 'SDSC_Student_File' ) ? SDSC_Student_File::courses() : array();
+				$h .= '<label>Class <select name="class"><option value="">Any class (use the dates)</option>';
+				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ( substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ? ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) : '' ) ) . '</option>'; }
+				$h .= '</select></label>';
+				if ( count( $courses ) > 1 ) {
+					$h .= '<label>Online course <select name="course">';
+					foreach ( $courses as $cid => $ct ) { $h .= '<option value="' . (int) $cid . '"' . selected( $a['course'], $cid, false ) . '>' . esc_html( $ct ) . '</option>'; }
+					$h .= '</select></label>';
+				}
+				$h .= '<label>From <input type="date" name="from" value="' . esc_attr( $a['from'] ) . '"></label><label>To <input type="date" name="to" value="' . esc_attr( $a['to'] ) . '"></label>'
+					. '<label>Student <input type="search" name="who" value="' . esc_attr( $a['who'] ) . '" placeholder="Name, e-mail or phone"></label>';
+				if ( 'file' === $a['r'] ) {
+					$h .= '<fieldset class="srp-parts"><legend>Print</legend>';
+					foreach ( array( 'form' => 'Registration form', 'sheet' => 'Test answer sheet', 'attendance' => 'Attendance' ) as $k => $l ) { $h .= '<label><input type="checkbox" name="parts[]" value="' . $k . '"' . checked( in_array( $k, $a['parts'], true ), true, false ) . '> ' . esc_html( $l ) . '</label>'; }
+					$h .= '</fieldset>';
+				}
+			} elseif ( 'forms' === $def[2] ) {
 				$h .= '<label>Class <select name="class"><option value="">Any class (use the dates)</option>';
 				foreach ( self::classes() as $c ) { $h .= '<option value="' . (int) $c->ID . '"' . selected( $a['class'], $c->ID, false ) . '>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) . ( substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) ? ' · ' . substr( (string) get_post_meta( $c->ID, '_sdsc_start', true ), 0, 10 ) : '' ) ) . '</option>'; }
 				$h .= '</select></label><label>From <input type="date" name="from" value="' . esc_attr( $a['from'] ) . '"></label><label>To <input type="date" name="to" value="' . esc_attr( $a['to'] ) . '"></label>'
@@ -466,10 +456,11 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 				if ( is_wp_error( $rep ) ) {
 					$h .= '<p class="srp-warn">' . esc_html( $rep->get_error_message() ) . '</p>';
 				} else {
-					$q   = array_filter( array( 'sdsc_report' => $a['r'], 'class' => $a['class'] ?: null, 'from' => 'class' === $def[2] ? null : $a['from'], 'to' => 'class' === $def[2] ? null : $a['to'], 'who' => $a['who'] ?: null, 'status' => $a['status'] ?: null ) );
+					$q   = array_filter( array( 'sdsc_report' => $a['r'], 'class' => $a['class'] ?: null, 'from' => 'class' === $def[2] ? null : $a['from'], 'to' => 'class' === $def[2] ? null : $a['to'], 'who' => $a['who'] ?: null, 'status' => $a['status'] ?: null, 'course' => $a['course'] ?: null ) );
+					if ( 'file' === $a['r'] ) { $q['parts'] = $a['parts']; }
 					$q['_wpnonce'] = wp_create_nonce( 'sdsc_report' );
 					$h  .= '<div class="srp-head"><div><b>' . esc_html( $rep[0] ) . '</b><small>' . esc_html( $rep[1] ) . '</small></div><div class="srp-actions">'
-						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 ' . ( 'forms' === $a['r'] ? 'Print all forms' : 'Print / Save PDF' ) . '</a>'
+						. '<a class="srp-btn" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print' ), home_url( '/' ) ) ) . '">🖨 ' . ( 'forms' === $a['r'] ? 'Print all forms' : ( 'file' === $a['r'] ? 'Print all student files' : 'Print / Save PDF' ) ) . '</a>'
 						. '<a class="srp-btn srp-btn--ghost" href="' . esc_url( add_query_arg( $q + array( 'out' => 'csv' ), home_url( '/' ) ) ) . '">⬇ Download CSV</a></div></div>';
 					if ( $rep[4] ) {
 						$h .= '<div class="srp-totals">';
@@ -477,6 +468,25 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 						$h .= '</div>';
 					}
 					$h .= '<div class="srp-scroll">' . self::table( $rep[2], $rep[3], 300 ) . '</div>';
+					if ( 'file' === $a['r'] && ! empty( $rep[6] ) ) {
+						$h .= '<details class="srp-access" open><summary>Print one student’s file</summary><div class="srp-one">';
+						foreach ( array_slice( $rep[6], 0, 400 ) as $p ) {
+							$h .= '<a class="srp-btn srp-btn--ghost" target="_blank" rel="noopener" href="' . esc_url( add_query_arg( $q + array( 'out' => 'print', 'rid' => $p['reg'] ? (int) $p['reg']['id'] : null, 'uid' => $p['reg'] ? null : (int) $p['user_id'] ), home_url( '/' ) ) ) . '">🖨 ' . esc_html( $p['name'] ) . '</a>';
+						}
+						$h .= '</div></details>';
+						$nof = array_filter( $rep[6], function ( $p ) { return ! $p['reg']; } );
+						if ( $nof ) {
+							$h .= '<details class="srp-access"><summary>Students without a registration form (' . count( $nof ) . ') — link a form</summary><p class="srp-m">A form is found by the student’s e-mail. When a student registered with another e-mail, or the form was entered by the office, pick the right registration here. Only the link is saved; nothing in the form changes.</p><div class="srp-links">';
+							foreach ( array_slice( $nof, 0, 120 ) as $p ) {
+								$sug = SDSC_Student_File::suggestions( $p );
+								$h  .= '<form class="srp-link" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">' . wp_nonce_field( 'sdsc_reg_link', '_wpnonce', true, false ) . '<input type="hidden" name="action" value="sdsc_reg_link"><input type="hidden" name="email" value="' . esc_attr( $p['email'] ) . '">'
+									. '<b>' . esc_html( $p['name'] ) . '</b><small>' . esc_html( $p['email'] ) . '</small><select name="reg"><option value="">Choose a registration…</option>';
+								foreach ( $sug as $g ) { $h .= '<option value="' . (int) $g['id'] . '">#' . (int) $g['id'] . ' · ' . esc_html( trim( $g['first_name'] . ' ' . $g['last_name'] ) . ' · ' . $g['email'] . ' · ' . self::d( $g['created_at'], 'm/d/Y' ) ) . '</option>'; }
+								$h .= '</select><input type="number" name="reg2" min="1" placeholder="or Registration #" aria-label="Registration number"><button class="srp-btn">Link</button></form>';
+							}
+							$h .= '</div></details>';
+						}
+					}
 					if ( 'forms' === $a['r'] && ! empty( $rep[6] ) ) {
 						$h .= '<details class="srp-access" open><summary>Print one student’s form</summary><div class="srp-one">';
 						foreach ( array_slice( $rep[6], 0, 300 ) as $i => $rid ) {
@@ -501,7 +511,7 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 		foreach ( self::reports() as $k => $d ) {
 			$h .= '<tr><td>' . esc_html( $d[0] ) . '</td>';
 			foreach ( array( 'frontdesk', 'instructor' ) as $role ) {
-				$off = 'instructor' === $role && in_array( $k, array( 'registrations', 'forms', 'payments', 'fees' ), true );
+				$off = 'instructor' === $role && in_array( $k, array( 'registrations', 'forms', 'exams', 'file', 'payments', 'fees', 'refunds', 'documents', 'offers' ), true );
 				$h  .= '<td>' . ( $off ? '<span class="srp-m" title="Contains other students’ data">—</span>' : '<input type="checkbox" name="acc[' . $role . '][]" value="' . esc_attr( $k ) . '"' . checked( in_array( $k, (array) $acc[ $role ], true ), true, false ) . ' aria-label="' . esc_attr( $d[0] . ' for ' . $role ) . '">' ) . '</td>';
 			}
 			$h .= '</tr>';
@@ -517,7 +527,7 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 		$out = array();
 		foreach ( array( 'frontdesk', 'instructor' ) as $role ) {
 			$keys = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) ( $in[ $role ] ?? array() ) ) ) );
-			if ( 'instructor' === $role ) { $keys = array_values( array_diff( $keys, array( 'registrations', 'forms', 'payments', 'fees' ) ) ); }
+			if ( 'instructor' === $role ) { $keys = array_values( array_diff( $keys, array( 'registrations', 'forms', 'exams', 'file', 'payments', 'fees', 'refunds', 'documents', 'offers' ) ) ); }
 			$out[ $role ] = $keys;
 		}
 		update_option( self::ACCESS, $out, false );
@@ -536,7 +546,16 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 		$rep    = self::build( $a );
 		if ( is_wp_error( $rep ) ) { wp_die( esc_html( $rep->get_error_message() ), 'Report', array( 'response' => 403 ) ); }
 		nocache_headers();
-		if ( 'forms' === $a['r'] && 'csv' !== ( $_GET['out'] ?? '' ) ) { self::print_forms( (array) ( $rep[6] ?? array() ) ); } // phpcs:ignore
+		if ( 'csv' !== ( $_GET['out'] ?? '' ) && class_exists( 'SDSC_Student_File' ) ) { // phpcs:ignore
+			if ( 'file' === $a['r'] ) {
+				$people = (array) ( $rep[6] ?? array() );
+				if ( $a['rid'] || $a['uid'] ) { $people = array_values( array_filter( $people, function ( $p ) use ( $a ) { return ( $a['rid'] && $p['reg'] && (int) $p['reg']['id'] === $a['rid'] ) || ( $a['uid'] && ! $p['reg'] && $p['user_id'] === $a['uid'] ); } ) ); }
+				SDSC_Student_File::print_page( $people, $a['parts'], $a['course'] ? $a['course'] : SDSC_Student_File::default_course(), 1 === count( $people ) ? 'Student file — ' . $people[0]['name'] : 'Student files' );
+			}
+			if ( 'forms' === $a['r'] ) {
+				SDSC_Student_File::print_page( SDSC_Student_File::from_regs( (array) ( $rep[6] ?? array() ) ), array( 'form' ), 0, 'Registration forms' );
+			}
+		}
 		$u = wp_get_current_user();
 		if ( 'csv' === ( $_GET['out'] ?? '' ) ) { // phpcs:ignore
 			header( 'Content-Type: text/csv; charset=utf-8' );
@@ -559,9 +578,11 @@ table.f td { padding: 4px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-alig
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title><?php echo esc_html( $title . ' — Sam’s Driving School' ); ?></title>
 <style>
-@page { size: letter <?php echo $land ? 'landscape' : 'portrait'; ?>; margin: 0.6in 0.5in 0.7in;
-	@bottom-left { content: "Sam’s Driving School · <?php echo esc_html( str_replace( '"', '', $title ) ); ?>"; font: 9pt Arial, sans-serif; color: #5b646d; }
-	@bottom-right { content: "Page " counter(page) " of " counter(pages); font: 9pt Arial, sans-serif; color: #5b646d; } }
+@page { size: letter <?php echo $land ? 'landscape' : 'portrait'; ?>; margin: 0.8in 0.5in 0.7in;
+	@top-left { content: "Sam’s Driving School LLC · <?php echo esc_html( str_replace( '"', '', $title ) ); ?>"; font: 700 8.5pt Arial, sans-serif; color: #00703c; vertical-align: bottom; padding-bottom: 6pt; }
+	@top-right { content: "Printed <?php echo esc_html( wp_date( 'm/d/Y g:i A' ) ); ?>"; font: 8.5pt Arial, sans-serif; color: #5b646d; vertical-align: bottom; padding-bottom: 6pt; }
+	@bottom-left { content: "751 Rockville Pike, Unit 9B, Rockville, MD 20852 · (301) 726-3030 · Confidential — school use only"; font: 8pt Arial, sans-serif; color: #5b646d; }
+	@bottom-right { content: "Page " counter(page) " of " counter(pages); font: 700 8.5pt Arial, sans-serif; color: #15191d; } }
 * { box-sizing: border-box; }
 body { margin: 0; font: 11pt/1.4 Arial, Helvetica, sans-serif; color: #15191d; background: #eef1f3; }
 .sheet { max-width: <?php echo $land ? '11in' : '8.5in'; ?>; margin: 18px auto; padding: 22px 26px; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.08); }

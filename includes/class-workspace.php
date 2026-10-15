@@ -126,7 +126,12 @@ class SDSC_Workspace {
 			if ( $app ) { $out['lessons'][] = array( '📱', 'In-car lesson app', get_permalink( $app[0] ), 'Start a lesson, evaluate, sign.' ); }
 		}
 		foreach ( self::screens() as $k => $s ) {
-			if ( $s[3] ) { $out[ $s[1] ][] = array( $s[4], $s[0], self::url( $k ), $s[5] ); }
+			if ( ! $s[3] ) { continue; }
+			if ( 'records' === $k && class_exists( 'SDSC_Student_File' ) && class_exists( 'SDSC_Reports' ) && SDSC_Reports::can( 'file' ) ) {
+				$out[ $s[1] ][] = array( '🗂️', 'Student files (print)', SDSC_Reports::url( array( 'r' => 'file' ) ), 'Registration form, test answer sheet and attendance for each student.' );
+				continue;
+			}
+			$out[ $s[1] ][] = array( $s[4], $s[0], self::url( $k ), $s[5] );
 		}
 		if ( class_exists( 'SDSC_Reports' ) && SDSC_Reports::mine() ) {
 			array_unshift( $out['reports'], array( '📊', 'Reports & printing', SDSC_Reports::url(), 'Rosters, attendance, registrations, payments, lessons, fees.' ) );
