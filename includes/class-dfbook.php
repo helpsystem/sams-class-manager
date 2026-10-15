@@ -117,7 +117,7 @@ class SDSC_DFBook {
 
 	protected static function cars() {
 		global $wpdb;
-		$rows = (array) $wpdb->get_results( "SELECT id, plate_number, model, transmission, maintenance_status FROM {$wpdb->prefix}driveflow_vehicles WHERE status = 'active' ORDER BY plate_number", ARRAY_A ); // phpcs:ignore
+		$rows = (array) $wpdb->get_results( "SELECT id, plate_number, model, transmission, maintenance_status FROM {$wpdb->prefix}driveflow_vehicles WHERE status = 'active' AND plate_number NOT LIKE 'DEMO%' ORDER BY plate_number", ARRAY_A ); // phpcs:ignore -- the sample car is left out
 		return array_map( function ( $r ) { return array( 'id' => (int) $r['id'], 'plate' => $r['plate_number'], 'model' => trim( $r['model'] . ( $r['transmission'] && 'Automatic' !== $r['transmission'] ? ' · ' . $r['transmission'] : '' ) ), 'down' => 'operational' !== $r['maintenance_status'] ? $r['maintenance_status'] : '' ); }, $rows );
 	}
 
