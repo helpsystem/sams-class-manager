@@ -42,7 +42,12 @@
 			if (prev) { var l = prev.lastElementChild; if (l && l.tagName === 'H2' && prev.children.length > 1) { b.appendChild(l); } }
 			return b;
 		}
-		function fits() { return cur.scrollHeight <= cur.clientHeight - 6; } // a little room for margins that move with a heading
+		function fits() {
+			var l = cur.lastElementChild;
+			if (!l) { return true; }
+			var bottom = l.getBoundingClientRect().bottom + (parseFloat(getComputedStyle(l).marginBottom) || 0) - cur.getBoundingClientRect().top;
+			return cur.scrollHeight <= cur.clientHeight + 1 && bottom <= cur.clientHeight - 4; // a little room for margins that move with a heading
+		}
 		function empty() { return !cur.children.length; }
 		/* Containers that may be split between pages, and how to make an empty copy of them. */
 		function parts(x) {
