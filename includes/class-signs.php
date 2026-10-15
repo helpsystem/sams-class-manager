@@ -36,8 +36,8 @@ class SDSC_Signs {
 
 	public static function register_assets() {
 		wp_register_style( 'sdsc-fonts', 'https://fonts.googleapis.com/css2?family=Overpass:wght@500;700;800;900&display=swap', array(), null );
-		wp_register_style( 'sdsc-signs', SDSC_URL . 'assets/signs3d.css', array( 'sdsc-fonts', 'sdsc-brand' ), SDSC_VERSION );
-		wp_register_script( 'sdsc-signs', SDSC_URL . 'assets/signs3d.js', array(), SDSC_VERSION, true );
+		wp_register_style( 'sdsc-signs', SDSC_URL . 'assets/signs3d.css', array( 'sdsc-fonts', 'sdsc-brand' ), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/signs3d.css' ) );
+		wp_register_script( 'sdsc-signs', SDSC_URL . 'assets/signs3d.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/signs3d.js' ), true );
 	}
 
 	public static function enqueue() {

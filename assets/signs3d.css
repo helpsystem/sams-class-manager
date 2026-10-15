@@ -415,6 +415,15 @@ html { scroll-behavior: smooth; }
 .sds-stack.is-live .sds-stack-pin { position: sticky; top: var(--top, 120px); height: var(--pin); perspective: 1100px; overflow: hidden; }
 .sds-stack.is-live .sds-stack-cards { display: block; position: relative; height: 100%; }
 .sds-stack.is-live .sds-stack-card { position: absolute; left: 0; right: 0; top: calc((var(--pin) - var(--card)) / 2 - 22px); height: var(--card); will-change: transform, opacity; }
+.sds-stack.is-live .sds-stack-pin { contain: layout paint; }
+.sds-stack.is-live .sds-stack-card { overflow: hidden; }
+/* Only the front card shows its words; the cards waiting behind show just their colour edge. */
+.sds-stack.is-live .sds-stack-card > * { transition: opacity .25s ease; }
+.sds-stack.is-live .sds-stack-card:not(.is-front) > * { opacity: 0; }
+.sds-stack.is-live .sds-stack-card:not(.is-front) a { pointer-events: none; }
+.sds-stack.is-live.is-small .sds-stack-card .sdsc3d-rise svg, .sds-stack.is-live.is-small .sds-stack-card .sdsc3d-rise > * { max-height: 128px; }
+.sds-stack.is-live.is-small .sds-stack-card .sdsc3d-card { padding: 12px 18px 16px !important; gap: 6px; }
+.sds-stack.is-live.is-small .sds-stack-card h3 { font-size: 1.55rem !important; }
 .sds-stack.is-live .sds-stack-hint { display: flex; align-items: center; justify-content: center; gap: 8px; position: absolute; left: 0; right: 0; bottom: 0; margin: 0; color: #5b646d; font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; transition: opacity .3s; }
 .sds-stack-hint span { width: 18px; height: 28px; border: 2px solid currentColor; border-radius: 10px; position: relative; }
 .sds-stack-hint span::after { content: ""; position: absolute; left: 50%; top: 5px; width: 3px; height: 6px; margin-left: -1.5px; border-radius: 2px; background: currentColor; animation: sdsHint 1.4s ease-in-out infinite; }

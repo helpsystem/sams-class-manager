@@ -121,47 +121,70 @@
 		var n = cards.length;
 		var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (n < 2 || reduce || !('CSS' in window) || !CSS.supports('position', 'sticky')) { return; }
-		var seg = 160, top = 120, pin = 420;
+		var seg = 300, top = 120, pin = 420, lastW = 0, lastH = 0, cur = 0, goal = 0, raf = 0;
+		// Sizes are worked out only here (load, rotation, real resizes) and never while scrolling, so the
+		// page does not have to redo its layout on every frame (that was the stutter).
 		function measure() {
+			var vw = window.innerWidth, vh = window.innerHeight;
+			// Phones resize the window a little when the address bar shows or hides: ignore that.
+			if (lastW === vw && Math.abs(vh - lastH) < 120 && root.classList.contains('is-live')) { return true; }
+			lastW = vw; lastH = vh;
 			var head = document.querySelector('.sdh'), bar = document.querySelector('[data-sds-jump]');
-			top = (head ? head.getBoundingClientRect().height : 70) + (bar ? 50 : 10) + 8;
-			var vh = window.innerHeight;
+			top = (head ? Math.min(head.getBoundingClientRect().height, 90) : 70) + (bar ? 58 : 10);
 			if (vh < 520) { root.classList.remove('is-live'); cards.forEach(function (c) { c.style.transform = c.style.opacity = ''; }); return false; }
-			var small = window.innerWidth < 700;
+			var small = vw < 700;
 			pin = vh - top - 12;
-			var card = Math.min(small ? 520 : 400, pin - 70);
+			var card = Math.min(small ? 560 : 420, pin - 56);
+			// Slower: a card changes every ~45% of the screen on phones, ~38% on computers.
+			seg = Math.max(220, Math.round(vh * (small ? 0.45 : 0.38)));
 			root.style.setProperty('--card', card + 'px');
-			seg = Math.max(140, Math.round(vh * (small ? 0.24 : 0.2)));
 			root.style.setProperty('--top', top + 'px');
 			root.style.setProperty('--pin', pin + 'px');
 			root.style.setProperty('--seg', seg + 'px');
+			root.classList.toggle('is-small', small);
 			root.classList.add('is-live');
 			return true;
 		}
-		function paint() {
-			if (!root.classList.contains('is-live')) { return; }
-			// The header gets shorter once the page scrolls (top bar hides): keep the pin right under it.
-			var head = document.querySelector('.sdh');
-			var nt = (head ? Math.max(0, head.getBoundingClientRect().bottom) : 70) + 58;
-			if (Math.abs(nt - top) > 2) { top = nt; root.style.setProperty('--top', top + 'px'); pin = window.innerHeight - top - 12; root.style.setProperty('--pin', pin + 'px'); root.style.setProperty('--card', Math.min(window.innerWidth < 700 ? 520 : 400, pin - 70) + 'px'); }
-			var p = Math.min(Math.max((top - root.getBoundingClientRect().top) / seg, 0), n - 1);
+		function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+		function draw(p) {
 			var a = Math.min(Math.floor(p), n - 1), f = p - a;
 			if (a === n - 1) { f = 0; }
+			// Each card holds still for the first and last part of its turn, then moves: easier to read.
+			var e = ease(Math.min(Math.max((f - 0.15) / 0.7, 0), 1));
+			var shown = e > 0.55 && a < n - 1 ? a + 1 : a; // the next card's words appear as the front one leaves
 			cards.forEach(function (c, i) {
 				var t, o = 1;
-				if (i < a) { t = 'translate3d(0,-115%,0) rotateX(32deg)'; o = 0; }
-				else if (i === a) { t = 'translate3d(0,' + (-f * 150) + '%,0) rotateX(' + (f * 40) + 'deg)'; o = Math.max(0, 1 - f * 2.4); }
-				else { var b = i - a - f; t = 'translate3d(0,' + (b * 14) + 'px,0) scale(' + (1 - b * 0.05) + ')'; o = b > 3 ? 0 : 1; }
+				if (i < a) { t = 'translate3d(0,-120%,0) rotateX(28deg)'; o = 0; }
+				else if (i === a) {
+					t = 'translate3d(0,' + (-e * 125).toFixed(2) + '%,0) rotateX(' + (e * 28).toFixed(2) + 'deg)';
+					o = e < 0.6 ? 1 : Math.max(0, 1 - (e - 0.6) / 0.4); // stays solid, so the next card never shows through it
+				} else {
+					var b = i - a - e;
+					t = 'translate3d(0,' + (b * 16).toFixed(2) + 'px,0) scale(' + (1 - b * 0.045).toFixed(4) + ')';
+					o = b > 2.5 ? 0 : 1;
+				}
 				c.style.transform = t; c.style.opacity = o;
-				c.setAttribute('aria-hidden', i < a ? 'true' : 'false');
+				c.classList.toggle('is-front', i === shown);
+				c.setAttribute('aria-hidden', i === shown ? 'false' : 'true');
 			});
 			root.classList.toggle('is-done', p >= n - 1.2);
 		}
-		var tick = false;
-		function onScroll() { if (!tick) { tick = true; requestAnimationFrame(function () { tick = false; paint(); }); } }
-		if (measure()) { paint(); }
+		function target() { return Math.min(Math.max((top - root.getBoundingClientRect().top) / seg, 0), n - 1); }
+		// The cards follow the scroll smoothly (a short glide) instead of jumping with every finger move.
+		function loop() {
+			cur += (goal - cur) * 0.2;
+			if (Math.abs(goal - cur) < 0.002) { cur = goal; }
+			draw(cur);
+			raf = cur !== goal ? requestAnimationFrame(loop) : 0;
+		}
+		function onScroll() {
+			if (!root.classList.contains('is-live')) { return; }
+			goal = target();
+			if (!raf) { raf = requestAnimationFrame(loop); }
+		}
+		if (measure()) { cur = goal = target(); draw(cur); }
 		window.addEventListener('scroll', onScroll, { passive: true });
-		window.addEventListener('resize', function () { measure(); paint(); });
+		window.addEventListener('resize', function () { if (measure()) { cur = goal = target(); draw(cur); } });
 		// Links to a card inside the stack (#online-course, #road-test-car) scroll to where that card is in front.
 		window.sdsStackTo = function (el) {
 			var i = cards.indexOf(el);
