@@ -30,7 +30,7 @@ class SDSC_Reports {
 	}
 
 	public static function defaults() {
-		return array( 'frontdesk' => array( 'roster', 'attendance', 'registrations', 'lessons', 'fees' ), 'instructor' => array( 'roster', 'attendance', 'lessons' ) );
+		return array( 'frontdesk' => array( 'roster', 'attendance', 'registrations', 'forms', 'lessons', 'fees' ), 'instructor' => array( 'roster', 'attendance', 'lessons' ) );
 	}
 
 	public static function init() {
