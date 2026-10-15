@@ -3,3 +3,4 @@ Third-party libraries bundled so the site does not depend on outside servers:
 - @zxing/library 0.21.3 (Apache-2.0) — https://github.com/zxing-js/library
 - tesseract.js 5.1.1 + tesseract.js-core 5.1.1 (Apache-2.0) — https://github.com/naptha/tesseract.js
 - eng.traineddata (4.0.0_best_int, Apache-2.0) — https://github.com/tesseract-ocr/tessdata_best
+- qrcode-generator 1.4.4 (MIT, Kazuhiko Arase) — https://github.com/kazuhikoarase/qrcode-generator

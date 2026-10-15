@@ -23,6 +23,7 @@ class SDSC_IDScan {
 
 	public static function init() {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ), 20 );
+		if ( false !== strpos( home_url(), 'testsaman.' ) && is_readable( __DIR__ . '/class-lab.php' ) ) { require_once __DIR__ . '/class-lab.php'; SDSC_Lab::init(); } // test site only
 		foreach ( array( 'reg', 'save', 'apply' ) as $a ) { add_action( 'wp_ajax_sdsc_id_' . $a, array( __CLASS__, 'ajax_' . $a ) ); }
 	}
 
