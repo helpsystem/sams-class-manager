@@ -151,6 +151,7 @@
 		if ((m = /(?:^|\n)\s*2\s+([A-Z][A-Z' \-]{1,60})\s*(?:\n|$)/.exec(t))) { var p = m[1].trim().split(/\s+/); f.first = p.shift(); if (p.length) { f.middle = p.join(' '); } }
 		if ((m = /(?:^|\n)\s*8\s+(\d+[^\n]{3,60})\n\s*([A-Z .'\-]{2,40}?),?\s+([A-Z]{2})\s+(\d{5})/.exec(t))) { f.street = m[1].trim(); f.city = m[2].trim(); f.state = m[3]; f.zip = m[4]; }
 		else if ((m = /\n\s*([A-Z .'\-]{2,40}?),?\s+(MD|DC|VA|PA|DE|WV)\s+(\d{5})/.exec(t))) { f.city = m[1].trim(); f.state = m[2]; f.zip = m[3]; }
+		if (!f.street && (m = /(?:^|\n)\s*(?:8\s+)?(\d+\s+[A-Z0-9 .#'\-]{3,60})\s*\n\s*[A-Z .'\-]{2,40}?,?\s+[A-Z]{2}\s+\d{5}/.exec(t))) { f.street = m[1].trim(); }
 		if (/MARYLAND/.test(t)) { f.state = f.state || 'MD'; }
 		return f;
 	}
