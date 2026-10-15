@@ -36,7 +36,7 @@
 	}
 	function crop(c, x0, y0, w, h) { var r = document.createElement('canvas'); r.width = w; r.height = h; r.getContext('2d').drawImage(c, x0, y0, w, h, 0, 0, w, h); return r; }
 	/** Find the card on a plain background (scanner glass, table) and cut it out; turn it landscape. */
-	function autoCrop(c) {
+	function autoCrop(c, keep) {
 		var w = c.width, h = c.height, d = c.getContext('2d').getImageData(0, 0, w, h).data, g = new Uint8Array(w * h), i;
 		for (i = 0; i < w * h; i++) { g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0; }
 		var bw = Math.max(4, Math.round(Math.min(w, h) * 0.03)), sum = 0, n = 0, x, y;
@@ -51,7 +51,7 @@
 			var x0 = Math.max(0, rx[0] - m), y0 = Math.max(0, ry[0] - m);
 			out = crop(c, x0, y0, Math.min(w - x0, cw + 2 * m), Math.min(h - y0, ch + 2 * m));
 		}
-		if (out.height > out.width * 1.15) { out = rotate(out, 90); }
+		if (!keep && out.height > out.width * 1.15) { out = rotate(out, 90); }
 		return out;
 	}
 	/** Stretch the contrast (2nd–98th percentile) so faded or dark photos read better. */
@@ -171,71 +171,149 @@
 	function us(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); return m ? m[2] + '/' + m[3] + '/' + m[1] : (d || ''); }
 	function today() { var n = new Date(); return n.getFullYear() + '-' + ('0' + (n.getMonth() + 1)).slice(-2) + '-' + ('0' + n.getDate()).slice(-2); }
 
+	/* ------------------------------------------------------------ helpers for the automatic capture */
+	/** Small grey copy of a canvas (for motion / sharpness checks). */
+	function grey(c, w) {
+		var k = w / c.width, h = Math.max(8, Math.round(c.height * k)), t = document.createElement('canvas'); t.width = w; t.height = h;
+		var x = t.getContext('2d'); x.drawImage(c, 0, 0, w, h);
+		var d = x.getImageData(0, 0, w, h).data, g = new Float32Array(w * h);
+		for (var i = 0; i < w * h; i++) { g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114; }
+		return { g: g, w: w, h: h };
+	}
+	/** Contrast (std dev), sharpness (variance of the Laplacian) and change from the previous frame. */
+	function measure(a, prev) {
+		var g = a.g, w = a.w, h = a.h, n = w * h, s = 0, s2 = 0, i, x, y, l = 0, l2 = 0, m = 0, diff = 0;
+		for (i = 0; i < n; i++) { s += g[i]; s2 += g[i] * g[i]; }
+		for (y = 1; y < h - 1; y++) { for (x = 1; x < w - 1; x++) { i = y * w + x; var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]; l += v; l2 += v * v; m++; } }
+		if (prev && prev.g.length === n) { for (i = 0; i < n; i += 3) { diff += Math.abs(g[i] - prev.g[i]); } diff /= Math.ceil(n / 3); } else { diff = 99; }
+		var mean = s / n;
+		return { std: Math.sqrt(Math.max(0, s2 / n - mean * mean)), sharp: l2 / m - (l / m) * (l / m), diff: diff, mean: mean };
+	}
+	function same(a, b) { if (!a || !b || a.g.length !== b.g.length) { return 99; } var d = 0; for (var i = 0; i < a.g.length; i += 2) { d += Math.abs(a.g[i] - b.g[i]); } return d / Math.ceil(a.g.length / 2); }
+	/** Quick barcode look (one size, upright and upside down) — used to tell the back from the front. */
+	function quickCode(Z, c) { var b = canvasFrom(c, 1600); return decode(Z, b) || decode(Z, rotate(b, 180)); }
+	/** A scanner page with both sides on it: find the two cards (side by side or one above the other). */
+	function splitTwo(c) {
+		var r = autoCrop(c, true), k = r.width / r.height;
+		if (k > 2.3) { var hw = Math.round(r.width / 2); return [crop(r, 0, 0, hw, r.height), crop(r, hw, 0, r.width - hw, r.height)]; }
+		if (k < 1.0) { var hh = Math.round(r.height / 2); return [crop(r, 0, 0, r.width, hh), crop(r, 0, hh, r.width, r.height - hh)]; }
+		return [c];
+	}
+	function fix(c) { try { return enhance(autoCrop(canvasFrom(c, 2600))); } catch (e) { return c; } }
+	function blobOf(c) { return new Promise(function (ok) { c.toBlob(function (b) { ok(b); }, 'image/jpeg', 0.9); }); }
+	function beep() { try { var A = window.AudioContext || window.webkitAudioContext, a = new A(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1200; g.gain.value = 0.08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.09); setTimeout(function () { a.close(); }, 300); } catch (e) {} if (navigator.vibrate) { navigator.vibrate(60); } }
+	var DOCN = { permit: 'Learner’s permit', license: 'Driver’s license', id: 'ID card' };
+
 	/* ------------------------------------------------------------ the panel */
 	function mount(el, email, opts) {
 		opts = opts || {};
-		var S = { reg: null, check: null, fields: null, src: '', img: null, side: '' };
-		el.innerHTML = '<div class="ids-card"><div class="ids-head"><span class="ids-ic" aria-hidden="true">🪪</span><div><h4>Scan ID, learner’s permit or license</h4><p>Use the <b>back</b> of the card when you can — its barcode gives the exact name, date of birth, address and number. The picture is straightened and cropped automatically.</p></div></div>' +
+		var S = { reg: null, check: null, fields: null, src: '', front: null, back: null, code: null, saved: false };
+		el.innerHTML = '<div class="ids-card"><div class="ids-head"><span class="ids-ic" aria-hidden="true">🪪</span><div><h4>Scan ID, learner’s permit or license — both sides</h4><p>Hold the card in the frame: the <b>front</b> is taken by itself as soon as it is still and sharp, then turn the card over and the <b>back</b> is taken when its barcode is read. Both pictures are cropped, saved to the student’s documents and compared with the registration — nothing else to do.</p></div></div>' +
 			'<div class="ids-bar"><label>Document <select class="ids-doc"><option value="permit">Learner’s permit</option><option value="license">Driver’s license</option><option value="id">ID card</option></select></label>' +
-			'<button type="button" class="sdd-b" data-ids="live">📷 Live camera</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="photo">📸 Take photo</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="file">⬆ Scanner file</button></div>' +
+			'<button type="button" class="sdd-b" data-ids="live">📷 Camera — both sides</button><button type="button" class="sdd-b" data-ids="scanner">🖨 Office scanner</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="photo">📸 Take photos</button><button type="button" class="sdd-b sdd-b--ghost" data-ids="file">⬆ Files</button></div>' +
+			'<ol class="ids-steps"><li data-s="front">Front</li><li data-s="back">Back</li><li data-s="read">Read</li><li data-s="saved">Saved</li></ol>' +
 			'<p class="ids-status" role="status" aria-live="polite"></p><div class="ids-out"></div><p class="ids-last"></p></div>';
 		var st = el.querySelector('.ids-status'), out = el.querySelector('.ids-out');
 		function status(t, bad) { st.textContent = t || ''; st.className = 'ids-status' + (bad ? ' is-bad' : ''); }
+		function step(k, on) { var li = el.querySelector('[data-s="' + k + '"]'); if (li) { li.classList.toggle('is-done', !!on); } }
+		function steps() { step('front', S.front); step('back', S.back); step('read', S.fields); step('saved', S.saved); }
+		function docv() { return el.querySelector('.ids-doc').value; }
 		function last() { el.querySelector('.ids-last').textContent = S.check && S.check.summary ? 'Last check: ' + S.check.summary : ''; }
 		post('reg', { email: email }).then(function (d) { S.reg = d.reg; S.check = d.check; last(); if (S.fields) { show(); } }).catch(function () {});
+
+		function reset() { S.front = S.back = S.code = S.fields = null; S.saved = false; S.src = ''; out.innerHTML = ''; steps(); }
 
 		el.querySelector('.ids-bar').addEventListener('click', function (e) {
 			var b = e.target.closest('[data-ids]'); if (!b) { return; }
 			var k = b.getAttribute('data-ids');
+			reset();
 			if (k === 'live') { live(); return; }
-			var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; if (k === 'photo') { i.setAttribute('capture', 'environment'); }
-			i.addEventListener('change', function () { if (i.files[0]) { fromFile(i.files[0]); } }); i.click();
+			if (k === 'scanner') { office(); return; }
+			if (k === 'photo') { photo('front'); return; }
+			var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.multiple = true;
+			i.addEventListener('change', function () { files(Array.prototype.slice.call(i.files || [])); }); i.click();
 		});
 
-		function fromFile(file) {
-			if (!/^image\//.test(file.type)) { status('Please choose a photo or a scanner image (JPG or PNG). For a PDF from the scanner, save it as JPG.', true); return; }
-			status('Opening the picture…');
-			var u = URL.createObjectURL(file), im = new Image();
-			im.onload = function () { var c = canvasFrom(im, 2600); URL.revokeObjectURL(u); run(c, null); };
-			im.onerror = function () { status('This picture could not be opened (HEIC photos: set the camera to “Most compatible”, or use Take photo).', true); };
-			im.src = u;
+		function open(file) {
+			return new Promise(function (ok, no) {
+				if (!/^image\//.test(file.type)) { no(new Error('Please choose photos or scanner images (JPG or PNG). For a PDF from the scanner, save it as JPG.')); return; }
+				var u = URL.createObjectURL(file), im = new Image();
+				im.onload = function () { var c = canvasFrom(im, 3000); URL.revokeObjectURL(u); ok(c); };
+				im.onerror = function () { no(new Error('This picture could not be opened (iPhone photos: set the camera to “Most compatible”, or use Scan both sides).')); };
+				im.src = u;
+			});
+		}
+		/** Put a picture where it belongs: with a barcode it is the back, otherwise the front. */
+		function place(c) {
+			return zx().then(function (Z) {
+				var f = fix(c), t = quickCode(Z, f);
+				if (t) { S.back = f; S.code = t; } else if (!S.front) { S.front = f; } else if (!S.back) { S.back = f; }
+				steps();
+			});
+		}
+		/* Scanner: one page with both sides, or two files. */
+		function files(list) {
+			if (!list.length) { return; }
+			status('Opening the scan…');
+			list.slice(0, 2).reduce(function (p, f) { return p.then(function () { return open(f); }).then(function (c) { var parts = list.length === 1 ? splitTwo(c) : [c]; return parts.reduce(function (q, x) { return q.then(function () { return place(x); }); }, Promise.resolve()); }); }, Promise.resolve())
+				.then(function () {
+					if (!S.front && !S.back) { status('No card was found on this scan.', true); return; }
+					finish();
+				}).catch(function (e) { status(e.message, true); });
+		}
+		/* Phone camera app: front, then back (each photo needs one tap — the browser asks for it). */
+		function photo(side) {
+			var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.setAttribute('capture', 'environment');
+			i.addEventListener('change', function () {
+				if (!i.files[0]) { return; }
+				status('Checking the picture…');
+				open(i.files[0]).then(place).then(function () {
+					if (S.front && S.back) { finish(); return; }
+					var need = S.front ? 'back' : 'front';
+					out.innerHTML = '<div class="ids-next"><p>' + (need === 'back' ? 'Front ✓ — now turn the card over.' : 'Back ✓ — now the front.') + '</p><button type="button" class="sdd-b">📸 Take the ' + need + '</button> <button type="button" class="sdd-b sdd-b--ghost" data-skip="1">Skip — only one side</button></div>';
+					status('');
+					out.querySelector('.sdd-b:not([data-skip])').addEventListener('click', function () { photo(need); });
+					out.querySelector('[data-skip]').addEventListener('click', finish);
+				}).catch(function (e) { status(e.message, true); });
+			});
+			i.click();
 		}
 
-		function run(c, pre) {
+		/* Both sides in hand: read, compare, save — all at once. */
+		function finish() {
 			out.innerHTML = '';
-			status('Straightening and cropping…');
-			setTimeout(function () {
-				var fixed;
-				try { fixed = enhance(autoCrop(canvasFrom(c, 2600))); } catch (e) { fixed = c; }
-				S.img = fixed;
-				status('Looking for the barcode…');
-				(pre ? Promise.resolve(pre) : barcode(fixed)).then(function (text) {
-					if (text) { S.fields = aamva(text); S.src = 'barcode'; S.side = 'back'; status('Read from the barcode ✓'); show(); return; }
-					status('No barcode on this side — reading the printed text…');
-					return ocr(fixed, status).then(function (data) {
-						S.fields = parseFront(data.text); S.src = 'ocr'; S.side = 'front';
-						status(Object.keys(S.fields).length ? 'Read from the printed text — please check each value.' : 'Could not read this card. Try the back side (barcode), more light, or hold the phone straight above the card.', !Object.keys(S.fields).length);
-						show();
-					});
-				}).catch(function (e) { status(e.message, true); });
-			}, 30);
+			status('Reading the card…');
+			var back = S.back, front = S.front;
+			(S.code ? Promise.resolve(S.code) : (back ? barcode(back) : Promise.resolve(null))).then(function (text) {
+				if (!text && front) { return barcode(front).then(function (t2) { if (t2) { var x = S.front; S.front = S.back; S.back = x; } return t2; }); }
+				return text;
+			}).then(function (text) {
+				if (text) { S.fields = aamva(text); S.src = 'barcode'; return; }
+				var o = S.front || S.back;
+				status('No barcode found — reading the printed text…');
+				return ocr(o, status).then(function (d) { S.fields = parseFront(d.text); S.src = 'ocr'; });
+			}).then(function () {
+				steps(); show();
+				if (!Object.keys(S.fields || {}).length) { status('The card could not be read. Try again with more light and the card flat, or type the values below.', true); return; }
+				return save(true);
+			}).catch(function (e) { status(e.message, true); });
 		}
 
 		function show() {
 			var f = S.fields || {}, r = S.reg || {}, apply = C.apply && S.reg;
 			var regv = function (k) { return k === 'dob' ? r.dob : r[k]; };
-			var html = '<div class="ids-res"><figure class="ids-img"></figure><div class="ids-tab"><table><thead><tr><th>Field</th><th>On the card' + (S.src === 'ocr' ? ' <small>(read from text — check)</small>' : '') + '</th><th>On the registration' + (r.file ? ' <small>' + esc(r.file) + '</small>' : '') + '</th><th></th>' + (apply ? '<th title="Copy into the registration">Use</th>' : '') + '</tr></thead><tbody>';
+			var html = '<div class="ids-res"><div class="ids-imgs">' + (S.front ? '<figure class="ids-img" data-i="front"><figcaption>Front</figcaption></figure>' : '') + (S.back ? '<figure class="ids-img" data-i="back"><figcaption>Back</figcaption></figure>' : '') + '</div><div class="ids-tab"><table><thead><tr><th>Field</th><th>On the card' + (S.src === 'ocr' ? ' <small>(read from text — check)</small>' : ' <small>(barcode)</small>') + '</th><th>On the registration' + (r.file ? ' <small>' + esc(r.file) + '</small>' : '') + '</th><th></th>' + (apply ? '<th title="Copy into the registration">Use</th>' : '') + '</tr></thead><tbody>';
 			ROWS.forEach(function (row) {
 				var k = row[0], cv = f[k] || '', rv = ONREG[k] ? (regv(k) || '') : null;
 				html += '<tr data-k="' + k + '"><th>' + esc(row[1]) + '</th><td><input value="' + esc(k === 'dob' || k === 'issued' || k === 'expires' ? us(cv) : cv) + '" data-f="' + k + '" aria-label="' + esc(row[1]) + ' on the card"></td><td>' + (rv === null ? '<span class="ids-na">—</span>' : esc(k === 'dob' ? us(rv) : rv) || '<span class="ids-na">empty</span>') + '</td><td class="ids-m"></td>' + (apply ? '<td>' + (ONREG[k] ? '<input type="checkbox" data-use="' + k + '" aria-label="Use the card value for ' + esc(row[1]) + '">' : '') + '</td>' : '') + '</tr>';
 			});
-			html += '</tbody></table><div class="ids-flags"></div><div class="ids-acts"><button type="button" class="sdd-b sdd-b--go" data-act="save">✓ Save the scan and the check</button>' + (apply ? '<button type="button" class="sdd-b sdd-b--ghost" data-act="apply">Copy ticked values into the registration</button>' : '') + '</div>' +
+			html += '</tbody></table><div class="ids-flags"></div><div class="ids-acts"><button type="button" class="sdd-b sdd-b--ghost" data-act="save" hidden>Save my corrections</button>' + (apply ? '<button type="button" class="sdd-b" data-act="apply">Copy ticked values into the registration</button>' : '') + '</div>' +
 				(!S.reg ? '<p class="ids-na">No registration form for this student, so there is nothing to compare with.</p>' : '') + '</div></div>';
 			out.innerHTML = html;
-			if (S.img) { var im = new Image(); im.alt = 'Scanned card'; im.src = S.img.toDataURL('image/jpeg', 0.9); out.querySelector('.ids-img').appendChild(im); }
-			out.querySelectorAll('[data-f]').forEach(function (i) { i.addEventListener('input', marks); });
+			[['front', S.front], ['back', S.back]].forEach(function (p) { if (!p[1]) { return; } var im = new Image(); im.alt = 'Card ' + p[0]; im.src = p[1].toDataURL('image/jpeg', 0.85); out.querySelector('[data-i="' + p[0] + '"]').prepend(im); });
+			out.querySelectorAll('[data-f]').forEach(function (i) { i.addEventListener('input', function () { marks(); out.querySelector('[data-act="save"]').hidden = false; }); });
 			marks();
-			out.querySelector('[data-act="save"]').addEventListener('click', save);
+			out.querySelector('[data-act="save"]').addEventListener('click', function () { save(false); });
 			var ap = out.querySelector('[data-act="apply"]'); if (ap) { ap.addEventListener('click', applyIt); }
 		}
 
@@ -259,28 +337,35 @@
 				if (!b) { m.innerHTML = '<span class="ids-add">missing</span>'; diff.push(k); if (use && !use.dataset.touched) { use.checked = true; } return; }
 				if (a === b || (k === 'street' && (a.indexOf(b) === 0 || b.indexOf(a) === 0))) { m.innerHTML = '<span class="ids-ok">✓ same</span>'; if (use && !use.dataset.touched) { use.checked = false; } return; }
 				m.innerHTML = '<span class="ids-bad">✗ differs</span>'; diff.push(k);
+				if (use && !use.dataset.touched) { use.checked = true; }
 			});
 			out.querySelectorAll('[data-use]').forEach(function (u) { u.onchange = function () { u.dataset.touched = '1'; }; });
 			if (f.expires && f.expires < today()) { flags.push('<b class="ids-bad">This document expired on ' + esc(us(f.expires)) + '.</b>'); }
 			if (f.dob) { var age = (new Date(today()) - new Date(f.dob)) / 31557600000; if (age < 15.75) { flags.push('<b class="ids-bad">Younger than 15 years 9 months — too young for a learner’s permit in Maryland.</b>'); } }
-			if (diff.length) { flags.push(diff.length + ' value' + (diff.length > 1 ? 's differ' : ' differs') + ' from the registration.'); }
-			out.querySelector('.ids-flags').innerHTML = flags.map(function (x) { return '<p>' + x + '</p>'; }).join('');
+			if (diff.length) { flags.push(diff.length + ' value' + (diff.length > 1 ? 's differ' : ' differs') + ' from the registration — the card values are ticked; one tap copies them.'); }
+			var fl = out.querySelector('.ids-flags'); if (fl) { fl.innerHTML = flags.map(function (x) { return '<p>' + x + '</p>'; }).join(''); }
 			S.diff = diff;
 			return diff;
 		}
 
-		function save() {
-			var b = out.querySelector('[data-act="save"]'), f = values(), doc = el.querySelector('.ids-doc').value;
-			b.disabled = true; b.textContent = 'Saving…';
-			var type = doc === 'permit' ? 'permit' : doc === 'license' ? 'license' : (S.side === 'back' ? 'id_back' : 'id_front');
-			var label = (S.side === 'back' ? 'Back (barcode)' : 'Front') + ' — scanned and checked';
-			var up = Promise.resolve();
-			if (S.img && opts.upload) {
-				up = new Promise(function (ok) { S.img.toBlob(function (bl) { opts.upload(new File([bl], 'scan.jpg', { type: 'image/jpeg' }), type, label); ok(); }, 'image/jpeg', 0.9); });
+		/** Save: both pictures into the student's documents (once) and the check. */
+		function save(first) {
+			var f = values(), doc = docv(), name = DOCN[doc] || 'ID', ups = [];
+			status(first ? 'Saving the pictures and the check…' : 'Saving…');
+			if (first && opts.upload) {
+				[['front', S.front, 'id_front'], ['back', S.back, 'id_back']].forEach(function (p) {
+					if (!p[1]) { return; }
+					ups.push(blobOf(p[1]).then(function (bl) { return opts.upload(new File([bl], name.replace(/\W+/g, '-').toLowerCase() + '-' + p[0] + '.jpg', { type: 'image/jpeg' }), p[2], name + ' — ' + p[0] + (p[0] === 'back' && S.src === 'barcode' ? ' (barcode read)' : '') + ' · scanned'); }));
+				});
 			}
-			up.then(function () { return post('save', { email: email, fields: JSON.stringify(f), doc: doc, src: S.src, diff: JSON.stringify(marks()) }); })
-				.then(function (d) { b.textContent = 'Saved ✓'; status(d.msg); S.check = { summary: d.summary }; last(); if (opts.saved) { opts.saved(); } })
-				.catch(function (e) { b.disabled = false; b.textContent = '✓ Save the scan and the check'; status(e.message, true); });
+			return Promise.all(ups).then(function () { return post('save', { email: email, fields: JSON.stringify(f), doc: doc, src: S.src, diff: JSON.stringify(marks()) }); })
+				.then(function (d) {
+					S.saved = true; steps();
+					var sb = out.querySelector('[data-act="save"]'); if (sb) { sb.hidden = true; }
+					status((first ? (S.front && S.back ? 'Front and back saved to documents · ' : 'Picture saved to documents · ') : '') + d.msg);
+					S.check = { summary: d.summary }; last(); if (opts.saved) { opts.saved(); }
+				})
+				.catch(function (e) { status(e.message, true); });
 		}
 		function applyIt() {
 			var use = [], b = out.querySelector('[data-act="apply"]');
@@ -292,35 +377,118 @@
 			}).then(function (d) { S.reg = d.reg; b.disabled = false; show(); }).catch(function (e) { b.disabled = false; status(e.message, true); });
 		}
 
-		/* Live camera with a card frame; reads the barcode as soon as it is in view. */
+		/* Office scanner (Brother on the network) through the SDS Scan program on this computer. */
+		var BR = 'http://127.0.0.1:52700';
+		function bridge(path, o) {
+			o = o || {};
+			var ctl = window.AbortController ? new AbortController() : null, t = ctl ? setTimeout(function () { ctl.abort(); }, o.timeout || 2500) : null;
+			return fetch(BR + path, { method: o.method || 'GET', signal: ctl ? ctl.signal : undefined, targetAddressSpace: 'loopback' }).then(function (r) { if (t) { clearTimeout(t); } return r; });
+		}
+		function office() {
+			out.innerHTML = '';
+			status('Connecting to the office scanner…');
+			bridge('/status', { timeout: 20000 }).then(function (r) { return r.json(); }).then(function (d) {
+				if (!d.scanner) { setup('found'); return; }
+				scanSide('front', d.scanner.model);
+			}).catch(function () { setup('app'); });
+		}
+		function setup(why) {
+			var mac = /Mac/.test(navigator.platform || navigator.userAgent), dl = mac ? C.scanMac : C.scanWin;
+			status('');
+			out.innerHTML = why === 'app'
+				? '<div class="ids-next ids-setup"><p>🖨 One-time setup on this computer</p><ol><li><a class="sdd-b" href="' + esc(dl) + '" download>⬇ Download SDS Scan for ' + (mac ? 'Mac' : 'Windows') + '</a> <a href="' + esc(mac ? C.scanWin : C.scanMac) + '" download>(' + (mac ? 'Windows' : 'Mac') + ' version)</a></li><li>Open the downloaded file and run <b>Install SDS Scan</b>' + (mac ? ' (right-click → Open the first time)' : ' (if Windows warns: More info → Run anyway; firewall: Allow)') + '.</li><li>If the browser asks to let this site use devices on your local network, choose <b>Allow</b>.</li></ol><button type="button" class="sdd-b" data-again>↻ Check again</button></div>'
+				: '<div class="ids-next ids-setup"><p>SDS Scan is running, but the Brother scanner was not found on the network.</p><p class="ids-m2">Check that the Brother is on and on the office Wi-Fi. Or type its IP address (on the Brother: Menu → Network → WLAN → TCP/IP → IP Address):</p><input class="ids-ip" placeholder="192.168.1.40" inputmode="decimal"> <button type="button" class="sdd-b" data-ip>Use this address</button> <button type="button" class="sdd-b sdd-b--ghost" data-again>↻ Search again</button></div>';
+			out.querySelector('[data-again]').addEventListener('click', function () { if (why === 'found') { status('Searching the network…'); bridge('/status?find=1', { timeout: 60000 }).then(function (r) { return r.json(); }).then(function (d) { if (d.scanner) { scanSide('front', d.scanner.model); } else { setup('found'); status('Still not found.', true); } }).catch(function () { setup('app'); }); } else { office(); } });
+			var ip = out.querySelector('[data-ip]');
+			if (ip) { ip.addEventListener('click', function () { var v = out.querySelector('.ids-ip').value.trim(); status('Checking ' + v + '…'); bridge('/config?ip=' + encodeURIComponent(v), { method: 'POST', timeout: 15000 }).then(function (r) { return r.json(); }).then(function (d) { if (d.ok) { scanSide('front', d.scanner.model); } else { status(d.msg, true); } }).catch(function () { status('SDS Scan did not answer.', true); }); }); }
+		}
+		function scanSide(side, model) {
+			var tell = side === 'front' ? 'Put the card <b>face down</b> in the <b>top corner</b> of the glass (by the arrow) and close the lid.' : 'Now turn the card over (same corner) and close the lid.';
+			var n = side === 'front' ? 3 : 8, tmr = null;
+			out.innerHTML = '<div class="ids-next"><p>🖨 ' + esc(model || 'Office scanner') + ' — ' + (side === 'front' ? 'front' : 'back') + ' side</p><p class="ids-m2">' + tell + '</p><button type="button" class="sdd-b" data-go>Scan now</button> <button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
+			var cd = out.querySelector('.ids-cd');
+			function go() {
+				if (tmr) { clearInterval(tmr); tmr = null; }
+				out.innerHTML = '<div class="ids-next"><p>Scanning the ' + side + '… <span class="ids-spin"></span></p></div>';
+				status('The scanner is working (about 10–20 seconds)…');
+				// The card sits in the top corner: scan the top half of the glass only (twice as fast).
+				bridge('/scan?dpi=300&w=8.5&h=5.5', { method: 'POST', timeout: 120000 }).then(function (r) {
+					if (!r.ok) { return r.json().then(function (j) { throw new Error(j.msg || 'Scan failed.'); }); }
+					return r.blob();
+				}).then(function (b) {
+					return open(new File([b], side + '.jpg', { type: 'image/jpeg' }));
+				}).then(place).then(function () {
+					if (S.front && S.back) { finish(); return; }
+					beep(); scanSide(S.front ? 'back' : 'front', model);
+				}).catch(function (e) { status(e.message || 'Scan failed.', true); scanSide(side, model); });
+			}
+			out.querySelector('[data-go]').addEventListener('click', go);
+			out.querySelector('[data-x]').addEventListener('click', function () { if (tmr) { clearInterval(tmr); } out.innerHTML = ''; status('Scan cancelled.'); reset(); });
+			status(side === 'back' ? '✓ Front scanned.' : '');
+			tmr = setInterval(function () { n--; cd.textContent = n > 0 ? 'Scanning by itself in ' + n + '…' : ''; if (n <= 0) { go(); } }, 1000);
+			cd.textContent = 'Scanning by itself in ' + n + '…';
+		}
+
+		/* Live camera: front taken by itself when the card is still and sharp; back when its barcode is read. */
 		function live() {
-			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { status('This browser cannot open the camera here. Use “Take photo”.', true); return; }
+			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { status('This browser cannot open the camera here. Use “Take photos”.', true); return; }
 			var M = document.createElement('div'); M.className = 'ids-live';
-			M.innerHTML = '<div class="ids-live-in"><video playsinline muted></video><div class="ids-frame" aria-hidden="true"></div><p class="ids-live-t">Hold the <b>back</b> of the card inside the frame — it is read automatically.</p><div class="ids-live-b"><button type="button" class="sdd-b" data-l="shot">Capture (front side)</button><button type="button" class="sdd-b sdd-b--ghost" data-l="x">Close</button></div></div>';
+			M.innerHTML = '<div class="ids-live-in"><div class="ids-vw"><video playsinline muted></video><div class="ids-frame" aria-hidden="true"><i></i></div><div class="ids-flash"></div></div>' +
+				'<div class="ids-live-s"><span data-t="front">1 Front</span><span data-t="back">2 Back</span></div><p class="ids-live-t">Front of the card inside the frame — hold still.</p>' +
+				'<div class="ids-live-b"><button type="button" class="sdd-b" data-l="shot">Take it now</button><button type="button" class="sdd-b sdd-b--ghost" data-l="x">Cancel</button></div></div>';
 			document.body.appendChild(M);
-			var v = M.querySelector('video'), stream = null, stop = false, Z = null;
+			var v = M.querySelector('video'), fr = M.querySelector('.ids-frame'), tip = M.querySelector('.ids-live-t'), stream = null, stop = false, Z = null;
+			var want = 'front', prev = null, still = 0, peak = 0, lastShot = null, moved = true, since = Date.now(), lastTry = 0, busy = false;
 			function close() { stop = true; if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); } M.remove(); }
-			function frame() {
-				var vw = v.videoWidth, vh = v.videoHeight; if (!vw) { return null; }
-				var fw = vw * 0.86, fh = fw / 1.586; if (fh > vh * 0.86) { fh = vh * 0.86; fw = fh * 1.586; }
-				return crop(canvasFrom(v, 4000), (vw - fw) / 2, (vh - fh) / 2, fw, fh);
+			function box() { var vw = v.videoWidth, vh = v.videoHeight, fw = vw * 0.86, fh = fw / 1.586; if (fh > vh * 0.8) { fh = vh * 0.8; fw = fh * 1.586; } return { x: (vw - fw) / 2, y: (vh - fh) / 2, w: fw, h: fh, vw: vw, vh: vh }; }
+			function place2() { var b = box(); if (!b.vw) { return; } fr.style.left = (b.x / b.vw * 100) + '%'; fr.style.top = (b.y / b.vh * 100) + '%'; fr.style.width = (b.w / b.vw * 100) + '%'; fr.style.height = (b.h / b.vh * 100) + '%'; }
+			function frame() { var b = box(); if (!b.vw) { return null; } var c = document.createElement('canvas'); c.width = Math.round(b.w); c.height = Math.round(b.h); c.getContext('2d').drawImage(v, b.x, b.y, b.w, b.h, 0, 0, c.width, c.height); return c; }
+			function mark() { M.querySelectorAll('[data-t]').forEach(function (s) { var t = s.getAttribute('data-t'); s.className = (t === 'front' ? S.front : S.back) ? 'is-done' : (t === want ? 'is-now' : ''); }); }
+			function shot(c, code) {
+				beep(); var fl = M.querySelector('.ids-flash'); fl.classList.add('on'); setTimeout(function () { fl.classList.remove('on'); }, 180);
+				var f = fix(c);
+				if (!code && Z) { code = quickCode(Z, f); }
+				if (code) { S.back = f; S.code = code; } else if (want === 'back' && S.front) { S.back = f; } else { S.front = f; }
+				lastShot = grey(c, 160); moved = false; still = 0; peak = 0; since = Date.now();
+				steps();
+				if (S.front && S.back) { close(); finish(); return; }
+				want = S.front ? 'back' : 'front'; mark();
+				tip.innerHTML = want === 'back' ? '✓ Front taken. <b>Turn the card over</b> — the back is taken when the barcode is read.' : '✓ Back read. Now the <b>front</b> inside the frame — hold still.';
 			}
 			M.addEventListener('click', function (e) {
 				var b = e.target.closest('[data-l]'); if (!b) { return; }
-				if (b.getAttribute('data-l') === 'x') { close(); return; }
-				var c = frame(); close(); if (c) { run(c, null); }
+				if (b.getAttribute('data-l') === 'x') { close(); status('Scan cancelled.'); reset(); return; }
+				var c = frame(); if (c) { shot(c, null); }
 			});
-			navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }).then(function (s) {
-				stream = s; v.srcObject = s; return v.play();
-			}).then(function () { return zx(); }).then(function (z) {
+			navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false }).then(function (s) {
+				stream = s; v.srcObject = s;
+				try { var tr = s.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {}; if (cap.focusMode && cap.focusMode.indexOf('continuous') > -1) { tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } } catch (e) {}
+				return v.play();
+			}).then(function () { place2(); window.addEventListener('resize', place2); mark(); return zx(); }).then(function (z) {
 				Z = z;
 				(function loop() {
 					if (stop) { return; }
-					var c = frame(), t = c ? decode(Z, canvasFrom(c, 1600)) : null;
-					if (t) { close(); run(c, t); return; }
-					setTimeout(loop, 350);
+					if (busy) { setTimeout(loop, 120); return; }
+					var c = frame(); if (!c) { setTimeout(loop, 150); return; }
+					var g = grey(c, 160), m = measure(g, prev); prev = g;
+					peak = Math.max(peak * 0.985, m.sharp);
+					// After a picture, wait until the card was moved / turned before taking the next one.
+					if (!moved) { if (same(g, lastShot) > 14) { moved = true; still = 0; } setTimeout(loop, 150); return; }
+					var ok = m.std > 22 && m.mean > 35 && m.mean < 235 && m.sharp > Math.max(25, peak * 0.7);
+					still = ok && m.diff < 4.5 ? still + 1 : 0;
+					fr.classList.toggle('is-ok', still > 1);
+					var now = Date.now();
+					// Look for the barcode (any side): if found, that picture is the back.
+					if (now - lastTry > 300 && m.diff < 8) {
+						lastTry = now; busy = true;
+						var t = decode(Z, canvasFrom(c, 1600)); busy = false;
+						if (t && !S.back) { shot(c, t); setTimeout(loop, 150); return; }
+					}
+					if (want === 'front' && still >= 5) { shot(c, null); }
+					else if (want === 'back' && still >= 5 && now - since > 3500) { shot(c, null); } // no barcode on this card: take the back when still
+					setTimeout(loop, 120);
 				})();
-			}).catch(function (e) { close(); status(/Permission|NotAllowed/i.test(String(e && (e.name || e.message))) ? 'Camera permission was refused. Allow the camera for this site, or use “Take photo”.' : (e.message || 'The camera could not start.'), true); });
+			}).catch(function (e) { close(); status(/Permission|NotAllowed/i.test(String(e && (e.name || e.message))) ? 'Camera permission was refused. Allow the camera for this site, or use “Take photos”.' : (e.message || 'The camera could not start.'), true); });
 		}
 	}
 

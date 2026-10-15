@@ -63,10 +63,10 @@
   /* ---------------------------------------------------------------- upload */
   function upload(files, type, label) {
     files = Array.prototype.slice.call(files || []);
-    if (!files.length) { return; }
-    if (C.office && !S.email) { toast('Choose the student first.', true); return; }
+    if (!files.length) { return Promise.resolve(); }
+    if (C.office && !S.email) { toast('Choose the student first.', true); return Promise.resolve(); }
     var box = root.querySelector('.sdd-queue');
-    files.reduce(function (p, f) {
+    return files.reduce(function (p, f) {
       return p.then(function () {
         var row = document.createElement('li');
         row.innerHTML = '<span class="sdd-q-n">' + esc(f.name || 'Photo') + '</span><span class="sdd-q-bar"><i></i></span><span class="sdd-q-s">Preparing…</span>';
@@ -165,7 +165,7 @@
       '<section class="sdd-list"><h4>On file <span class="sdd-count">0</span></h4><ul class="sdd-docs"></ul></section>';
     paintSlots(); paintDocs();
     var ids = root.querySelector('.sdd-idscan');
-    if (ids && S.email) { window.SDSC_IDSCAN.mount(ids, S.email, { upload: function (file, type, label) { upload([file], type, label); } }); }
+    if (ids && S.email) { window.SDSC_IDSCAN.mount(ids, S.email, { upload: function (file, type, label) { return upload([file], type, label); } }); }
   }
 
   function openStudent(email) {

@@ -349,13 +349,22 @@ table.t th { padding: 4pt 5pt; background: #e7f5ec; color: #0b3d24; text-align: 
 table.t td { padding: 3.5pt 5pt; border-bottom: 0.5pt solid #d5dbe0; font-size: 9pt; }
 table.t tr { break-inside: avoid; }
 .empty { padding: 30px; text-align: center; color: #5b646d; }
-.ids { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
-.ids figure { margin: 0; break-inside: avoid; } .ids img { width: 100%; max-height: 3.4in; object-fit: contain; border: 0.75pt solid #cfd6dc; border-radius: 6px; }
+.ids { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
+.ids figure { margin: 0; break-inside: avoid; text-align: center; } .ids img { display: block; width: 4.2in; height: 2.65in; object-fit: contain; border: 0.75pt solid #cfd6dc; border-radius: 8px; }
 .ids figcaption { font-size: 8.5pt; color: #5b646d; margin-top: 2px; }
 .de3 { max-width: 8.5in; margin: 14px auto; } .de3-s { font: 600 13px Arial, sans-serif; color: #15191d; } .de3-w { font: 600 13px Arial, sans-serif; color: #8a4b00; background: #fff7e6; padding: 8px 12px; border-radius: 8px; }
 .de3 iframe { width: 100%; height: 88vh; border: 1px solid #cfd6dc; border-radius: 8px; background: #fff; }
 @media print { .de3 { display: none; } }
 @media screen { .sheet .pg + .pg { margin-top: 0.4in; padding-top: 0.4in; border-top: 2px dashed #cfd6dc; } }
+.bar .dup { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: #2b3137; font-weight: 700; cursor: pointer; } .bar .dup input { width: 16px; height: 16px; accent-color: #00a651; }
+.bar .ppn { font-size: 12px; color: #c3c9ce; }
+.pp { position: relative; display: flex; flex-direction: column; width: 7.4in; height: 9.35in; overflow: hidden; }
+.pp-h { flex: 0 0 auto; padding-bottom: 8px; }
+.pp-b { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.pp-f { flex: 0 0 auto; padding-top: 4px; font-size: 7.5pt; color: #7b838a; text-align: right; border-top: 0.5pt solid #e1e5e8; }
+.pp-blank { align-items: center; justify-content: center; } .pp-blank p { color: #9aa3ab; font-size: 9pt; font-style: italic; }
+@media screen { .pp { box-sizing: content-box; margin: 18px auto; padding: 0.85in 0.55in 0.75in; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.1); } }
+@media print { .pp { break-after: page; page-break-after: always; } .pp:last-child { break-after: auto; page-break-after: auto; } }
 @media print { body { background: #fff; } .bar { display: none; } .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; } }
 ';
 	}
@@ -505,7 +514,8 @@ table.t tr { break-inside: avoid; }
 
 	/** Copies of the student's ID / permit / license scans on file. */
 	public static function idcopy_html( $p ) {
-		$imgs = class_exists( 'SDSC_Docs' ) ? SDSC_Docs::images( $p['email'], array( 'id_front', 'id_back', 'permit', 'license' ) ) : array();
+		$imgs = class_exists( 'SDSC_Docs' ) ? SDSC_Docs::images( $p['email'], array( 'id_front', 'id_back' ) ) : array();
+		if ( ! $imgs && class_exists( 'SDSC_Docs' ) ) { $imgs = array_slice( SDSC_Docs::images( $p['email'], array( 'permit', 'license' ) ), 0, 2 ); }
 		$h    = '<section class="pg"><table class="wrap">' . self::who( 'Copy of ID / Learner’s Permit', $p, self::file_no( $p ) ) . '<tbody><tr><td>';
 		if ( ! $imgs ) { return $h . '<p class="empty">No ID, learner’s permit or license is on file in Student documents.</p></td></tr></tbody></table></section>'; }
 		$h .= '<div class="ids">';
@@ -525,14 +535,15 @@ table.t tr { break-inside: avoid; }
 			foreach ( $res as $by ) { foreach ( $by as $x ) { $ids[] = $x['attempt_id']; } }
 			$ans = self::answers( $ids );
 		}
-		$html_parts = array_values( array_diff( $parts, array( 'de003' ) ) );
+		// Print order: registration form, answer sheet with the ID copy on its back, attendance.
+		$html_parts = array_values( array_intersect( array( 'form', 'sheet', 'idcopy', 'attendance' ), $parts ) );
 		$de3        = in_array( 'de003', $parts, true ) && class_exists( 'SDSC_DE003' );
 		$names      = self::parts();
 		nocache_headers();
 		header( 'Content-Type: text/html; charset=utf-8' );
 		echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . esc_html( $title ) . '</title><style>' . self::css() . '</style></head><body>'; // phpcs:ignore
 		echo '<div class="bar"><span>' . esc_html( $title ) . ' · ' . count( $people ) . ' student' . ( 1 === count( $people ) ? '' : 's' ) . ' · US Letter</span>'
-			. ( $html_parts ? '<button onclick="window.print()">🖨 Print / Save as PDF</button>' : '' )
+			. ( $html_parts ? '<label class="dup" title="Each form starts on the front of a sheet; the ID copy is printed on the back of the answer sheet. Set the printer to 2-sided (flip on long edge)."><input type="checkbox" id="ppdup" checked> 2-sided</label><span id="ppn" class="ppn"></span><button onclick="window.print()">🖨 Print / Save as PDF</button>' : '' )
 			. ( $de3 ? '<button id="de3go" type="button">📄 ' . esc_html( $names['de003'] ) . '</button>' : '' )
 			. '<a href="javascript:window.close()">Close</a></div>';
 		if ( $de3 ) {
@@ -548,24 +559,27 @@ table.t tr { break-inside: avoid; }
 				. 'function latin(v){return String(v==null?"":v).replace(/[‘’]/g,"\'").replace(/[“”]/g,"\"").replace(/[–—]/g,"-").normalize("NFKD").replace(/[^\x20-\x7E\xA0-\xFF]/g,"");}'
 				. 'function fit(fl,t,hv){try{fl.setMaxLength(undefined);}catch(e){}fl.setText(t);var r=fl.acroField.getWidgets()[0].getRectangle(),W=r.width-5,H=r.height,ml=false;try{ml=fl.isMultiline();}catch(e){}var s=Math.max(5,Math.min(10,H*0.6));function lines(z){var n=1,x=0;t.split(/\s+/).forEach(function(wd){var ww=hv.widthOfTextAtSize(wd+" ",z);if(x+ww>W&&x>0){n++;x=ww;}else{x+=ww;}});return n;}if(!ml){var s1=s;while(s1>6.5&&hv.widthOfTextAtSize(t,s1)>W)s1-=0.25;if(hv.widthOfTextAtSize(t,s1)<=W){s=s1;}else{fl.enableMultiline();ml=true;}}if(ml){while(s>5&&lines(s)*s*1.2>H-2)s-=0.25;}var da="/Helv "+s.toFixed(2)+" Tf 0 g";fl.acroField.setDefaultAppearance(da);fl.acroField.getWidgets().forEach(function(w){w.setDefaultAppearance(da);});}async function make(){if(busy)return;if(url){show();return;}busy=true;S.textContent="Preparing the official MVA form…";try{if(!window.PDFLib)throw new Error("The PDF tool did not load. Reload the page.");var r=await fetch(U,{credentials:"same-origin"});if(!r.ok)throw new Error(await r.text());var src=await r.arrayBuffer(),out=await PDFLib.PDFDocument.create();'
 				. 'for(var i=0;i<D.length;i++){S.textContent="Filling "+(i+1)+" of "+D.length+": "+D[i].name;var doc=await PDFLib.PDFDocument.load(src),form=doc.getForm(),hv=await doc.embedFont(PDFLib.StandardFonts.Helvetica);form.getFields().forEach(function(fl){var n=fl.getName();if(!(fl instanceof PDFLib.PDFTextField))return;var v=dbg?n:D[i].f[n];if(v!==undefined&&v!==null&&v!==""){try{fit(fl,latin(v),hv);}catch(e){}}});form.updateFieldAppearances(hv);form.flatten({updateFieldAppearances:false});var pg=await out.copyPages(doc,doc.getPageIndices());pg.forEach(function(p){out.addPage(p);});}'
-				. 'out.setTitle(' . wp_json_encode( $names['de003'] ) . '+(D.length===1?" — "+D[0].name:""));var b=await out.save();url=URL.createObjectURL(new Blob([b],{type:"application/pdf"}));show();}catch(e){S.textContent="The form could not be prepared: "+e.message;}busy=false;}'
+				. 'try{out.catalog.getOrCreateViewerPreferences().setDuplex(PDFLib.Duplex.DuplexFlipLongEdge);}catch(e){}out.setTitle(' . wp_json_encode( $names['de003'] ) . '+(D.length===1?" — "+D[0].name:""));var b=await out.save();url=URL.createObjectURL(new Blob([b],{type:"application/pdf"}));show();}catch(e){S.textContent="The form could not be prepared: "+e.message;}busy=false;}'
 				. 'function show(){S.textContent=D.length+" form"+(D.length===1?"":"s")+" ready — print or save with the buttons of the PDF viewer below.";F.hidden=false;F.src=url;F.scrollIntoView();}'
 				. 'document.getElementById("de3go").addEventListener("click",make);' . ( $html_parts ? '' : 'make();' ) . '})();</script>';
 		}
 		if ( $html_parts ) {
 			echo '<div class="sheet">';
 			if ( ! $people ) { echo '<p class="empty">No students for these filters.</p>'; }
-			foreach ( $people as $p ) {
+			foreach ( $people as $si => $p ) {
 				foreach ( $html_parts as $k ) {
-					if ( 'form' === $k ) { echo self::form_html( $p ); } // phpcs:ignore -- escaped inside
-					if ( 'sheet' === $k ) { echo self::sheet_html( $p, $course, $quizzes, $res, $ans ); } // phpcs:ignore
-					if ( 'attendance' === $k ) { echo self::attendance_html( $p ); } // phpcs:ignore
-					if ( 'idcopy' === $k ) { echo self::idcopy_html( $p ); } // phpcs:ignore
+					$x = '';
+					if ( 'form' === $k ) { $x = self::form_html( $p ); }
+					if ( 'sheet' === $k ) { $x = self::sheet_html( $p, $course, $quizzes, $res, $ans ); }
+					if ( 'attendance' === $k ) { $x = self::attendance_html( $p ); }
+					if ( 'idcopy' === $k ) { $x = self::idcopy_html( $p ); }
+					// Tag each form for the page layout (assets/printpages.js).
+					echo preg_replace( '/^<section class="pg">/', '<section class="pg" data-part="' . esc_attr( $k ) . '" data-st="' . (int) $si . '" data-name="' . esc_attr( $names[ $k ] ) . '" data-file="' . esc_attr( self::file_no( $p ) ) . '">', $x, 1 ); // phpcs:ignore -- escaped inside
 				}
 			}
-			echo '</div>';
+			echo '</div><script src="' . esc_url( SDSC_URL . 'assets/printpages.js?ver=' . SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/printpages.js' ) ) . '"></script>';
 		}
-		echo '<script>if(location.hash==="#print"){window.addEventListener("load",function(){window.print();});}</script></body></html>';
+		echo '</body></html>';
 		exit;
 	}
 }
