@@ -579,3 +579,24 @@
 .mdh-mva svg { width: 22px; height: 22px; }
 .mdh-title + .mdh-ctas { margin-top: 22px; }
 #driver-ed { scroll-margin-top: 110px; }
+
+/* v1.2 — phones: the header always fits (the menu button was pushed off the right edge) and the
+   top-bar phone numbers are big enough to tap. */
+@media (max-width: 600px) {
+  .sdh-bar .sdh-wrap { gap: 8px; padding: 0 12px; }
+  .sdh-bar .sdh-logo img, .sdh-bar .sdh-logo .sdh-logo-img { max-width: 138px !important; height: auto !important; max-height: 38px; }
+  .sdh-bar .sdh-cta { gap: 6px; }
+  .sdh-bar .sdh-me-name, .sdh-bar .sdh-signin span { display: none !important; }
+  .sdh-bar .sdh-me-btn { padding-right: 4px; }
+  .sdh-bar .sdh-signin { width: 42px; padding: 0; justify-content: center; }
+  .sdh-bar .sdh-enroll { padding: 0 12px !important; font-size: 13.5px !important; white-space: nowrap; }
+  .sdh-burger { width: 44px; height: 44px; }
+  .sdh-burger span { left: 12px; right: 12px; }
+  .sdh-burger span:nth-child(1) { top: 15px; } .sdh-burger span:nth-child(2) { top: 21px; } .sdh-burger span:nth-child(3) { top: 27px; }
+  .sdh.is-open .sdh-burger span:nth-child(1), .sdh.is-open .sdh-burger span:nth-child(3) { top: 21px; }
+}
+@media (max-width: 360px) { .sdh-bar .sdh-logo img, .sdh-bar .sdh-logo .sdh-logo-img { max-width: 112px !important; } .sdh-bar .sdh-enroll { padding: 0 10px !important; font-size: 13px !important; } }
+@media (max-width: 1024px) {
+  .sdx-ph--sm { --h: 34px; }
+  .sdh-addr { display: inline-block; padding: 8px 0; }
+}
