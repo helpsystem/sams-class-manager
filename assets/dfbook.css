@@ -49,3 +49,4 @@
 .sdfb-tgrid td button.is-no { background: repeating-linear-gradient(135deg, #f1f3f4 0 4px, #e6e9eb 4px 8px); border-color: #e3e7ea; cursor: not-allowed; }
 .sdfb-tgrid td button.is-sel { background: #00703c; border-color: #00703c; color: #fff; }
 .sdfb-tgrid td button.is-sel::before { content: '✓ '; }
+#sdfb-add[hidden], .sdfb-tick[hidden], .sdfb-sec label[hidden] { display: none !important; }
