@@ -229,6 +229,8 @@ class SDSC_PriceWatch {
 			if ( ! $whole_page && ! preg_match( $pat, $lines[ $i ] ) ) { continue; }
 			if ( 'course36' === $svc && preg_match( '/(practice|extra|additional|remedial|refresher)/i', $lines[ $i ] ) ) { continue; }
 			if ( 'dip' === $svc && preg_match( '/young\s+driver/i', $lines[ $i ] ) ) { continue; }
+			// Add-ons and bundles are not the service itself (interpreter, translation, "add 2 hours" to a test).
+			if ( preg_match( '/(translation|traducci|interpreter|int[eé]rprete|add[\s\-]*on|\badd\s+\d|\bbundle\b)/i', $lines[ $i ] ) ) { continue; }
 			// The first line (of this one and the next two) that holds a price in range; the line after it too
 			// when it also has a price and sale words ("Regular $425" / "Special price down to $360").
 			$inr  = function ( $t ) use ( $lo, $hi ) { return array_values( array_filter( self::prices_in( $t ), function ( $p ) use ( $lo, $hi ) { return $p[0] >= $lo && $p[0] <= $hi; } ) ); };
