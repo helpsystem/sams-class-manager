@@ -111,7 +111,7 @@
 .scal-call { text-decoration: none; font-size: 16px; }
 
 /* details panel */
-.scal-panel { position: fixed; top: 32px; right: 0; bottom: 0; z-index: 100000; width: min(420px, 100vw); overflow: auto; background: #fff; box-shadow: -10px 0 40px rgba(0,0,0,.18); padding: 0 18px 24px; transform: translateX(105%); transition: transform .18s ease; }
+.scal-panel { position: fixed; top: var(--wp-admin--admin-bar--height, 0px); right: 0; bottom: 0; z-index: 100000; width: min(420px, 100vw); overflow: auto; background: #fff; box-shadow: -10px 0 40px rgba(0,0,0,.18); padding: 0 18px 24px; transform: translateX(105%); transition: transform .18s ease; }
 .scal-panel.is-open { transform: none; }
 .scal-panel header { position: sticky; top: 0; display: flex; align-items: flex-start; gap: 10px; padding: 16px 0 10px; background: #fff; border-bottom: 1px solid var(--line); }
 .scal-panel h3 { margin: 0; font-size: 18px; } .scal-panel header p { margin: 2px 0 0; color: var(--mut); }
@@ -153,7 +153,6 @@
 .scal-toast.is-bad { background: #8a1c14; }
 
 @media (max-width: 782px) {
-	.scal-panel { top: 46px; }
 	.scal-title { font-size: 15px; flex-basis: 100%; margin: 4px 0 0; order: 5; }
 	.scal-nav { flex-wrap: wrap; }
 	.scal-views { width: 100%; } .scal-v { flex: 1 1 auto; padding: 0 6px; font-size: 12px; }

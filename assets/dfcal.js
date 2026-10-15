@@ -497,6 +497,7 @@
 				'<a class="scal-btn scal-btn--ghost" href="' + esc(C.records) + '">Evaluations &amp; records</a>' +
 				(e.lid ? '<a class="scal-btn scal-btn--ghost" href="' + esc(C.lesson + e.lid) + '">BTW lesson &amp; fees</a>' : '') +
 			'</div>';
+		var wb = document.getElementById('wpadminbar'); P.style.top = wb && wb.offsetHeight && getComputedStyle(wb).display !== 'none' ? Math.max(0, wb.getBoundingClientRect().bottom) + 'px' : '0px';
 		P.hidden = false; P.classList.add('is-open');
 		P.querySelector('.scal-x').addEventListener('click', closePanel);
 		var F = P.querySelector('.scal-edit');
