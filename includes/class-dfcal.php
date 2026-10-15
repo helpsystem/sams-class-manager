@@ -96,7 +96,7 @@ class SDSC_DFCal {
 		$fd  = is_array( $fd ) ? $fd : array();
 		$l   = $lessons[ (int) $s['id'] ] ?? null;
 		$st  = $students[ (int) $s['student_id'] ] ?? null;
-		$out = $l ? $l['status'] : '';
+		$out = $l && 'booked' !== $l['status'] ? $l['status'] : '';
 		if ( 'cancelled' === $s['status'] && ! empty( $fd['outcome'] ) ) { $out = $fd['outcome']; }
 		return array(
 			'id'     => (int) $s['id'],

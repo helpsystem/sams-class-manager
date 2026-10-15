@@ -531,17 +531,17 @@
 		var f = I.querySelector('button:not([data-close]),input,select'); if (f) { f.focus(); }
 	}
 
-	function confirmMove(e, data, changes, warnings) {
-		var hasMail = !!e.email, hasPhone = !!e.phone;
+	function confirmMove(e, data, changes, warnings, tellWas) {
+		var hasMail = !!e.email, hasPhone = !!e.phone, tellOn = hasMail && tellWas !== false;
 		dialog('<h3>Change ' + esc(e.name) + '’s lesson?</h3><ul class="scal-ch">' + changes.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>' +
 			(warnings && warnings.length ? '<div class="scal-wbox"><b>Please check:</b><ul>' + warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>' : '') +
-			'<label class="scal-chk"><input type="checkbox" name="tell" ' + (hasMail ? 'checked' : 'disabled') + '> Tell the student by e-mail' + (hasMail ? '' : ' <small>(no e-mail on file' + (hasPhone ? ' — call or text ' + esc(e.phone) : '') + ')</small>') + '</label>' +
+			'<label class="scal-chk"><input type="checkbox" name="tell" ' + (hasMail ? (tellOn ? 'checked' : '') : 'disabled') + '> Tell the student by e-mail' + (hasMail ? '' : ' <small>(no e-mail on file' + (hasPhone ? ' — call or text ' + esc(e.phone) : '') + ')</small>') + '</label>' +
 			'<div class="scal-dbtn"><button type="button" class="scal-btn scal-btn--ghost" data-close>Keep as it was</button><button type="button" class="scal-btn" data-ok>' + (warnings && warnings.length ? 'Change anyway' : 'Change') + '</button></div><p class="scal-derr" role="alert"></p>', function (I, close) {
 			I.querySelector('[data-ok]').addEventListener('click', function () {
 				var b = this; b.disabled = true; b.textContent = 'Saving…';
 				var d = Object.assign({}, data, { tell: I.querySelector('[name=tell]').checked ? 1 : '', force: warnings && warnings.length ? 1 : '' });
 				post('move', d).then(function (r) {
-					if (r && r.success && r.data.confirm) { close(); confirmMove(e, data, changes, r.data.warnings); return; }
+					if (r && r.success && r.data.confirm) { var tw = I.querySelector('[name=tell]').checked; close(); confirmMove(e, data, changes, r.data.warnings, tw); return; }
 					if (!r || !r.success) { b.disabled = false; b.textContent = 'Try again'; I.querySelector('.scal-derr').textContent = r && r.data && r.data.msg ? r.data.msg : 'Not saved.'; return; }
 					close(); toast(r.data.msg); load(true);
 				}).catch(function () { b.disabled = false; b.textContent = 'Try again'; I.querySelector('.scal-derr').textContent = 'No connection — not saved.'; });
