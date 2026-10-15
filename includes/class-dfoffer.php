@@ -214,16 +214,17 @@ class SDSC_DFOffer {
 		foreach ( $o['slots'] as $i => $s ) {
 			$ok  = isset( $avail[ $i ] );
 			$ins = self::ins_first( (int) $s['ins'] );
-			$h  .= '<li class="' . ( $ok ? '' : 'gone' ) . '"><label><input type="checkbox" name="s[]" value="' . (int) $i . '"' . ( $ok ? '' : ' disabled' ) . '><span><b>' . esc_html( SDSC_Lessons::when( $s['start'], $L, false ) ) . '</b><br>'
+			$h  .= '<li class="' . ( $ok ? '' : 'gone' ) . '"><label><input type="checkbox" name="s[]" value="' . (int) $i . '" data-day="' . esc_attr( substr( $s['start'], 0, 10 ) ) . '" data-min="' . (int) $s['minutes'] . '"' . ( $ok ? '' : ' disabled' ) . '><span><b>' . esc_html( SDSC_Lessons::when( $s['start'], $L, false ) ) . '</b><br>'
 				. esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $s['start'] ) ) . ' – ' . wp_date( 'g:i A', SDSC_Lessons::ts( $s['start'] ) + $s['minutes'] * 60 ) . ( $ins ? ' · ' . ( $es ? 'con ' : 'with ' ) . $ins : '' ) )
 				. ( $ok ? '' : '<br><small>' . ( $es ? 'Ya no está disponible' : 'No longer available' ) . '</small>' ) . '</span></label></li>';
 		}
+		if ( 'de' === $st['type'] ) { $h .= '<p class="m">' . ( $es ? 'Regla del MVA: como máximo 2 horas de manejo por día, así que elija días distintos.' : 'MVA rule: at most 2 hours of driving a day, so choose different days.' ) . '</p>'; }
 		$place = $st['place'] ? $st['place'] : ( SDSC_Lessons::settings()['place'] ?? '' );
 		$sset  = SDSC_Lessons::settings();
 		$h .= '</ul><p class="m">' . ( $es ? 'Lugar de encuentro: ' : 'Meeting place: ' ) . '<b>' . esc_html( $place ) . '</b></p>'
 			. '<p class="m">' . ( $es ? 'Puede cancelar o cambiar sin costo hasta ' . (int) $sset['hours'] . ' horas antes de cada clase. Después puede aplicarse un cargo de $' . esc_html( SDSC_Lessons::money( $sset['fee'] ) ) . '.' : 'You can cancel or change free of charge until ' . (int) $sset['hours'] . ' hours before each lesson. After that a $' . esc_html( SDSC_Lessons::money( $sset['fee'] ) ) . ' fee may apply.' ) . '</p>'
 			. '<button type="submit" id="go" disabled>' . ( $es ? 'Reservar mis clases' : 'Book my lessons' ) . '</button><p class="m" id="cnt"></p></form>'
-			. '<script>(function(){var n=' . (int) $need . ',f=document.getElementById("pk"),b=document.getElementById("go"),c=document.getElementById("cnt");function u(){var k=f.querySelectorAll("input[name=\'s[]\']:checked").length;b.disabled=k!==n;c.textContent=k+" / "+n;f.querySelectorAll("input[name=\'s[]\']:not(:checked)").forEach(function(i){if(!i.closest(".gone"))i.disabled=k>=n;});}f.addEventListener("change",u);f.addEventListener("submit",function(){b.disabled=true;b.textContent="…";});u();})();</script>';
+			. '<script>(function(){var n=' . (int) $need . ',de=' . ( 'de' === $st['type'] ? 'true' : 'false' ) . ',f=document.getElementById("pk"),b=document.getElementById("go"),c=document.getElementById("cnt");function u(){var on=[].slice.call(f.querySelectorAll("input[name=\'s[]\']:checked")),k=on.length,day={};on.forEach(function(i){day[i.dataset.day]=(day[i.dataset.day]||0)+(+i.dataset.min);});b.disabled=k!==n;c.textContent=k+" / "+n;f.querySelectorAll("input[name=\'s[]\']:not(:checked)").forEach(function(i){if(!i.closest(".gone"))i.disabled=k>=n||(de&&(day[i.dataset.day]||0)+(+i.dataset.min)>120);});}f.addEventListener("change",u);f.addEventListener("submit",function(){b.disabled=true;b.textContent="…";});u();})();</script>';
 		self::page_out( $es ? 'Elija sus clases de manejo' : 'Choose your driving lessons', $h, $L );
 	}
 
@@ -239,7 +240,6 @@ class SDSC_DFOffer {
 		foreach ( $o['slots'] as $i => $s ) {
 			if ( SDSC_Lessons::ts( $s['start'] ) < time() + HOUR_IN_SECONDS ) { continue; }
 			list( $err ) = SDSC_DFBook::check( self::d( $o['student'], $s ) );
-			$err = array_values( array_filter( $err, function ( $e ) { return false === strpos( $e, '2 hours a day' ); } ) );
 			if ( ! $err ) { $out[ $i ] = $s; }
 		}
 		return $out;
