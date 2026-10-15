@@ -704,7 +704,7 @@ class SDSC_Signs {
 			return array( 'reg', array( 'lines' => array( array( 40, 26, 12, 'BEHIND' ), array( 40, 41, 12, 'THE' ), array( 40, 56, 12, 'WHEEL' ), array( 40, 79, 15, '2–60 H' ) ) ), $plq( 'Practice', 'lessons' ), 'Two-hour lessons in a dual-control car, from 1 to 30 lessons.', 'See hours & prices', self::anchor( 'btw' ) );
 		}
 		if ( false !== strpos( $t, 'online' ) ) {
-			return array( 'service', array( 'symbol' => 'laptop' ), $plq( 'Online', '3 hours' ), 'The 3-hour roadway safety education program, online at your own pace.', 'See the course', self::anchor( 'online' ) );
+			return array( 'service', array( 'symbol' => 'laptop' ), $plq( 'Online', '3 hours' ), 'The 3-hour MVA Roadway Safety program (formerly Alcohol & Drug Education), online at your own pace.', 'See the course', self::anchor( 'online' ) );
 		}
 		if ( false !== strpos( $t, 'road test' ) ) {
 			return array( 'warning', array( 'lines' => array( array( 50, 43, 14, 'ROAD' ), array( 50, 58, 14, 'TEST' ), array( 50, 70, 9.5, 'AHEAD' ) ) ), $plq( 'Road test', 'practice' ), 'We drive the MVA test route with you until it feels routine.', 'Call us', $tel );
@@ -715,11 +715,8 @@ class SDSC_Signs {
 		if ( false !== strpos( $t, 'rental' ) ) {
 			return array( 'guide', array( 'lines' => array( array( 65, 27, 15, 'ROAD TEST' ), array( 65, 47, 15, 'CAR RENTAL' ) ), 'arrow' => true ), $plq( 'For your', 'MVA test' ), 'Take your MVA road test in our insured school car.', 'See car rental', self::anchor( 'rental' ) );
 		}
-		if ( false !== strpos( $t, 'alcohol' ) || false !== strpos( $t, 'drug' ) ) {
-			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The 3-hour program the MVA requires (formerly Alcohol & Drug), also for drivers assigned it by the MVA or a court.', 'Call us', $tel );
-		}
 		if ( false !== strpos( $t, 'improvement' ) ) {
-			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The 3-hour alcohol and drug education program the MVA requires, also for drivers assigned it by the MVA or a court.', 'Call us', $tel );
+			return array( 'stop', array(), $plq( 'Driver', 'improvement' ), 'The MVA Driver Improvement Program (DIP), for drivers referred by the MVA or a court: 5 to 7 points, or a moving violation on a provisional license.', 'Call us', $tel );
 		}
 		return array( 'service', array( 'symbol' => 'info' ), $plq( $item['title'] ), $item['desc'], 'Call us', $tel );
 	}
@@ -731,16 +728,14 @@ class SDSC_Signs {
 		if ( self::$overview_done ) { return ''; }
 		self::$overview_done = true;
 		if ( ! $items ) { $items = self::overview_defaults(); }
-		// "Drug & Alcohol" and "Driver Improvement" are one program, now called Driver Improvement (STOP sign).
+		// The 3-hour Alcohol & Drug Education Program became the 3-hour Roadway Safety Driving Education
+		// Program (MVA, Oct 1 2025), which is the online course card below, so its old card is dropped.
+		// Driver Improvement (DIP) is a different MVA program and keeps its own card.
 		$merged = array();
-		$seen   = false;
 		foreach ( $items as $it ) {
 			$t = strtolower( $it['title'] );
-			if ( false !== strpos( $t, 'alcohol' ) || false !== strpos( $t, 'drug' ) || false !== strpos( $t, 'improvement' ) ) {
-				if ( $seen ) { continue; }
-				$seen = true;
-				$it   = array( 'title' => 'Driver Improvement', 'desc' => '3 Hours program' );
-			}
+			if ( ( false !== strpos( $t, 'alcohol' ) || false !== strpos( $t, 'drug' ) ) && false === strpos( $t, 'improvement' ) ) { continue; }
+			if ( false !== strpos( $t, 'improvement' ) ) { $it = array( 'title' => 'Driver Improvement', 'desc' => 'MVA or court referral' ); }
 			$merged[] = $it;
 		}
 		$items = $merged;

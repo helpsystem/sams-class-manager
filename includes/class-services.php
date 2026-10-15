@@ -58,21 +58,14 @@ class SDSC_Services {
 				'shape' => 'school',
 				'l1' => 'Online', 'big' => '3', 'l2' => 'hours',
 				'title' => '3-hour roadway safety program',
-				'desc'  => 'The 3-hour MVA roadway safety program, taken fully online.',
+				'desc'  => 'The 3-hour MVA Roadway Safety Driving Education program (formerly the Alcohol & Drug Education program), taken fully online.',
 				'price' => '$90', 'cta' => 'Book the course', 'url' => 'https://buy.stripe.com/eVq5kD2PsbdX96xd9laMU1A',
-			),
-			array(
-				'shape' => 'stop',
-				'l1' => 'Alcohol', 'big' => '&amp;', 'l2' => 'drug',
-				'title' => '3-hour alcohol and drug program',
-				'desc'  => 'The 3-hour alcohol and drug education program, for applicants the MVA requires it of.',
-				'price' => 'Call for dates', 'cta' => 'Call us', 'url' => 'tel:+13017263030',
 			),
 			array(
 				'shape' => 'yield',
 				'l1' => '', 'big' => 'DIP', 'l2' => '',
 				'title' => 'Driver improvement program',
-				'desc'  => 'For drivers assigned the program by the MVA or a court.',
+				'desc'  => 'The MVA Driver Improvement Program, for drivers referred by the MVA or a court (5 to 7 points, or a moving violation on a provisional license).',
 				'price' => 'Call for dates', 'cta' => 'Call us', 'url' => 'tel:+13017263030',
 			),
 			array(
