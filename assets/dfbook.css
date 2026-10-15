@@ -1,6 +1,9 @@
 /* "Schedule a driving lesson" (DriveFlow calendar and records). */
-.sdfb .sdfb-dialog{max-width:760px;width:calc(100vw - 32px);max-height:calc(100vh - 40px);overflow:auto}
-.sdfb .df-modal-header h3{font-size:18px;font-weight:800}
+.sdfb .sdfb-dialog{max-width:780px;width:calc(100vw - 32px);max-height:calc(100vh - 40px);overflow:auto;background:#f8fafc;border-radius:16px;box-shadow:0 30px 80px -20px rgba(15,23,42,.6)}
+.sdfb .df-modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#fff;border-bottom:1px solid #e2e8f0;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:6}
+.sdfb .df-modal-body{padding:14px 18px 18px}
+.sdfb .df-modal-close{border:0;background:none;font-size:26px;line-height:1;cursor:pointer;color:#475569}
+.sdfb .df-modal-header h3{font-size:18px;font-weight:800;margin:0;color:#0f172a}
 .sdfb-sec{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px 6px;margin:0 0 12px;background:#fff}
 .sdfb-sec legend{font-weight:800;color:#0f172a;padding:0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
 .sdfb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 12px;margin:0 0 8px}
