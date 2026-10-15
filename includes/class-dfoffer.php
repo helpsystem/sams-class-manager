@@ -302,7 +302,8 @@ class SDSC_DFOffer {
 	protected static function booked_html( $o ) {
 		global $wpdb;
 		$es = 'es' === $o['student']['lang'];
-		$h  = '<p>' . ( $es ? '¡Listo! Estas son sus clases. Le enviamos la confirmación por correo electrónico.' : 'All set! These are your lessons. We sent you the confirmation by e-mail.' ) . '</p><ul class="slots">';
+		$em = is_email( $o['student']['email'] ?? '' );
+		$h  = '<p>' . ( $es ? '¡Listo! Estas son sus clases. ' . ( $em ? 'Le enviamos la confirmación por correo electrónico.' : 'Le enviaremos la confirmación por mensaje de texto.' ) : 'All set! These are your lessons. ' . ( $em ? 'We sent you the confirmation by e-mail.' : 'We will text you the confirmation.' ) ) . '</p><ul class="slots">';
 		foreach ( (array) $o['booked'] as $id ) {
 			$s = $wpdb->get_row( $wpdb->prepare( 'SELECT scheduled_start, scheduled_end, instructor_name, status FROM ' . SDSC_DriveFlow::t() . ' WHERE id = %d', $id ), ARRAY_A ); // phpcs:ignore
 			if ( ! $s ) { continue; }
@@ -315,7 +316,7 @@ class SDSC_DFOffer {
 		$logo = class_exists( 'SDSC_Mailer' ) ? ( SDSC_Mailer::info()['logo'] ?? '' ) : '';
 		echo '<!doctype html><html lang="' . esc_attr( $lang ) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . esc_html( $title ) . ' — Sam’s Driving School</title>'
 			. '<style>body{margin:0;background:#f6f4ee;font:16px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#15191d}.w{max-width:560px;margin:0 auto;padding:22px 16px 40px}.c{background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 10px 30px -18px rgba(0,0,0,.35)}h1{font-size:22px;margin:0 0 10px}header{text-align:center;padding:6px 0 16px}header img{max-width:190px;height:auto}.bar{height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,#ffc20e 0 26px,#2d3238 26px 46px);margin:0 0 16px}'
-			. '.slots{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}.slots li label,.slots li>span{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:2px solid #dfe4e8;border-radius:12px;cursor:pointer}.slots input{width:22px;height:22px;margin-top:2px;accent-color:#00703c}.slots li label:has(input:checked){border-color:#00703c;background:#ecf7f1}.slots li.gone{opacity:.5}.slots li.gone label{cursor:not-allowed}.slots li.ok>span{border-color:#a7e3c1;background:#ecf7f1}.slots small{color:#b42318}'
+			. '.slots{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}.slots li label,.slots li>span{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:2px solid #dfe4e8;border-radius:12px;cursor:pointer}.slots input{width:22px;height:22px;margin-top:2px;accent-color:#00703c}.slots li label:has(input:checked){border-color:#00703c;background:#ecf7f1}.slots li.gone{opacity:.5}.slots li.gone label{cursor:not-allowed}.slots li.ok>span{display:block;border-color:#a7e3c1;background:#ecf7f1}.slots small{color:#b42318}'
 			. 'button{width:100%;min-height:52px;border:0;border-radius:999px;background:#00703c;color:#fff;font-weight:700;font-size:17px;font-family:inherit;cursor:pointer}button[disabled]{opacity:.45;cursor:not-allowed}.m{font-size:14px;color:#5b646d}.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:10px 12px}#cnt{text-align:center}</style></head><body><div class="w">'
 			. '<header>' . ( $logo ? '<img src="' . esc_url( $logo ) . '" alt="Sam’s Driving School">' : '<b>Sam’s Driving School</b>' ) . '</header><div class="bar"></div><div class="c"><h1>' . esc_html( $title ) . '</h1>' . $body . '</div></div></body></html>'; // phpcs:ignore -- $body built from escaped parts
 		exit;
