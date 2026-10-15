@@ -224,10 +224,10 @@ class SDSC_Instructors {
 						else { echo '<span class="sdin-chip sdin-ok">Ready</span>'; }
 						if ( ! empty( $m['temp'] ) ) { echo '<div class="sdin-mut"><b>Typed in the lesson form (temporary)</b> — add e-mail and license, then send the onboarding link.</div>'; }
 						if ( ! empty( $m['paper_at'] ) ) { echo '<div class="sdin-mut">Agreement signed on paper ' . esc_html( $m['paper_at'] ) . '</div>'; }
-						elseif ( (int) $r['agreement_signed'] && $r['agreement_signed_at'] ) { echo '<div class="sdin-mut">Agreement signed online ' . esc_html( wp_date( 'M j, Y', strtotime( $r['agreement_signed_at'] ) ) ) . '</div>'; }
+						elseif ( (int) $r['agreement_signed'] && $r['agreement_signed_at'] ) { echo '<div class="sdin-mut">Agreement signed online ' . esc_html( wp_date( 'M j, Y', SDSC_Lessons::ts( $r['agreement_signed_at'] ) ) ) . '</div>'; }
 						?></td>
 						<td><?php echo esc_html( $r['license_number'] ? $r['license_number'] : 'License # —' ); ?><div class="sdin-mut"><?php echo esc_html( ( $cars[ (int) $r['default_vehicle_id'] ] ?? 'No usual car' ) . ' · ' . ( $m['langs'] ? implode( '/', (array) $m['langs'] ) : 'languages —' ) ); ?></div><?php if ( ! empty( $m['note'] ) ) : ?><div class="sdin-mut"><?php echo esc_html( $m['note'] ); ?></div><?php endif; ?></td>
-						<td><?php echo $nx ? (int) $nx['n'] . ' · next ' . esc_html( wp_date( 'D M j, g:i A', strtotime( $nx['s'] ) ) ) : '<span class="sdin-mut">none</span>'; ?></td>
+						<td><?php echo $nx ? (int) $nx['n'] . ' · next ' . esc_html( wp_date( 'D M j, g:i A', SDSC_Lessons::ts( $nx['s'] ) ) ) : '<span class="sdin-mut">none</span>'; ?></td>
 						<td>
 							<div class="sdin-acts">
 								<?php if ( ! $off && $miss && class_exists( 'SDSC_Onboard' ) && SDSC_Onboard::on() ) : ?>

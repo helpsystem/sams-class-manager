@@ -74,7 +74,7 @@ class SDSC_DFBook {
 			$c = (string) get_post_meta( $cid, '_sdsc_course_code', true );
 			if ( $c ) { return $c; }
 			$st = (string) get_post_meta( $cid, '_sdsc_start', true );
-			return $st ? 'class of ' . wp_date( 'M j, Y', strtotime( $st ) ) : '';
+			return $st ? 'class of ' . wp_date( 'M j, Y', strtotime( $st . ' 12:00:00' ) ) : '';
 		};
 		if ( class_exists( 'SDSC_Outreach' ) ) {
 			foreach ( SDSC_Outreach::contacts() as $c ) {

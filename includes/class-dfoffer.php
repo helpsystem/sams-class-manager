@@ -62,7 +62,7 @@ class SDSC_DFOffer {
 		$o['student'] = (array) json_decode( $o['student'], true );
 		$o['slots']   = (array) json_decode( $o['slots'], true );
 		$o['booked']  = (array) json_decode( (string) $o['booked'], true );
-		if ( 'open' === $o['status'] && strtotime( $o['expires_at'] ) < current_time( 'timestamp' ) ) { $o['status'] = 'expired'; }
+		if ( 'open' === $o['status'] && SDSC_Lessons::ts( $o['expires_at'] ) < time() ) { $o['status'] = 'expired'; }
 		return $o;
 	}
 
@@ -126,7 +126,7 @@ class SDSC_DFOffer {
 		}
 		$pick  = max( 1, min( count( $slots ), absint( $p['pick'] ?? 1 ) ) );
 		$days  = in_array( (int) ( $p['days'] ?? 3 ), array( 1, 2, 3, 7 ), true ) ? (int) $p['days'] : 3;
-		$exp   = min( current_time( 'timestamp' ) + $days * DAY_IN_SECONDS, SDSC_Lessons::ts( $slots[0]['start'] ) - 2 * HOUR_IN_SECONDS );
+		$exp   = min( time() + $days * DAY_IN_SECONDS, SDSC_Lessons::ts( $slots[0]['start'] ) - 2 * HOUR_IN_SECONDS );
 		$token = bin2hex( random_bytes( 16 ) );
 		$wpdb->insert( self::t(), array( 'token' => $token, 'student' => wp_json_encode( $st ), 'slots' => wp_json_encode( $slots ), 'pick' => $pick, 'status' => 'open', 'created_by' => get_current_user_id(), 'created_at' => current_time( 'mysql' ), 'expires_at' => wp_date( 'Y-m-d H:i:s', $exp ) ) );
 		if ( ! $wpdb->insert_id ) { $fail( 'The offer could not be saved.' ); }
@@ -153,7 +153,7 @@ class SDSC_DFOffer {
 		$url  = self::link( $o['token'] );
 		$n    = (int) $o['pick'];
 		$c    = count( $o['slots'] );
-		$exp  = wp_date( $es ? 'j \d\e F, g:i a' : 'l, F j \a\t g:i A', strtotime( $o['expires_at'] ) );
+		$exp  = wp_date( $es ? 'j \d\e F, g:i a' : 'l, F j \a\t g:i A', SDSC_Lessons::ts( $o['expires_at'] ) );
 		$done = array();
 		if ( is_email( $st['email'] ) && class_exists( 'SDSC_Mailer' ) ) {
 			$list = '';
@@ -357,10 +357,10 @@ class SDSC_DFOffer {
 				<tbody>
 				<?php foreach ( $rows as $row ) : $o = self::get( $row['token'] ); $st = $o['student']; $by = get_userdata( (int) $o['created_by'] ); ?>
 					<tr>
-						<td><b><?php echo esc_html( trim( $st['first'] . ' ' . $st['last'] ) ); ?></b><br><span class="description"><?php echo esc_html( trim( $st['email'] . ' · ' . $st['phone'], ' ·' ) ); ?></span><br><span class="description"><?php echo esc_html( 'by ' . ( $by ? $by->display_name : '—' ) . ', ' . wp_date( 'M j g:i a', strtotime( $o['created_at'] ) ) ); ?></span></td>
+						<td><b><?php echo esc_html( trim( $st['first'] . ' ' . $st['last'] ) ); ?></b><br><span class="description"><?php echo esc_html( trim( $st['email'] . ' · ' . $st['phone'], ' ·' ) ); ?></span><br><span class="description"><?php echo esc_html( 'by ' . ( $by ? $by->display_name : '—' ) . ', ' . wp_date( 'M j g:i a', SDSC_Lessons::ts( $o['created_at'] ) ) ); ?></span></td>
 						<td><?php foreach ( $o['slots'] as $s ) { echo esc_html( wp_date( 'D M j, g:i A', SDSC_Lessons::ts( $s['start'] ) ) . ' · ' . ( $s['minutes'] / 60 ) . 'h · ' . self::ins_first( (int) $s['ins'] ) ) . '<br>'; } ?></td>
 						<td><?php echo (int) $o['pick']; ?></td>
-						<td><?php echo esc_html( array( 'open' => 'Waiting for the student', 'booked' => 'Booked', 'expired' => 'Expired', 'cancelled' => 'Withdrawn' )[ $o['status'] ] ?? $o['status'] ); ?><?php echo 'open' === $o['status'] ? '<br><span class="description">until ' . esc_html( wp_date( 'M j g:i a', strtotime( $o['expires_at'] ) ) ) . '</span>' : ''; ?><?php echo $o['booked'] ? '<br><span class="description">' . count( $o['booked'] ) . ' booked</span>' : ''; ?></td>
+						<td><?php echo esc_html( array( 'open' => 'Waiting for the student', 'booked' => 'Booked', 'expired' => 'Expired', 'cancelled' => 'Withdrawn' )[ $o['status'] ] ?? $o['status'] ); ?><?php echo 'open' === $o['status'] ? '<br><span class="description">until ' . esc_html( wp_date( 'M j g:i a', SDSC_Lessons::ts( $o['expires_at'] ) ) ) . '</span>' : ''; ?><?php echo $o['booked'] ? '<br><span class="description">' . count( $o['booked'] ) . ' booked</span>' : ''; ?></td>
 						<td class="description"><?php echo esc_html( $o['sent'] ); ?></td>
 						<td><input type="text" readonly value="<?php echo esc_attr( self::link( $o['token'] ) ); ?>" onclick="this.select()" style="width:220px"></td>
 						<td><?php if ( 'open' === $o['status'] ) : ?>
