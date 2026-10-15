@@ -105,7 +105,7 @@
 					var ins = $('sdfb-ins'), car = $('sdfb-car'), t = $('sdfb-time');
 					h += '<div class="sdfb-ok"><b>' + esc(x.info.day) + ', ' + esc(t.options[t.selectedIndex].text) + ' – ' + esc(x.info.end) + '</b>'
 						+ (ins.value ? ' · ' + esc(ins.options[ins.selectedIndex].dataset.name) : '') + (car.value ? ' · ' + esc(car.options[car.selectedIndex].dataset.plate) : '')
-						+ '<br>The student can cancel free of charge until <b>' + esc(x.info.dl) + '</b> (' + D.hours + ' hours before). After that a fee of $' + D.fee + ' may be charged — only if the manager decides.</div>';
+						+ '<br>Free cancellation until <b>' + esc(x.info.dl) + '</b> (' + D.hours + ' hours before). After that a $' + D.fee + ' fee may apply — charged only if the manager decides.</div>';
 				}
 				chk.innerHTML = h;
 				go.disabled = !!x.errors.length || !filled();

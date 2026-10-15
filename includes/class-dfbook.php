@@ -72,7 +72,9 @@ class SDSC_DFBook {
 		$code = function ( $cid ) {
 			if ( ! $cid ) { return ''; }
 			$c = (string) get_post_meta( $cid, '_sdsc_course_code', true );
-			return $c ? $c : '';
+			if ( $c ) { return $c; }
+			$st = (string) get_post_meta( $cid, '_sdsc_start', true );
+			return $st ? 'class of ' . wp_date( 'M j, Y', strtotime( $st ) ) : '';
 		};
 		if ( class_exists( 'SDSC_Outreach' ) ) {
 			foreach ( SDSC_Outreach::contacts() as $c ) {
@@ -208,6 +210,7 @@ class SDSC_DFBook {
 			if ( $prev ) { $warn[] = $ins['name'] . "'s previous lesson ends less than 15 minutes before — check the travel time."; }
 		}
 		$hours       = class_exists( 'SDSC_Lessons' ) ? (int) SDSC_Lessons::settings()['hours'] : 48;
+		if ( $a > time() && $a - $hours * HOUR_IN_SECONDS < time() ) { $warn[] = 'This lesson is less than ' . $hours . ' hours away, so the free-cancellation window has already closed — tell the student when you confirm.'; }
 		$info['end'] = wp_date( 'g:i A', $b );
 		$info['day'] = wp_date( 'l, F j, Y', $a );
 		$info['dl']  = wp_date( 'l, F j \a\t g:i A', $a - $hours * HOUR_IN_SECONDS );
