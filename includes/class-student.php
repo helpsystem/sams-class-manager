@@ -21,6 +21,7 @@ class SDSC_Student {
 		add_filter( 'load_dashboard_template_part_from_other_location', array( __CLASS__, 'template' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'block_pages' ), 5 );
 		add_action( 'wp_footer', array( __CLASS__, 'trim' ), 5 );
+		add_action( 'wp_head', array( __CLASS__, 'fit' ), 50 );
 	}
 
 	/** Students only: never staff, instructors or administrators. */
@@ -67,6 +68,12 @@ class SDSC_Student {
 		elseif ( preg_match( '#^(account/)?(reviews|wishlist|my-profile)#', $rest ) || preg_match( '#^courses/wishlist#', $rest ) ) { $to = tutor_utils()->tutor_dashboard_url(); }
 		elseif ( preg_match( '#^account/settings#', $rest ) && isset( $_GET['tab'] ) && 'social' === sanitize_key( wp_unslash( $_GET['tab'] ) ) ) { $to = tutor_utils()->tutor_dashboard_url( 'account/settings' ); } // phpcs:ignore
 		if ( $to ) { wp_safe_redirect( $to ); exit; }
+	}
+
+	/** Everyone on the dashboard: the main column never pushes the page wider than the screen (wide tables scroll in place). */
+	public static function fit() {
+		if ( ! is_user_logged_in() || ! function_exists( 'tutor_utils' ) || ! is_page( (int) tutor_utils()->get_option( 'tutor_dashboard_page_id' ) ) ) { return; }
+		echo '<style id="sdsc-dash-fit">.tutor-dashboard-layout>.tutor-dashboard-main{min-width:0;max-width:100%}.tutor-dashboard-main .tutor-table-responsive,.tutor-dashboard-main .tutor-table-wrapper{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.tutor-dashboard-main .tutor-dashboard-content{min-width:0}</style>' . "\n";
 	}
 
 	/** Hides Tutor's built-in cards and fields that our school does not use (students only, dashboard only). */

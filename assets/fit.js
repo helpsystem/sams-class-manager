@@ -35,6 +35,12 @@
 			if (e.getBoundingClientRect().right > vw + 1 && cs.display !== 'inline') { e.style.maxWidth = '100%'; e.style.minWidth = '0'; e.style.boxSizing = 'border-box'; }
 		});
 	}
+	// Bigger tap areas on phones and tablets.
+	var css = document.createElement('style');
+	css.textContent = '@media (max-width:1024px){#wpbody-content .df-btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center}' +
+		'#wpbody-content input[type=text],#wpbody-content input[type=email],#wpbody-content input[type=tel],#wpbody-content input[type=number],#wpbody-content input[type=date],#wpbody-content input[type=time],#wpbody-content input[type=datetime-local],#wpbody-content input[type=search],#wpbody-content input[type=url],#wpbody-content input[type=password],#wpbody-content input:not([type]),#wpbody-content select{min-height:40px}' +
+		'#wpbody-content button[data-set]{min-height:34px;min-width:40px}}';
+	(document.head || document.documentElement).appendChild(css);
 	var t;
 	function later() { clearTimeout(t); t = setTimeout(fit, 120); }
 	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', fit); } else { fit(); }
