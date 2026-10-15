@@ -28,7 +28,7 @@ class SDSC_Docs {
 		add_filter( 'tutor_instructor_dashboard_nav', array( __CLASS__, 'tutor_nav' ) );
 		add_filter( 'load_dashboard_template_part_from_other_location', array( __CLASS__, 'tutor_template' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ) );
-		foreach ( array( 'upload', 'list', 'find', 'file', 'check', 'remove' ) as $a ) {
+		foreach ( array( 'upload', 'list', 'find', 'file', 'check', 'remove', 'staff' ) as $a ) {
 			add_action( 'wp_ajax_sdsc_doc_' . $a, array( __CLASS__, 'ajax_' . $a ) );
 		}
 	}
@@ -105,8 +105,54 @@ class SDSC_Docs {
 			'certificate'  => 'Certificate',
 			'parent_id'    => 'Parent / guardian ID',
 			'other'        => 'Other document',
-		);
+		) + self::ins_types();
 		return $student ? array_intersect_key( $t, array_flip( array( 'id_front', 'id_back', 'permit', 'license', 'practice_log', 'other' ) ) ) : $t;
+	}
+
+	/** Instructor file: what the school keeps for each instructor. The first three are required. */
+	public static function ins_types() {
+		return array(
+			'ins_dl_front' => 'Driver’s license — front',
+			'ins_dl_back'  => 'Driver’s license — back',
+			'ins_cert'     => 'MVA instructor license / certificate',
+			'ins_agree'    => 'Signed instructor agreement',
+			'ins_w9'       => 'W-9 / tax form',
+			'ins_bg'       => 'Background check',
+			'ins_insur'    => 'Car insurance',
+			'ins_other'    => 'Other instructor document',
+		);
+	}
+	const INS_NEED = array( 'ins_dl_front', 'ins_dl_back', 'ins_cert' );
+
+	/** Instructors (not the sample ones), each with the e-mail their file is kept under. */
+	public static function instructors() {
+		global $wpdb;
+		$t = $wpdb->prefix . 'driveflow_instructors';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) !== $t ) { return array(); }
+		$out = array();
+		foreach ( (array) $wpdb->get_results( "SELECT id, user_id, name, phone, email, status FROM $t WHERE name NOT LIKE 'Demo %' AND name NOT LIKE 'Preview %' AND email NOT LIKE '%@preview.samsdrivingschool.invalid' ORDER BY status = 'active' DESC, name", ARRAY_A ) as $r ) { // phpcs:ignore
+			$e = strtolower( trim( (string) $r['email'] ) );
+			if ( ! is_email( $e ) && $r['user_id'] && ( $u = get_userdata( (int) $r['user_id'] ) ) ) { $e = strtolower( $u->user_email ); }
+			if ( ! is_email( $e ) ) { $e = 'instructor-' . (int) $r['id'] . '@instructors.samsdrivingschool.invalid'; } // typed in by the office, no e-mail yet
+			$out[ $e ] = array( 'id' => (int) $r['id'], 'name' => $r['name'], 'phone' => (string) $r['phone'], 'email' => $e, 'active' => 'active' === $r['status'] );
+		}
+		return $out;
+	}
+	/** Is this e-mail an instructor's file? */
+	public static function instructor( $email ) {
+		static $all = null;
+		if ( null === $all ) { $all = self::instructors(); }
+		$email = strtolower( trim( (string) $email ) );
+		if ( isset( $all[ $email ] ) ) { return $all[ $email ]; }
+		$u = is_email( $email ) ? get_user_by( 'email', $email ) : null;
+		if ( $u && array_intersect( (array) $u->roles, array( 'tutor_instructor', 'sdsc_instructor', 'driveflow_instructor' ) ) ) { return array( 'id' => 0, 'name' => $u->display_name, 'phone' => '', 'email' => $email, 'active' => true ); }
+		return null;
+	}
+	/** Instructor files: the front office, and each instructor their own. Student files: the whole school team. */
+	public static function may_see( $email ) {
+		if ( ! self::is_office() ) { return self::me() === strtolower( (string) $email ); }
+		if ( self::instructor( $email ) ) { return self::is_front_office() || self::me() === strtolower( (string) $email ); }
+		return true;
 	}
 
 	/** The school team: administrator, school manager, front desk and instructors (they check permits in the car). */
@@ -176,7 +222,7 @@ class SDSC_Docs {
 	/** May the current user see this document? */
 	protected static function may( $r ) {
 		if ( ! $r || ! is_user_logged_in() ) { return false; }
-		return self::is_office() || self::me() === $r['email'];
+		return self::may_see( $r['email'] ) || self::me() === $r['email'];
 	}
 
 	public static function shape( $r ) {
@@ -272,13 +318,20 @@ class SDSC_Docs {
 		if ( self::is_office() && ! $email ) {
 			// Office home: student uploads still to check, and the latest additions.
 			$pend = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t_docs() . ' WHERE status = %s ORDER BY id DESC LIMIT 50', 'new' ), ARRAY_A );
-			$rec  = $wpdb->get_results( 'SELECT * FROM ' . self::t_docs() . ' ORDER BY id DESC LIMIT 12', ARRAY_A ); // phpcs:ignore
+			$rec  = $wpdb->get_results( 'SELECT * FROM ' . self::t_docs() . ' ORDER BY id DESC LIMIT 40', ARRAY_A ); // phpcs:ignore
+			$ok   = function ( $r ) { return self::may_see( $r['email'] ); };
+			$pend = array_values( array_filter( (array) $pend, $ok ) );
+			$rec  = array_slice( array_values( array_filter( (array) $rec, $ok ) ), 0, 12 );
 			$m    = function ( $r ) { return self::shape( $r ) + array( 'email' => $r['email'], 'name' => $r['name'] ); };
 			wp_send_json_success( array( 'pending' => array_map( $m, (array) $pend ), 'recent' => array_map( $m, (array) $rec ) ) );
 		}
 		if ( ! $email ) { wp_send_json_error( array( 'msg' => 'No student.' ), 400 ); }
+		if ( ! self::may_see( $email ) ) { wp_send_json_error( array( 'msg' => 'Instructor files are open to the office and to the instructor only.' ), 403 ); }
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t_docs() . ' WHERE email = %s ORDER BY FIELD(type,%s,%s) DESC, id DESC', $email, 'id_back', 'id_front' ), ARRAY_A );
-		wp_send_json_success( array( 'person' => self::is_office() ? self::person( $email ) : null, 'docs' => array_map( array( __CLASS__, 'shape' ), (array) $rows ) ) );
+		$person = self::is_office() ? self::person( $email ) : null;
+		$ins    = self::instructor( $email );
+		if ( $person && $ins ) { $person['kind'] = 'instructor'; $person['name'] = $person['name'] ? $person['name'] : $ins['name']; $person['phone'] = $person['phone'] ? $person['phone'] : $ins['phone']; $person['from'] = array( 'Instructor' ); $person['self'] = self::me() === $email; }
+		wp_send_json_success( array( 'person' => $person, 'docs' => array_map( array( __CLASS__, 'shape' ), (array) $rows ) ) );
 	}
 
 	public static function ajax_upload() {
@@ -287,6 +340,7 @@ class SDSC_Docs {
 		$office = self::is_office();
 		$email  = $office ? strtolower( sanitize_email( wp_unslash( $_POST['email'] ?? '' ) ) ) : self::me();
 		if ( ! is_email( $email ) ) { wp_send_json_error( array( 'msg' => 'Choose the student first.' ), 400 ); }
+		if ( ! self::may_see( $email ) ) { wp_send_json_error( array( 'msg' => 'Not allowed.' ), 403 ); }
 		$type = sanitize_key( wp_unslash( $_POST['type'] ?? 'other' ) );
 		if ( ! isset( self::types( ! $office )[ $type ] ) ) { $type = 'other'; }
 		if ( empty( $_FILES['file'] ) || ! empty( $_FILES['file']['error'] ) || ! is_uploaded_file( $_FILES['file']['tmp_name'] ) ) { wp_send_json_error( array( 'msg' => 'The file did not arrive. Please try again.' ), 400 ); } // phpcs:ignore
@@ -303,6 +357,7 @@ class SDSC_Docs {
 			if ( $bin && 0 === strpos( $bin, "\xFF\xD8" ) ) { $thumb = self::put( $bin ); }
 		}
 		$who = self::person( $email );
+		if ( ! $who['name'] && ( $ins = self::instructor( $email ) ) ) { $who['name'] = $ins['name']; }
 		$wpdb->insert( self::t_docs(), array(
 			'email'   => $email,
 			'name'    => substr( $who['name'] ? $who['name'] : ( $office ? '' : wp_get_current_user()->display_name ), 0, 190 ),
@@ -371,12 +426,33 @@ class SDSC_Docs {
 		exit;
 	}
 
+	/** Instructors and how complete their files are (front office). */
+	public static function ajax_staff() {
+		self::guard();
+		if ( ! self::is_front_office() ) { wp_send_json_error( array( 'msg' => 'Not allowed.' ), 403 ); }
+		global $wpdb;
+		$all = self::instructors();
+		$have = array();
+		if ( $all ) {
+			$in = implode( ',', array_fill( 0, count( $all ), '%s' ) );
+			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT email, type, COUNT(*) n FROM ' . self::t_docs() . " WHERE email IN ($in) GROUP BY email, type", array_keys( $all ) ), ARRAY_A ) as $r ) { $have[ $r['email'] ][ $r['type'] ] = (int) $r['n']; } // phpcs:ignore
+		}
+		$names = self::ins_types();
+		$out   = array();
+		foreach ( $all as $e => $i ) {
+			$h     = $have[ $e ] ?? array();
+			$miss  = array_values( array_map( function ( $k ) use ( $names ) { return $names[ $k ]; }, array_diff( self::INS_NEED, array_keys( $h ) ) ) );
+			$out[] = $i + array( 'docs' => array_sum( $h ), 'missing' => $miss, 'temp' => false !== strpos( $e, '@instructors.samsdrivingschool.invalid' ) );
+		}
+		wp_send_json_success( array( 'staff' => $out ) );
+	}
+
 	/* ------------------------------------------------------------ dashboard */
 
 	public static function tutor_nav( $items ) {
 		// Always registered: Tutor builds its page addresses from this list (also when no one is signed in).
 		if ( ! is_array( $items ) ) { return $items; }
-		$items[ self::TAB ] = array( 'title' => is_user_logged_in() && self::is_office() ? 'Student documents' : 'My documents', 'icon' => 'notes', 'active_icon' => 'notes' );
+		$items[ self::TAB ] = array( 'title' => is_user_logged_in() && self::is_office() ? 'Documents' : 'My documents', 'icon' => 'notes', 'active_icon' => 'notes' );
 		return $items;
 	}
 
@@ -399,6 +475,10 @@ class SDSC_Docs {
 			'types'  => self::types( ! self::is_office() ),
 			'all'    => self::types(),
 			'open'   => self::is_office() ? $want : '',
+			'insTypes' => self::ins_types(),
+			'front'  => self::is_front_office() ? 1 : 0,
+			'me'     => self::me(),
+			'iAmIns' => self::is_office() && ! self::is_front_office() ? 1 : 0,
 			'ok'     => self::dir() ? 1 : 0,
 		) );
 	}

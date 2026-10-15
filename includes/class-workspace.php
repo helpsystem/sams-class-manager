@@ -119,7 +119,7 @@ class SDSC_Workspace {
 		}
 		if ( class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office() ) {
 			$n = SDSC_Docs::pending();
-			$out['students'][] = array( '📎', 'Student documents' . ( $n ? ' (' . $n . ' to check)' : '' ), SDSC_Docs::url(), 'ID cards, permits, practice logs: scan, photograph, check.' );
+			$out['students'][] = array( '📎', 'Documents' . ( $n ? ' (' . $n . ' to check)' : '' ), SDSC_Docs::url(), 'Students’ IDs and permits, instructors’ licenses and papers: scan, photograph, check.' );
 		}
 		if ( 'instructor' === self::kind() ) {
 			$app = get_posts( array( 'post_type' => 'page', 'post_status' => 'publish', 's' => '[driveflow_instructor_form', 'numberposts' => 1 ) );

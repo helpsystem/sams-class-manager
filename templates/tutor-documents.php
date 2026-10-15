@@ -7,7 +7,7 @@ $office = class_exists( 'SDSC_Docs' ) && SDSC_Docs::is_office();
 	<div id="sdd" class="sdd<?php echo $office ? ' sdd--office' : ''; ?>">
 		<header class="sdd-head">
 			<div>
-				<h3><?php echo $office ? 'Student documents' : 'My documents'; ?></h3>
+				<h3><?php echo $office ? 'Documents — students and instructors' : 'My documents'; ?></h3>
 				<p class="sdd-lead"><?php echo $office
 					? 'ID cards, permits, practice logs and other papers, kept in each student’s file. Scan on the office scanner and drop the files here, or take photos with your phone.'
 					: 'Add photos or scans of the documents the school asks for — for example your learner’s permit (front and back) or your practice log. Only the school office can see them.'; ?></p>

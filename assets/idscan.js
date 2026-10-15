@@ -377,7 +377,7 @@
 				html += '<tr data-k="' + k + '"><th>' + esc(row[1]) + '</th><td><input value="' + esc(k === 'dob' || k === 'issued' || k === 'expires' ? us(cv) : cv) + '" data-f="' + k + '" aria-label="' + esc(row[1]) + ' on the card"></td><td>' + (rv === null ? '<span class="ids-na">—</span>' : esc(k === 'dob' ? us(rv) : rv) || '<span class="ids-na">empty</span>') + '</td><td class="ids-m"></td>' + (apply ? '<td>' + (ONREG[k] ? '<input type="checkbox" data-use="' + k + '" aria-label="Use the card value for ' + esc(row[1]) + '">' : '') + '</td>' : '') + '</tr>';
 			});
 			html += '</tbody></table><div class="ids-flags"></div><div class="ids-acts"><button type="button" class="sdd-b sdd-b--ghost" data-act="save" hidden>Save my corrections</button>' + (apply ? '<button type="button" class="sdd-b" data-act="apply">Copy ticked values into the registration</button>' : '') + '</div>' +
-				(!S.reg ? '<p class="ids-na">No registration form for this student, so there is nothing to compare with.</p>' : '') + '</div></div>';
+				(!S.reg ? '<p class="ids-na">' + (opts.staff ? 'Instructor file: the license is kept on file — check the expiry date above.' : 'No registration form for this student, so there is nothing to compare with.') + '</p>' : '') + '</div></div>';
 			out.innerHTML = html;
 			[['front', S.front], ['back', S.back]].forEach(function (p) { if (!p[1]) { return; } var im = new Image(); im.alt = 'Card ' + p[0]; im.src = p[1].toDataURL('image/jpeg', 0.85); out.querySelector('[data-i="' + p[0] + '"]').prepend(im); });
 			out.querySelectorAll('[data-f]').forEach(function (i) { i.addEventListener('input', function () { marks(); out.querySelector('[data-act="save"]').hidden = false; }); });

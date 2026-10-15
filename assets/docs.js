@@ -131,9 +131,12 @@
       '<b>' + esc(title) + '</b><small>' + (d ? 'On file · ' + esc(d.when) : 'Not on file yet') + '</small>' +
       '<div class="sdd-slot-acts"><button type="button" class="sdd-b" data-cam="' + type + '">📷 Take photo</button><button type="button" class="sdd-b sdd-b--ghost" data-file="' + type + '">⬆ Upload scan</button></div></div>';
   }
+  function isIns() { return S.person && S.person.kind === 'instructor'; }
   function paintSlots() {
     var el = root.querySelector('.sdd-slots');
-    if (el) { el.innerHTML = slot('id_front', C.all.id_front) + slot('id_back', C.all.id_back); }
+    if (!el) { return; }
+    el.innerHTML = isIns() ? slot('ins_dl_front', C.insTypes.ins_dl_front) + slot('ins_dl_back', C.insTypes.ins_dl_back) + slot('ins_cert', C.insTypes.ins_cert)
+      : slot('id_front', C.all.id_front) + slot('id_back', C.all.id_back);
   }
   function paintDocs() {
     var el = root.querySelector('.sdd-docs');
@@ -143,12 +146,13 @@
   }
 
   function addBox() {
-    var opts = Object.keys(C.types).filter(function (k) { return k !== 'id_front' && k !== 'id_back'; }).map(function (k) { return '<option value="' + k + '">' + esc(C.types[k]) + '</option>'; }).join('');
+    var list = isIns() ? C.insTypes : C.types, skip = isIns() ? ['ins_dl_front', 'ins_dl_back', 'ins_cert'] : ['id_front', 'id_back'];
+    var opts = Object.keys(list).filter(function (k) { return skip.indexOf(k) === -1 && (isIns() || k.indexOf('ins_') !== 0); }).map(function (k) { return '<option value="' + k + '">' + esc(list[k]) + '</option>'; }).join('');
     return '<section class="sdd-add" aria-label="Add documents">' +
       '<h4>Add documents</h4>' +
       '<div class="sdd-slots"></div>' +
       '<div class="sdd-other"><label>Other document <select class="sdd-type">' + opts + '</select></label>' +
-      '<label>Note (optional) <input type="text" class="sdd-label" maxlength="120" placeholder="e.g. practice log page 2"></label>' +
+      '<label>Note (optional) <input type="text" class="sdd-label" maxlength="120" placeholder="' + (isIns() ? 'e.g. expires 2028' : 'e.g. practice log page 2') + '"></label>' +
       '<div class="sdd-other-acts"><button type="button" class="sdd-b" data-cam="other">📷 Take photo</button><button type="button" class="sdd-b sdd-b--ghost" data-file="other">⬆ Upload files</button></div></div>' +
       '<div class="sdd-drop" tabindex="0"><b>Drop scanned files here</b><span>PDF or photos · up to 20 MB each · several at once</span></div>' +
       '<ul class="sdd-queue" aria-live="polite"></ul></section>';
@@ -157,15 +161,19 @@
   function studentView() {
     var p = S.person || {};
     root.innerHTML =
-      (C.office ? '<p class="sdd-back"><a href="#" data-home>← All students</a></p>' +
+      (C.office ? '<p class="sdd-back"><a href="#" data-home' + (isIns() ? '="ins"' : '') + '>← ' + (isIns() ? (C.front ? 'All instructors' : 'Documents') : 'All students') + '</a></p>' +
         '<div class="sdd-person"><span class="sdd-av" aria-hidden="true">' + esc(((p.name || p.email || '?').match(/[A-Za-z]/g) || ['?']).slice(0, 2).join('').toUpperCase()) + '</span>' +
-        '<div><h4>' + esc(p.name || p.email) + '</h4><p>' + esc(p.email) + (p.phone ? ' · ' + esc(p.phone) : '') + (p.from && p.from.length ? ' · ' + esc(p.from.join(', ')) : '') + '</p></div></div>' : '') +
+        '<div><h4>' + esc(p.name || p.email) + (isIns() ? ' <span class="sdd-chip">Instructor file</span>' : '') + '</h4><p>' + esc(/@instructors\.samsdrivingschool\.invalid$/.test(p.email) ? 'No e-mail yet (added by the office)' : p.email) + (p.phone ? ' · ' + esc(p.phone) : '') + (p.from && p.from.length && !isIns() ? ' · ' + esc(p.from.join(', ')) : '') + '</p></div></div>' : '') +
+      (isIns() ? '<p class="sdd-note">Keep here: driver’s license (both sides), MVA instructor license, signed agreement, W-9, background check and car insurance. Only the office and the instructor can open this file.</p>' : '') +
       (C.office && window.SDSC_IDSCAN ? '<section class="sdd-idscan" aria-label="Scan an ID"></section>' : '') +
       addBox() +
       '<section class="sdd-list"><h4>On file <span class="sdd-count">0</span></h4><ul class="sdd-docs"></ul></section>';
     paintSlots(); paintDocs();
     var ids = root.querySelector('.sdd-idscan');
-    if (ids && S.email) { window.SDSC_IDSCAN.mount(ids, S.email, { upload: function (file, type, label) { return upload([file], type, label); } }); }
+    if (ids && S.email) {
+      var map = isIns() ? { id_front: 'ins_dl_front', id_back: 'ins_dl_back' } : {};
+      window.SDSC_IDSCAN.mount(ids, S.email, { staff: isIns(), upload: function (file, type, label) { return upload([file], map[type] || type, label); } });
+    }
   }
 
   function openStudent(email) {
@@ -177,10 +185,29 @@
     }).catch(function (e) { root.innerHTML = '<p class="sdd-err">' + esc(e.message) + '</p>'; });
   }
 
+  function tabs(on) {
+    return '<div class="sdd-tabs" role="tablist">' +
+      '<button type="button" role="tab" aria-selected="' + (on === 'st') + '" data-home>🎓 Students</button>' +
+      (C.front ? '<button type="button" role="tab" aria-selected="' + (on === 'ins') + '" data-home="ins">🚗 Instructors</button>' : '') +
+      (C.me && (C.iAmIns || C.front) ? '<button type="button" data-open="' + esc(C.me) + '">📁 My documents</button>' : '') + '</div>';
+  }
+  function staffHome() {
+    S.email = ''; S.person = null; S.docs = [];
+    if (window.history && history.replaceState) { history.replaceState(null, '', location.pathname + '?view=instructors'); }
+    root.innerHTML = tabs('ins') + '<section class="sdd-list"><h4>Instructor files</h4><p class="sdd-note">Driver’s license (both sides) and the MVA instructor license are needed for every instructor. Instructors can add their own from <b>My documents</b>.</p><ul class="sdd-staff"><li class="sdd-loading">Loading…</li></ul></section>';
+    post('staff', {}).then(function (d) {
+      var ul = root.querySelector('.sdd-staff'); if (!ul) { return; }
+      ul.innerHTML = d.staff.length ? d.staff.map(function (x) {
+        return '<li><button type="button" data-open="' + esc(x.email) + '"><b>' + esc(x.name) + '</b>' + (x.temp ? ' <span class="sdd-chip">typed in by the office</span>' : '') + (x.active ? '' : ' <span class="sdd-chip">inactive</span>') +
+          '<small>' + (x.temp ? 'No account yet' : esc(x.email)) + (x.phone ? ' · ' + esc(x.phone) : '') + '</small>' +
+          '<span class="sdd-n">' + (x.docs ? x.docs + ' on file' : 'no documents') + (x.missing.length ? ' · <span class="sdd-miss">missing: ' + esc(x.missing.join(', ')) + '</span>' : ' · <span class="sdd-okk">complete ✓</span>') + '</span></button></li>';
+      }).join('') : '<li class="sdd-empty">No instructors yet. Add them on the Instructors screen, or type a name when you book a lesson.</li>';
+    }).catch(function (e) { var ul = root.querySelector('.sdd-staff'); if (ul) { ul.innerHTML = '<li class="sdd-err">' + esc(e.message) + '</li>'; } });
+  }
   function officeHome() {
     S.email = ''; S.person = null; S.docs = [];
     if (window.history && history.replaceState) { history.replaceState(null, '', location.pathname); }
-    root.innerHTML =
+    root.innerHTML = tabs('st') +
       (C.ok ? '' : '<p class="sdd-err">The private document folder is not ready on the server. Please tell the administrator.</p>') +
       '<div class="sdd-find"><label for="sdd-q">Find a student</label><input id="sdd-q" type="search" autocomplete="off" placeholder="Name, e-mail or phone" value="' + esc(S.q) + '"><ul class="sdd-results" role="listbox"></ul></div>' +
       '<section class="sdd-list"><h4>From students — to check <span class="sdd-count sdd-count--new">…</span></h4><ul class="sdd-docs sdd-pend"></ul></section>' +
@@ -216,7 +243,7 @@
     var t = e.target.closest('[data-open],[data-home],[data-cam],[data-file],[data-check],[data-del]');
     if (!t) { return; }
     if (t.hasAttribute('data-open')) { e.preventDefault(); openStudent(t.getAttribute('data-open')); return; }
-    if (t.hasAttribute('data-home')) { e.preventDefault(); officeHome(); return; }
+    if (t.hasAttribute('data-home')) { e.preventDefault(); if (t.getAttribute('data-home') === 'ins' && C.front) { staffHome(); } else { officeHome(); } return; }
     var otherType = function () { var s = root.querySelector('.sdd-type'); return s ? s.value : 'other'; };
     var otherLabel = function () { var s = root.querySelector('.sdd-label'); return s ? s.value : ''; };
     if (t.hasAttribute('data-cam') || t.hasAttribute('data-file')) {
@@ -256,5 +283,6 @@
   /* ---------------------------------------------------------------- start */
   if (!C.office) { openStudent(''); }
   else if (C.open) { openStudent(C.open); }
+  else if (/[?&]view=instructors/.test(location.search) && C.front) { staffHome(); }
   else { officeHome(); }
 })();
