@@ -54,20 +54,37 @@ class SDSC_ZoomRoll {
 
 	public static function instructor_of( $cid ) { return (int) get_post_meta( $cid, self::INSTR, true ); }
 
+	const SESS = '_sdsc_zoom_sess_instr';   // class meta: session date => instructor user id (a different instructor for that day)
+
+	public static function session_instructors( $cid ) {
+		$m = get_post_meta( $cid, self::SESS, true );
+		return is_array( $m ) ? array_map( 'intval', $m ) : array();
+	}
+
+	/** Who teaches this session: the instructor set for that day, otherwise the class instructor. */
+	public static function instructor_for( $cid, $date ) {
+		$m = self::session_instructors( $cid );
+		return ! empty( $m[ $date ] ) ? (int) $m[ $date ] : self::instructor_of( $cid );
+	}
+
+	/** Teaches the class or at least one of its sessions. */
+	public static function teaches( $cid, $uid ) {
+		return $uid && ( self::instructor_of( $cid ) === (int) $uid || in_array( (int) $uid, self::session_instructors( $cid ), true ) );
+	}
+
 	public static function can_class( $cid ) {
 		if ( ! self::allowed() || 'sdsc_class' !== get_post_type( $cid ) ) { return false; }
-		return self::sees_all() || self::instructor_of( $cid ) === get_current_user_id();
+		return self::sees_all() || self::teaches( $cid, get_current_user_id() );
 	}
 
 	/** Classes with a timetable that the current user may take attendance for, newest first. */
 	public static function classes() {
 		$args = array( 'post_type' => 'sdsc_class', 'post_status' => 'any', 'numberposts' => 80, 'orderby' => 'meta_value', 'meta_key' => '_sdsc_start', 'order' => 'DESC' ); // phpcs:ignore
-		if ( ! self::sees_all() ) {
-			$args['meta_query'] = array( array( 'key' => self::INSTR, 'value' => get_current_user_id(), 'type' => 'NUMERIC' ) ); // phpcs:ignore
-		}
-		$pv = class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview();
-		// The private demo class is only for the "View as" preview accounts.
-		return array_values( array_filter( get_posts( $args ), function ( $p ) use ( $pv ) { return ( $pv || ! get_post_meta( $p->ID, '_sdsc_demo_class', true ) ) && SDSC_Schedule::sessions( $p->ID ); } ) );
+		$all = self::sees_all();
+		$me  = get_current_user_id();
+		$pv  = class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview();
+		// The private demo class is only for the "View as" preview accounts. An instructor sees classes they teach, or a session of.
+		return array_values( array_filter( get_posts( $args ), function ( $p ) use ( $pv, $all, $me ) { return ( $all || self::teaches( $p->ID, $me ) ) && ( $pv || ! get_post_meta( $p->ID, '_sdsc_demo_class', true ) ) && SDSC_Schedule::sessions( $p->ID ); } ) );
 	}
 
 	/* ------------------------------------------------------------ class edit screen: instructor */
@@ -84,6 +101,18 @@ class SDSC_ZoomRoll {
 			echo '<option value="' . (int) $u->ID . '"' . selected( $cur, (int) $u->ID, false ) . '>' . esc_html( $u->display_name ) . '</option>';
 		}
 		echo '</select></label></p>';
+		$list = SDSC_Schedule::sessions( $post->ID );
+		if ( $list ) {
+			$m = self::session_instructors( $post->ID );
+			echo '<details' . ( $m ? ' open' : '' ) . '><summary><b>A different instructor for some sessions</b> (they get the attendance sheet and the "Start class" button for that day)</summary><table class="widefat striped" style="max-width:560px;margin-top:6px"><tbody>';
+			foreach ( $list as $x ) {
+				$cur = (int) ( $m[ $x['date'] ] ?? 0 );
+				echo '<tr><td>Session ' . (int) $x['n'] . ' · ' . esc_html( wp_date( 'D, M j', strtotime( $x['date'] . ' 12:00' ) ) ) . '</td><td><select name="sdsc_sess_instr[' . esc_attr( $x['date'] ) . ']"><option value="0">— class instructor —</option>';
+				foreach ( self::instructors() as $u ) { echo '<option value="' . (int) $u->ID . '"' . selected( $cur, (int) $u->ID, false ) . '>' . esc_html( $u->display_name ) . '</option>'; }
+				echo '</select></td></tr>';
+			}
+			echo '</tbody></table></details>';
+		}
 	}
 
 	public static function save_meta( $post_id ) {
@@ -93,6 +122,15 @@ class SDSC_ZoomRoll {
 		$ok  = wp_list_pluck( self::instructors(), 'ID' );
 		if ( $uid && ! in_array( $uid, array_map( 'intval', $ok ), true ) ) { return; }
 		update_post_meta( $post_id, self::INSTR, $uid );
+		if ( isset( $_POST['sdsc_sess_instr'] ) && is_array( $_POST['sdsc_sess_instr'] ) ) {
+			$okids = array_map( 'intval', $ok );
+			$m     = array();
+			foreach ( wp_unslash( $_POST['sdsc_sess_instr'] ) as $d => $v ) { // phpcs:ignore
+				$d = sanitize_text_field( $d ); $v = (int) $v;
+				if ( $v && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d ) && in_array( $v, $okids, true ) && $v !== $uid ) { $m[ $d ] = $v; }
+			}
+			update_post_meta( $post_id, self::SESS, $m );
+		}
 	}
 
 	/* ------------------------------------------------------------ Tutor dashboard */
@@ -226,7 +264,9 @@ class SDSC_ZoomRoll {
 		$rows   = self::rows( $cid );
 		$zoom   = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
 		$h      = '<section class="szr-card"><div class="szr-head"><div><b>Session ' . (int) $x['n'] . ' of ' . count( $list ) . '</b> · ' . esc_html( SDSC_Lessons::when( $x['start'], 'en' ) ) . ( 1 === (int) $x['n'] ? ' <span class="szr-tag">Mandatory (MVA)</span>' : '' ) . '</div>';
-		if ( $zoom ) { $h .= '<a class="szr-btn szr-btn--ghost" href="' . esc_url( $zoom ) . '" target="_blank" rel="noopener">Open Zoom</a>'; }
+		$h .= '<span class="szr-m" style="display:block">Instructor this session: ' . esc_html( self::who( self::instructor_for( $cid, $sess ) ) ) . '</span>';
+		if ( class_exists( 'SDSC_ZoomAuto' ) ) { $h .= SDSC_ZoomAuto::host_button( $cid, $sess ); }
+		if ( $zoom ) { $h .= '<a class="szr-btn szr-btn--ghost" href="' . esc_url( $zoom ) . '" target="_blank" rel="noopener">Open Zoom (as a guest)</a>'; }
 		$h .= '</div>';
 		if ( ! empty( $done[ $sess ] ) ) {
 			$h .= '<p class="szr-m">Submitted by ' . esc_html( self::who( $done[ $sess ][0] ) ) . ' · ' . esc_html( SDSC_Lessons::when( $done[ $sess ][1], 'en' ) ) . '. You can still correct it.</p>';

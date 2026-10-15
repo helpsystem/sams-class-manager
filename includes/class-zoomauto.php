@@ -25,6 +25,7 @@ class SDSC_ZoomAuto {
 		add_action( 'add_meta_boxes', array( __CLASS__, 'metabox' ) );
 		add_action( 'admin_post_sdsc_zoom_create', array( __CLASS__, 'h_create' ) );
 		add_action( 'admin_post_sdsc_zoom_send', array( __CLASS__, 'h_send' ) );
+		add_action( 'admin_post_sdsc_zoom_start', array( __CLASS__, 'h_start' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
 	}
 
@@ -210,6 +211,7 @@ class SDSC_ZoomAuto {
 			$body = '<p style="' . $f . 'margin:0 0 14px;font-size:15px;line-height:1.6">Hi ' . esc_html( $first ? $first : 'there' ) . ',</p>'
 				. '<p style="' . $f . 'margin:0 0 14px;font-size:15px;line-height:1.6">Here is the Zoom information for your driver education class. The same link works for every session.</p>'
 				. $table
+				. '<p style="' . $f . 'margin:0 0 10px;font-size:14px;line-height:1.6"><b>No Zoom account is needed.</b> On a computer, click the link: it opens the free Zoom app (or choose “Join from your browser”). On a phone or tablet, install the free <b>Zoom Workplace</b> app first, then tap the link.</p>'
 				. '<p style="' . $f . 'margin:0 0 10px;font-size:14px;line-height:1.6"><b>Before class:</b> join from a computer or tablet with your camera and microphone on, sitting at a desk, and use your full name so we can let you in from the waiting room.</p>'
 				. '<p style="' . $f . 'margin:0 0 10px;font-size:14px;line-height:1.6"><b>The first session is mandatory</b> (MVA rule). You will also get a reminder the day before and one hour before each session.</p>'
 				. '<p style="' . $f . 'margin:0;font-size:14px">Questions? Call or text (301) 726-3030.</p>';
@@ -279,6 +281,66 @@ class SDSC_ZoomAuto {
 			$m = get_transient( 'sdsc_zoom_' . $k . '_' . get_current_user_id() );
 			if ( $m ) { delete_transient( 'sdsc_zoom_' . $k . '_' . get_current_user_id() ); echo '<div class="notice notice-' . esc_attr( $cls ) . ' is-dismissible"><p><b>Zoom:</b> ' . esc_html( $m ) . '</p></div>'; }
 		}
+	}
+
+	/* ------------------------------------------------------------ the instructor starts the class as host */
+
+	/** The session (by date) or null. */
+	protected static function session( $cid, $date ) {
+		foreach ( SDSC_Schedule::sessions( $cid ) as $x ) { if ( $x['date'] === $date ) { return $x; } }
+		return null;
+	}
+
+	/**
+	 * Who may start the class as host: the instructor of that session from one hour before it starts until it
+	 * ends, and the administrator or school manager at any time. Nobody needs the Zoom account's password: the
+	 * website asks Zoom for a fresh host link (valid about two hours) at the moment of the click and never stores
+	 * or e-mails it.
+	 */
+	public static function can_host( $cid, $date ) {
+		if ( ! is_user_logged_in() || ! get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ) ) { return false; }
+		if ( self::can() ) { return true; }
+		$x = self::session( $cid, $date );
+		if ( ! $x || ! class_exists( 'SDSC_ZoomRoll' ) || SDSC_ZoomRoll::instructor_for( $cid, $date ) !== get_current_user_id() ) { return false; }
+		$now = time();
+		return $now >= SDSC_Lessons::ts( $x['start'] ) - HOUR_IN_SECONDS && $now <= SDSC_Lessons::ts( $x['end'] ) + 30 * MINUTE_IN_SECONDS;
+	}
+
+	public static function host_button( $cid, $date ) {
+		if ( ! get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ) ) { return ''; }
+		$x = self::session( $cid, $date );
+		if ( ! $x || ! class_exists( 'SDSC_ZoomRoll' ) ) { return ''; }
+		$mine = SDSC_ZoomRoll::instructor_for( $cid, $date ) === get_current_user_id();
+		if ( ! $mine && ! self::can() ) { return ''; }
+		if ( ! self::can_host( $cid, $date ) ) {
+			return '<span class="szr-m" style="display:block">The <b>Start class</b> button opens here one hour before the class.</span>';
+		}
+		$u = wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_zoom_start&c=' . (int) $cid . '&s=' . rawurlencode( $date ) ), 'sdsc_zoom_start_' . $cid . '_' . $date );
+		return '<a class="szr-btn" href="' . esc_url( $u ) . '" target="_blank" rel="noopener">▶ Start class (host)</a>';
+	}
+
+	public static function h_start() {
+		$cid  = absint( $_GET['c'] ?? 0 ); // phpcs:ignore
+		$date = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) ); // phpcs:ignore
+		check_admin_referer( 'sdsc_zoom_start_' . $cid . '_' . $date );
+		if ( ! self::can_host( $cid, $date ) ) { wp_die( 'This button works for the instructor of this session, from one hour before the class until it ends.', '', array( 'response' => 403 ) ); }
+		$n   = (int) get_post_meta( $cid, '_sdsc_zoom_acct_n', true ) ?: ( self::chosen( $cid ) ?: 1 );
+		$tok = self::token( $n );
+		$err = is_wp_error( $tok ) ? $tok->get_error_message() : '';
+		$url = '';
+		if ( ! $err ) {
+			$r = wp_remote_get( 'https://api.zoom.us/v2/meetings/' . rawurlencode( (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ) ), array( 'timeout' => 20, 'headers' => array( 'Authorization' => 'Bearer ' . $tok ) ) );
+			$j = is_wp_error( $r ) ? array() : json_decode( wp_remote_retrieve_body( $r ), true );
+			$url = (string) ( $j['start_url'] ?? '' );
+			if ( ! $url ) { $err = is_wp_error( $r ) ? $r->get_error_message() : ( $j['message'] ?? 'Zoom did not give a host link.' ); }
+		}
+		if ( $err || 0 !== strpos( $url, 'https://' ) ) { wp_die( 'Could not start the Zoom class: ' . esc_html( $err ) . ' Please call the office.', '', array( 'response' => 502 ) ); }
+		$log   = (array) get_post_meta( $cid, '_sdsc_zoom_starts', true );
+		$log[] = array( 'date' => $date, 'by' => get_current_user_id(), 'at' => current_time( 'mysql' ) );
+		update_post_meta( $cid, '_sdsc_zoom_starts', array_slice( $log, -60 ) );
+		nocache_headers();
+		wp_redirect( $url ); // phpcs:ignore -- Zoom's own host link, fetched just now
+		exit;
 	}
 
 	/** Buttons for the class board column. */
