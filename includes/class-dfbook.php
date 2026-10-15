@@ -170,7 +170,7 @@ class SDSC_DFBook {
 			}
 		}
 		$car = $d['car'] ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}driveflow_vehicles WHERE id = %d", $d['car'] ), ARRAY_A ) : null; // phpcs:ignore
-		if ( ! $ins ) { $err[] = 'new' === ( $_POST['ins'] ?? '' ) ? 'Type the instructor’s name.' : 'Choose the instructor.'; } // phpcs:ignore
+		if ( ! $ins ) { $err[] = 'new' === ( $_POST['ins'] ?? '' ) ? 'Type the instructor’s name.' : 'Choose the instructor.'; } // phpcs:ignore -- only a message
 		if ( ! $car ) { $err[] = 'Choose the car.'; }
 		if ( $ins && 'active' !== $ins['status'] ) { $err[] = $ins['name'] . ' is not active.'; }
 		if ( $car && 'active' !== $car['status'] ) { $err[] = 'Car ' . $car['plate_number'] . ' is not active.'; }
@@ -219,6 +219,7 @@ class SDSC_DFBook {
 			$prev = $wpdb->get_row( $wpdb->prepare( "SELECT scheduled_end FROM `{$T}` WHERE status IN ('upcoming','active') AND (instructor_id = %d OR instructor_name = %s) AND scheduled_end <= %s AND scheduled_end > %s ORDER BY scheduled_end DESC LIMIT 1", (int) $ins['id'] ? (int) $ins['id'] : -1, $ins['name'], $d['start'], wp_date( 'Y-m-d H:i:s', $a - 15 * 60 ) ), ARRAY_A ); // phpcs:ignore
 			if ( $prev ) { $warn[] = $ins['name'] . "'s previous lesson ends less than 15 minutes before — check the travel time."; }
 		}
+		if ( class_exists( 'SDSC_DFOffer' ) && ( $ins || $car ) && ( $who2 = SDSC_DFOffer::overlaps( $d['start'], $end, $ins ? (int) $ins['id'] : 0, $car ? (int) $car['id'] : 0 ) ) ) { $warn[] = 'This time is also in an open offer to ' . implode( ', ', $who2 ) . ' (not chosen yet).'; }
 		$hours       = class_exists( 'SDSC_Lessons' ) ? (int) SDSC_Lessons::settings()['hours'] : 48;
 		if ( $a > time() && $a - $hours * HOUR_IN_SECONDS < time() ) { $warn[] = 'This lesson is less than ' . $hours . ' hours away, so the free-cancellation window has already closed — tell the student when you confirm.'; }
 		$info['end'] = wp_date( 'g:i A', $b );
@@ -299,6 +300,18 @@ class SDSC_DFBook {
 		list( $err ) = self::check( $d );
 		if ( $err ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( implode( ' ', $err ) ), $back ) ); exit; }
 
+		$r = self::book( $d );
+		if ( is_wp_error( $r ) ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( $r->get_error_message() ), $back ) ); exit; }
+		$ins = array( 'name' => $r['ins'] );
+		$car = array( 'plate_number' => $r['plate'] );
+		$msg = $d['name'] . ': ' . wp_date( 'D, M j, g:i A', self::ts( $d['start'] ) ) . ' with ' . $ins['name'] . ' in ' . $car['plate_number'] . ' — booked.' . ( $d['mail'] ? ( is_email( $d['email'] ) ? ' Confirmation e-mailed.' : ' The confirmation text is in Texts to send.' ) : '' );
+		wp_safe_redirect( add_query_arg( 'sdsc_booked', rawurlencode( $msg ), $back ) );
+		exit;
+	}
+
+	/** Books one lesson from checked input (staff form or a student's pick). Returns [id, instructor, plate] or WP_Error. */
+	public static function book( $d ) {
+		global $wpdb;
 		$now = current_time( 'mysql' );
 		$sid = self::find_student( $d['email'], $d['phone'] );
 		$ST  = $wpdb->prefix . 'driveflow_students';
@@ -312,14 +325,7 @@ class SDSC_DFBook {
 			if ( $d['email'] ) { $up['email'] = $d['email']; }
 			$wpdb->update( $ST, $up, array( 'id' => $sid ) );
 		}
-		if ( ! $d['ins'] && '' !== $d['ins_new'] ) {
-			$d['ins'] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}driveflow_instructors WHERE LOWER(name) = %s ORDER BY status = 'active' DESC LIMIT 1", strtolower( $d['ins_new'] ) ) ); // phpcs:ignore
-			if ( ! $d['ins'] ) {
-				$wpdb->insert( $wpdb->prefix . 'driveflow_instructors', array( 'user_id' => 0, 'name' => $d['ins_new'], 'phone' => $d['ins_ph'], 'email' => '', 'default_vehicle_id' => $d['car'], 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
-				$d['ins'] = (int) $wpdb->insert_id;
-				if ( class_exists( 'SDSC_Instructors' ) ) { SDSC_Instructors::mark_temp( $d['ins'] ); }
-			}
-		}
+		if ( ! $d['ins'] && '' !== $d['ins_new'] ) { $d['ins'] = self::ensure_typed_instructor( $d['ins_new'], $d['ins_ph'], $d['car'] ); }
 		$ins   = $wpdb->get_row( $wpdb->prepare( "SELECT id, name FROM {$wpdb->prefix}driveflow_instructors WHERE id = %d", $d['ins'] ), ARRAY_A ); // phpcs:ignore
 		$car   = $wpdb->get_row( $wpdb->prepare( "SELECT id, plate_number FROM {$wpdb->prefix}driveflow_vehicles WHERE id = %d", $d['car'] ), ARRAY_A ); // phpcs:ignore
 		$types = self::types();
@@ -337,7 +343,7 @@ class SDSC_DFBook {
 			'scheduled_start' => $d['start'],
 			'scheduled_end'   => $end,
 			'status'          => 'upcoming',
-			'form_data'       => wp_json_encode( array( 'source' => 'sdsc_book', 'type' => $d['type'], 'place' => $d['place'], 'permit' => $d['permit'], 'lang' => $d['lang'], 'note' => $d['note'], 'practice' => $types[ $d['type'] ][0], 'first' => $d['first'], 'last' => $d['last'], 'email' => $d['email'], 'phone' => $d['phone'], 'by' => get_current_user_id() ) ),
+			'form_data'       => wp_json_encode( array( 'source' => 'sdsc_book', 'offer' => (int) ( $d['offer'] ?? 0 ), 'type' => $d['type'], 'place' => $d['place'], 'permit' => $d['permit'], 'lang' => $d['lang'], 'note' => $d['note'], 'practice' => $types[ $d['type'] ][0], 'first' => $d['first'], 'last' => $d['last'], 'email' => $d['email'], 'phone' => $d['phone'], 'by' => get_current_user_id() ) ),
 			'signature'       => '',
 			'selfie'          => '',
 			'created_by'      => get_current_user_id(),
@@ -345,16 +351,26 @@ class SDSC_DFBook {
 			'updated_at'      => $now,
 		) );
 		$id = (int) $wpdb->insert_id;
-		if ( ! $id ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( 'The lesson could not be saved. Please try again.' ), $back ) ); exit; }
+		if ( ! $id ) { return new WP_Error( 'save', 'The lesson could not be saved. Please try again.' ); }
 		// Into the BTW lesson list now (confirmation e-mail with the cancellation deadline when asked).
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . SDSC_DriveFlow::t() . ' WHERE id = %d', $id ), ARRAY_A ); // phpcs:ignore
 		SDSC_DriveFlow::apply( $row, $d['mail'] );
 		if ( $d['tell'] && class_exists( 'DriveFlow_Email_Manager' ) && method_exists( 'DriveFlow_Email_Manager', 'send_instructor_booking' ) ) { DriveFlow_Email_Manager::send_instructor_booking( $id ); }
 		if ( class_exists( 'DriveFlow_Wappointment_Sync' ) && method_exists( 'DriveFlow_Wappointment_Sync', 'push_session_to_wapp' ) ) { DriveFlow_Wappointment_Sync::push_session_to_wapp( $id ); }
 		if ( method_exists( 'DriveFlow_Pro', 'notify_calendar_change' ) ) { DriveFlow_Pro::notify_calendar_change(); }
-		$msg = $d['name'] . ': ' . wp_date( 'D, M j, g:i A', self::ts( $d['start'] ) ) . ' with ' . $ins['name'] . ' in ' . $car['plate_number'] . ' — booked.' . ( $d['mail'] ? ( is_email( $d['email'] ) ? ' Confirmation e-mailed.' : ' The confirmation text is in Texts to send.' ) : '' );
-		wp_safe_redirect( add_query_arg( 'sdsc_booked', rawurlencode( $msg ), $back ) );
-		exit;
+		return array( 'id' => $id, 'ins' => $ins['name'], 'plate' => $car['plate_number'] );
+	}
+
+	/** A typed instructor name → a temporary DriveFlow profile (or the one already on file). */
+	public static function ensure_typed_instructor( $name, $phone, $car ) {
+		global $wpdb;
+		$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}driveflow_instructors WHERE LOWER(name) = %s ORDER BY status = 'active' DESC LIMIT 1", strtolower( $name ) ) ); // phpcs:ignore
+		if ( $id ) { return $id; }
+		$now = current_time( 'mysql' );
+		$wpdb->insert( $wpdb->prefix . 'driveflow_instructors', array( 'user_id' => 0, 'name' => $name, 'phone' => $phone, 'email' => '', 'default_vehicle_id' => (int) $car, 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
+		$id = (int) $wpdb->insert_id;
+		if ( $id && class_exists( 'SDSC_Instructors' ) ) { SDSC_Instructors::mark_temp( $id ); }
+		return $id;
 	}
 
 	public static function notice() {
@@ -394,6 +410,10 @@ class SDSC_DFBook {
 						</fieldset>
 
 						<fieldset class="sdfb-sec"><legend>2 · Lesson</legend>
+							<div class="sdfb-mode" role="radiogroup" aria-label="How to book">
+								<label><input type="radio" name="mode" value="one" checked> Book one time</label>
+								<label><input type="radio" name="mode" value="offer"> Offer several times — the student chooses</label>
+							</div>
 							<div class="sdfb-grid">
 								<label class="sdfb-wide">Kind of lesson<select name="type" id="sdfb-type"><?php foreach ( self::types() as $k => $t ) : ?><option value="<?php echo esc_attr( $k ); ?>"><?php echo esc_html( $t[0] ); ?></option><?php endforeach; ?></select></label>
 								<label>Date<input type="date" name="date" id="sdfb-date" required min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>"></label>
@@ -417,6 +437,18 @@ class SDSC_DFBook {
 						</fieldset>
 
 						<div id="sdfb-check" class="sdfb-check" aria-live="polite"></div>
+
+						<fieldset class="sdfb-sec sdfb-offer" id="sdfb-offer" hidden><legend>4 · Times to offer</legend>
+							<p class="sdfb-mini">Set a day, start, length, instructor and car above, then add it here. Repeat for every time you want to offer.</p>
+							<p><button type="button" class="df-btn df-btn-secondary" id="sdfb-add" disabled>+ Add this time</button></p>
+							<ol id="sdfb-list" class="sdfb-list"></ol>
+							<input type="hidden" name="slots" id="sdfb-slots" value="[]">
+							<div class="sdfb-grid">
+								<label>The student chooses<select name="pick" id="sdfb-pick"><option value="1">1 time</option></select></label>
+								<label>The link works for<select name="days"><option value="1">1 day</option><option value="2">2 days</option><option value="3" selected>3 days</option><option value="7">7 days</option></select></label>
+							</div>
+							<label class="sdfb-tick"><input type="checkbox" name="send" value="1" checked> Send the link to the student now (e-mail, and a text — it waits in <i>Texts to send</i> if texting is not connected)</label>
+						</fieldset>
 
 						<div class="sdfb-foot">
 							<label class="sdfb-tick"><input type="checkbox" name="mail" value="1" checked> Send the student the confirmation (with the free-cancellation deadline)</label>

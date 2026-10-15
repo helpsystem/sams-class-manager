@@ -28,7 +28,7 @@
 	if (D.addIns) { $('sdfb-addins').innerHTML = 'Instructor not in the list? <a href="' + esc(D.addIns) + '" target="_blank" rel="noopener">Add an instructor</a> — they can be assigned right away, even before they sign the agreement.'; }
 
 	function reset() {
-		F.reset(); [].forEach.call(F.querySelectorAll('.sdfb-newins'), function (l) { l.hidden = true; }); card.hidden = true; card.innerHTML = ''; hits.innerHTML = ''; q.value = ''; chk.innerHTML = ''; go.disabled = true;
+		F.reset(); slots = []; lastOk = false; draw(); [].forEach.call(F.querySelectorAll('.sdfb-newins'), function (l) { l.hidden = true; }); card.hidden = true; card.innerHTML = ''; hits.innerHTML = ''; q.value = ''; chk.innerHTML = ''; go.disabled = true;
 		$('sdfb-place').value = D.places[0] || '';
 		lengths();
 	}
@@ -98,7 +98,7 @@
 	function check() {
 		clearTimeout(timer);
 		timer = setTimeout(function () {
-			if (!$('sdfb-date').value || !$('sdfb-time').value) { chk.innerHTML = ''; go.disabled = true; return; }
+			if (!$('sdfb-date').value || !$('sdfb-time').value) { chk.innerHTML = ''; lastOk = false; $('sdfb-add').disabled = true; sync(); return; }
 			var fd = new FormData(F), my = ++seq;
 			fd.set('action', 'sdsc_dfb_check'); fd.set('_n', D.nonce); fd.delete('_wpnonce');
 			fetch(D.ajax, { method: 'POST', credentials: 'same-origin', body: fd }).then(function (r) { return r.json(); }).then(function (r) {
@@ -113,13 +113,54 @@
 						+ '<br>Free cancellation until <b>' + esc(x.info.dl) + '</b> (' + D.hours + ' hours before). After that a $' + D.fee + ' fee may apply — charged only if the manager decides.</div>';
 				}
 				chk.innerHTML = h;
-				go.disabled = !!x.errors.length || !filled();
+				lastOk = !x.errors.length && filled();
+				$('sdfb-add').disabled = !lastOk;
+				sync();
 			});
 		}, 350);
 	}
 	F.addEventListener('change', check);
 	F.addEventListener('input', function (e) { if (e.target !== q) { check(); } });
-	F.addEventListener('submit', function (e) { if (go.disabled) { e.preventDefault(); } else { go.textContent = 'Booking…'; } });
+	F.addEventListener('submit', function (e) { if (go.disabled) { e.preventDefault(); } else { go.textContent = offer() ? 'Sending…' : 'Booking…'; } });
+
+	// Offer several times: the student chooses from the list.
+	var lastOk = false, slots = [];
+	function offer() { var r = F.querySelector('input[name=mode]:checked'); return r && r.value === 'offer'; }
+	function student() { return $('sdfb-first').value.trim() && ($('sdfb-email').value.trim() || $('sdfb-phone').value.replace(/\D/g, '').length >= 10); }
+	function sync() {
+		var on = offer();
+		$('sdfb-offer').hidden = !on;
+		F.querySelector('input[name=action]').value = on ? 'sdsc_dfb_offer' : 'sdsc_dfb_book';
+		F.querySelector('input[name=mail]').closest('label').hidden = on;
+		go.textContent = on ? 'Send the offer' : 'Book the lesson';
+		go.disabled = on ? !(slots.length && student()) : !lastOk;
+	}
+	function draw() {
+		var ol = $('sdfb-list'); ol.innerHTML = '';
+		slots.forEach(function (s, i) {
+			var li = document.createElement('li'); li.textContent = s.label;
+			var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Remove'; x.addEventListener('click', function () { slots.splice(i, 1); draw(); });
+			li.appendChild(x); ol.appendChild(li);
+		});
+		$('sdfb-slots').value = JSON.stringify(slots.map(function (s) { return { start: s.start, minutes: s.minutes, ins: s.ins, ins_new: s.ins_new, car: s.car }; }));
+		var p = $('sdfb-pick'), keep = +p.value || 1; p.innerHTML = '';
+		for (var k = 1; k <= Math.max(1, slots.length); k++) { var o = document.createElement('option'); o.value = k; o.textContent = k + ' time' + (k > 1 ? 's' : '') + (slots.length ? ' of ' + slots.length : ''); p.appendChild(o); }
+		p.value = String(Math.min(keep, Math.max(1, slots.length)));
+		sync();
+	}
+	$('sdfb-add').addEventListener('click', function () {
+		if (!lastOk) { return; }
+		var ins = $('sdfb-ins'), car = $('sdfb-car'), t = $('sdfb-time'), m = $('sdfb-min');
+		var start = $('sdfb-date').value + ' ' + t.value + ':00';
+		if (slots.some(function (s) { return s.start === start; })) { return; }
+		var who = ins.value === 'new' ? $('sdfb-insname').value.trim() : ins.options[ins.selectedIndex].dataset.name;
+		var d = new Date($('sdfb-date').value + 'T12:00:00');
+		slots.push({ start: start, minutes: +m.value, ins: ins.value === 'new' ? 0 : +ins.value, ins_new: ins.value === 'new' ? who : '', car: +car.value,
+			label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + t.options[t.selectedIndex].text + ' · ' + m.options[m.selectedIndex].text + ' · ' + who + ' · ' + car.options[car.selectedIndex].dataset.plate });
+		slots.sort(function (a, b) { return a.start < b.start ? -1 : 1; });
+		draw();
+	});
+	[].forEach.call(F.querySelectorAll('input[name=mode]'), function (r) { r.addEventListener('change', sync); });
 
 	// Open / close
 	function pad(n) { return (n < 10 ? '0' : '') + n; }
