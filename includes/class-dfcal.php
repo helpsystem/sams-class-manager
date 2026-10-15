@@ -10,7 +10,7 @@
  *  - Day, Week, Month and List views, plus a day view by instructor or by car; 7 AM – 9 PM in 30-minute
  *    rows; every lesson at its real time and length; lessons at the same time side by side.
  *  - School time (America/New_York) everywhere; "now" line from the server clock.
- *  - Drag a lesson to move it, drag its lower edge to change the length — every change goes through the
+ *  - Lessons are 2 hours. Drag a lesson to move it (the length is changed in the details panel) — every change goes through the
  *    same checks as booking (instructor / car / student busy, blocked time, opening hours, the MVA
  *    2-hours-a-day rule); warnings must be confirmed; the student is told only when the office ticks it.
  *  - Click a lesson: details, call / text / e-mail, move, change instructor or car, cancel (late

@@ -22,7 +22,7 @@
 		if (banner) {
 			banner.classList.add('scal-banner');
 			var h = banner.querySelector('h1'); if (h) { h.textContent = 'Lesson calendar'; }
-			var p = banner.querySelector('.df-header-title p'); if (p) { p.textContent = 'Every behind-the-wheel lesson at its real time. Drag to move, drag the bottom edge to change the length, click for details.'; }
+			var p = banner.querySelector('.df-header-title p'); if (p) { p.textContent = 'Every behind-the-wheel lesson at its real time. Lessons are 2 hours. Drag a lesson to move it, click it for details, click empty time to book or block it.'; }
 			var b = banner.querySelector('[data-df-open-modal="df-add-session-modal"]'); if (b) { b.innerHTML = '<span aria-hidden="true">＋</span> Schedule lesson'; }
 			var k = document.getElementById('df-open-block-modal-btn'); if (k) { k.id = 'scal-block-btn'; k.innerHTML = '<span aria-hidden="true">⛔</span> Block time'; }
 		}
@@ -232,8 +232,9 @@
 		var hrs = live.reduce(function (s, e) { return s + (e.b - e.a) / 3600000; }, 0);
 		var notAssigned = live.filter(function (e) { return (!e.ins || !e.plate) && e.status === 'upcoming'; }).length;
 		var fees = ev.filter(function (e) { return e.fee; }).length;
+		var open = ev.filter(function (e) { return e.status === 'upcoming' && !e.out && e.b < now(); }).length;
 		document.getElementById('scal-stats').innerHTML = '<span><b>' + live.length + '</b> lesson' + (live.length === 1 ? '' : 's') + '</span><span><b>' + (Math.round(hrs * 10) / 10) + '</b> hours</span>' +
-			(notAssigned ? '<span class="is-warn"><b>' + notAssigned + '</b> without instructor or car</span>' : '') + (fees ? '<span class="is-warn"><b>' + fees + '</b> with an open fee</span>' : '');
+			(notAssigned ? '<span class="is-warn"><b>' + notAssigned + '</b> without instructor or car</span>' : '') + (fees ? '<span class="is-warn"><b>' + fees + '</b> with an open fee</span>' : '') + (open ? '<span class="is-warn"><b>' + open + '</b> past lesson' + (open === 1 ? '' : 's') + ' without an outcome — click to mark completed or no-show</span>' : '');
 	}
 
 	/* Overlapping lessons side by side: columns per cluster. */
@@ -289,7 +290,6 @@
 					'<span class="scal-m">' + esc([S.view === 'byins' ? '' : e.ins || '⚠ no instructor', S.view === 'bycar' ? '' : e.plate || '⚠ no car'].filter(Boolean).join(' · ')) + '</span>' +
 					(e.status !== 'upcoming' || e.out ? '<span class="scal-s">' + esc(label(e)) + '</span>' : '') +
 					(e.fee ? '<span class="scal-fee" title="Open lesson fee">$</span>' : '') +
-					(movable ? '<span class="scal-rs" aria-hidden="true"></span>' : '') +
 				'</div>';
 			});
 			html += '</div>';
@@ -380,7 +380,7 @@
 	/* Drag a lesson to move it (or its lower edge to change its length). */
 	function dragStart(e, el, cols) {
 		var ev = byId(+el.getAttribute('data-id')); if (!ev) { return; }
-		var resize = e.target.classList.contains('scal-rs');
+		var resize = false; // lessons are 2 hours; the length is changed in the details panel
 		var movable = el.classList.contains('is-movable');
 		var sx = e.clientX, sy = e.clientY, moved = false, ghost = null, target = null;
 		var len = (ev.b - ev.a) / 60000, startMin = mins(ev.a);
@@ -427,11 +427,11 @@
 
 	/* Click or drag over empty time → book here / block it. */
 	function selectStart(e, col, cols) {
-		var a = minuteAt(col, e.clientY - ROW / 2), b = a + 60, box = document.createElement('div');
+		var a = Math.min(CLOSE - 120, minuteAt(col, e.clientY - ROW / 2)), b = a + 120, box = document.createElement('div');
 		box.className = 'scal-sel'; col.appendChild(box);
 		function paint() { var x = Math.min(a, b), y = Math.max(a, b); box.style.top = ((x - OPEN) / STEP * ROW) + 'px'; box.style.height = ((y - x) / STEP * ROW) + 'px'; box.textContent = hm(parse(col.getAttribute('data-day') + ' 00:00') + x * 60000) + ' – ' + hm(parse(col.getAttribute('data-day') + ' 00:00') + y * 60000); }
 		paint();
-		function mv(m) { var x = minuteAt(col, m.clientY); b = x <= a ? Math.min(x, a - 30) : Math.max(x, a + 30); paint(); }
+		function mv(m) { var x = Math.min(CLOSE - 120, minuteAt(col, m.clientY - ROW / 2)); a = x; b = a + 120; paint(); }
 		function up() {
 			document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
 			var x = Math.min(a, b), y = Math.max(a, b), d0 = parse(col.getAttribute('data-day') + ' 00:00'), c = cols[+col.getAttribute('data-col')];
@@ -462,7 +462,7 @@
 		var M = document.getElementById('df-add-session-modal'); if (!M) { toast('The Schedule Lesson form is not on this page.', true); return; }
 		var set = function (id, v) { var n = document.getElementById(id); if (n) { n.value = v; } };
 		var iso = function (t) { return stamp(t).replace(' ', 'T'); };
-		var len = Math.round((b - a) / 60000); if ([60, 90, 120, 180].indexOf(len) < 0) { len = 120; }
+		var len = 120; // behind-the-wheel lessons are 2 hours
 		set('df-modal-start-time', iso(a)); set('df-modal-end-time', iso(a + len * 60000));
 		set('df-modal-instructor', c && c.ins ? c.ins : (S.ins || '')); set('df-modal-plate', c && c.plate ? c.plate : (S.car || ''));
 		M.classList.add('is-open');
@@ -488,7 +488,7 @@
 				(e.note ? '<dt>Note</dt><dd>' + esc(e.note) + '</dd>' : '') +
 			'</dl>' +
 			(up && !started ? '<form class="scal-edit"><h4>Change</h4>' +
-				'<div class="scal-row"><label>Date<input type="date" name="d" value="' + dkey(e.a) + '" required></label><label>Start<select name="t">' + times(mins(e.a)) + '</select></label><label>Length<select name="m">' + [60, 90, 120, 180].map(function (x) { var cur = Math.round((e.b - e.a) / 60000); return '<option value="' + x + '"' + (x === cur ? ' selected' : '') + '>' + (x / 60) + ' h</option>'; }).join('') + (([60, 90, 120, 180].indexOf(Math.round((e.b - e.a) / 60000)) < 0) ? '<option value="' + Math.round((e.b - e.a) / 60000) + '" selected>' + Math.round((e.b - e.a) / 60000) + ' min</option>' : '') + '</select></label></div>' +
+				'<div class="scal-row"><label>Date<input type="date" name="d" value="' + dkey(e.a) + '" required></label><label>Start<select name="t">' + times(mins(e.a)) + '</select></label><label>Length<select name="m">' + [60, 90, 120, 180].map(function (x) { var cur = Math.round((e.b - e.a) / 60000); return '<option value="' + x + '"' + (x === cur ? ' selected' : '') + '>' + (x === 120 ? '2 hours (standard)' : (x / 60) + ' h') + '</option>'; }).join('') + (([60, 90, 120, 180].indexOf(Math.round((e.b - e.a) / 60000)) < 0) ? '<option value="' + Math.round((e.b - e.a) / 60000) + '" selected>' + Math.round((e.b - e.a) / 60000) + ' min</option>' : '') + '</select></label></div>' +
 				'<div class="scal-row"><label>Instructor<select name="ins">' + (e.insId ? '' : '<option value="">— choose —</option>') + C.ins.map(function (i) { return '<option value="' + i.id + '"' + (i.name === e.ins ? ' selected' : '') + '>' + esc(i.name) + '</option>'; }).join('') + '</select></label><label>Car<select name="car">' + (e.carId ? '' : '<option value="">— choose —</option>') + C.cars.map(function (c) { return '<option value="' + c.id + '"' + (c.plate === e.plate ? ' selected' : '') + '>' + esc(c.plate) + '</option>'; }).join('') + '</select></label></div>' +
 				'<button class="scal-btn">Save change</button></form>' : '') +
 			'<div class="scal-acts">' +
