@@ -98,7 +98,7 @@ class SDSC_DFBook {
 
 	public static function instructors() {
 		global $wpdb;
-		$rows = (array) $wpdb->get_results( "SELECT id, user_id, name, phone, email, license_number, payment_details, agreement_signed, onboarding_completed, default_vehicle_id, status FROM {$wpdb->prefix}driveflow_instructors WHERE status = 'active' AND email NOT LIKE '%@preview.samsdrivingschool.invalid' ORDER BY name", ARRAY_A ); // phpcs:ignore
+		$rows = (array) $wpdb->get_results( "SELECT id, user_id, name, phone, email, license_number, payment_details, agreement_signed, onboarding_completed, default_vehicle_id, status FROM {$wpdb->prefix}driveflow_instructors WHERE status = 'active' AND email NOT LIKE '%@preview.samsdrivingschool.invalid' AND email NOT LIKE '%@example.com' AND email NOT LIKE '%@example.org' AND name NOT LIKE 'Demo %' AND name NOT LIKE 'Preview %' ORDER BY name", ARRAY_A ); // phpcs:ignore
 		$meta = class_exists( 'SDSC_Instructors' ) ? SDSC_Instructors::meta_all() : array();
 		$out  = array();
 		foreach ( $rows as $r ) {
