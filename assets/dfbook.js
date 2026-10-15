@@ -18,6 +18,7 @@
 		o.textContent = i.name + (i.langs ? ' (' + i.langs + ')' : '') + (i.pending ? ' — onboarding not finished' : '');
 		o.dataset.name = i.name; o.dataset.car = i.car; $('sdfb-ins').appendChild(o);
 	});
+	(function () { var n = $('sdfb-ins').querySelector('option[value="new"]'); if (n) { $('sdfb-ins').appendChild(n); } })();
 	D.cars.forEach(function (c) {
 		var o = document.createElement('option'); o.value = c.id;
 		o.textContent = c.plate + (c.model ? ' · ' + c.model : '') + (c.down ? ' — ' + c.down : '');
@@ -27,7 +28,7 @@
 	if (D.addIns) { $('sdfb-addins').innerHTML = 'Instructor not in the list? <a href="' + esc(D.addIns) + '" target="_blank" rel="noopener">Add an instructor</a> — they can be assigned right away, even before they sign the agreement.'; }
 
 	function reset() {
-		F.reset(); card.hidden = true; card.innerHTML = ''; hits.innerHTML = ''; q.value = ''; chk.innerHTML = ''; go.disabled = true;
+		F.reset(); [].forEach.call(F.querySelectorAll('.sdfb-newins'), function (l) { l.hidden = true; }); card.hidden = true; card.innerHTML = ''; hits.innerHTML = ''; q.value = ''; chk.innerHTML = ''; go.disabled = true;
 		$('sdfb-place').value = D.places[0] || '';
 		lengths();
 	}
@@ -42,6 +43,10 @@
 
 	// Instructor → their usual car
 	$('sdfb-ins').addEventListener('change', function () {
+		var typed = this.value === 'new';
+		[].forEach.call(F.querySelectorAll('.sdfb-newins'), function (l) { l.hidden = !typed; });
+		$('sdfb-insname').required = typed;
+		if (typed) { setTimeout(function () { $('sdfb-insname').focus(); }, 30); }
 		var o = this.options[this.selectedIndex];
 		if (o && o.dataset.car && +o.dataset.car && !$('sdfb-car').value) { $('sdfb-car').value = o.dataset.car; }
 	});
@@ -89,7 +94,7 @@
 
 	// Live check
 	var timer = null, seq = 0;
-	function filled() { return $('sdfb-first').value.trim() && ($('sdfb-email').value.trim() || $('sdfb-phone').value.replace(/\D/g, '').length >= 10) && $('sdfb-date').value && $('sdfb-time').value && $('sdfb-ins').value && $('sdfb-car').value; }
+	function filled() { return $('sdfb-first').value.trim() && ($('sdfb-email').value.trim() || $('sdfb-phone').value.replace(/\D/g, '').length >= 10) && $('sdfb-date').value && $('sdfb-time').value && $('sdfb-ins').value && ($('sdfb-ins').value !== 'new' || $('sdfb-insname').value.trim().length > 1) && $('sdfb-car').value; }
 	function check() {
 		clearTimeout(timer);
 		timer = setTimeout(function () {
@@ -104,7 +109,7 @@
 				if (x.info && x.info.day) {
 					var ins = $('sdfb-ins'), car = $('sdfb-car'), t = $('sdfb-time');
 					h += '<div class="sdfb-ok"><b>' + esc(x.info.day) + ', ' + esc(t.options[t.selectedIndex].text) + ' – ' + esc(x.info.end) + '</b>'
-						+ (ins.value ? ' · ' + esc(ins.options[ins.selectedIndex].dataset.name) : '') + (car.value ? ' · ' + esc(car.options[car.selectedIndex].dataset.plate) : '')
+						+ (ins.value ? ' · ' + esc(ins.value === 'new' ? $('sdfb-insname').value : ins.options[ins.selectedIndex].dataset.name) : '') + (car.value ? ' · ' + esc(car.options[car.selectedIndex].dataset.plate) : '')
 						+ '<br>Free cancellation until <b>' + esc(x.info.dl) + '</b> (' + D.hours + ' hours before). After that a $' + D.fee + ' fee may apply — charged only if the manager decides.</div>';
 				}
 				chk.innerHTML = h;

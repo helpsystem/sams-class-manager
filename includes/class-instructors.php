@@ -42,6 +42,9 @@ class SDSC_Instructors {
 
 	protected static function t() { global $wpdb; return $wpdb->prefix . 'driveflow_instructors'; }
 
+	/** An instructor typed by hand in the lesson form: temporary until the office completes the profile. */
+	public static function mark_temp( $id ) { self::set_meta( (int) $id, array( 'temp' => 1, 'added_by' => get_current_user_id(), 'added_at' => current_time( 'mysql' ) ) ); }
+
 	protected static function langs() { return array( 'EN' => 'English', 'ES' => 'Spanish', 'FA' => 'Farsi' ); }
 
 	protected static function guard( $n ) {
@@ -115,7 +118,7 @@ class SDSC_Instructors {
 		$up  = array( 'name' => trim( $d['first'] . ' ' . $d['last'] ) ?: $r['name'], 'email' => $d['email'], 'phone' => $d['phone'], 'license_number' => $d['lic'], 'default_vehicle_id' => $d['car'], 'updated_at' => current_time( 'mysql' ) );
 		if ( ! empty( $_POST['login'] ) && ! (int) $r['user_id'] ) { $up['user_id'] = self::login_for( $d['email'], $d['first'], $d['last'] ); } // phpcs:ignore
 		$wpdb->update( self::t(), $up, array( 'id' => $id ) );
-		self::set_meta( $id, array( 'langs' => $d['langs'], 'note' => $d['note'] ) );
+		self::set_meta( $id, array( 'langs' => $d['langs'], 'note' => $d['note'], 'temp' => ( $d['email'] && $d['lic'] ) ? 0 : (int) ( self::meta_all()[ $id ]['temp'] ?? 0 ) ) );
 		if ( method_exists( 'DriveFlow_Pro', 'notify_calendar_change' ) ) { DriveFlow_Pro::notify_calendar_change(); }
 		self::back( $up['name'] . ' saved.' );
 	}
@@ -219,6 +222,7 @@ class SDSC_Instructors {
 						if ( $off ) { echo '<span class="sdin-chip sdin-off">Switched off</span>'; }
 						elseif ( $miss ) { echo '<span class="sdin-chip sdin-wait">Can teach — onboarding pending</span><div class="sdin-mut">Missing: ' . esc_html( implode( ', ', $miss ) ) . '</div>'; $ls = $sent[ (int) $r['id'] ] ?? null; echo '<div class="sdin-mut">' . ( $ls ? 'Link sent ' . esc_html( human_time_diff( $ls[0] ) ) . ' ago' : 'No link sent yet' ) . '</div>'; }
 						else { echo '<span class="sdin-chip sdin-ok">Ready</span>'; }
+						if ( ! empty( $m['temp'] ) ) { echo '<div class="sdin-mut"><b>Typed in the lesson form (temporary)</b> — add e-mail and license, then send the onboarding link.</div>'; }
 						if ( ! empty( $m['paper_at'] ) ) { echo '<div class="sdin-mut">Agreement signed on paper ' . esc_html( $m['paper_at'] ) . '</div>'; }
 						elseif ( (int) $r['agreement_signed'] && $r['agreement_signed_at'] ) { echo '<div class="sdin-mut">Agreement signed online ' . esc_html( wp_date( 'M j, Y', strtotime( $r['agreement_signed_at'] ) ) ) . '</div>'; }
 						?></td>

@@ -160,20 +160,30 @@ class SDSC_DFBook {
 		if ( $h1 < self::OPENS || $h2 > self::CLOSES ) { $err[] = 'Lessons run between ' . self::OPENS . ':00 AM and ' . ( self::CLOSES - 12 ) . ':00 PM.'; }
 
 		$ins = $d['ins'] ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}driveflow_instructors WHERE id = %d", $d['ins'] ), ARRAY_A ) : null; // phpcs:ignore
+		if ( ! $ins && '' !== $d['ins_new'] ) {
+			// Typed by hand: an instructor with that name already on file is used; otherwise a temporary profile is made on booking.
+			$ins = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}driveflow_instructors WHERE LOWER(name) = %s ORDER BY status = 'active' DESC LIMIT 1", strtolower( $d['ins_new'] ) ), ARRAY_A ); // phpcs:ignore
+			if ( $ins ) { $warn[] = $d['ins_new'] . ' is already on file — that profile will be used.'; }
+			else {
+				$ins = array( 'id' => 0, 'name' => $d['ins_new'], 'status' => 'active', 'new' => 1 );
+				$warn[] = 'A temporary instructor profile will be made for ' . $d['ins_new'] . ' (no site account). Complete it later on the Instructors screen.';
+			}
+		}
 		$car = $d['car'] ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}driveflow_vehicles WHERE id = %d", $d['car'] ), ARRAY_A ) : null; // phpcs:ignore
-		if ( ! $ins ) { $err[] = 'Choose the instructor.'; }
+		if ( ! $ins ) { $err[] = 'new' === ( $_POST['ins'] ?? '' ) ? 'Type the instructor’s name.' : 'Choose the instructor.'; } // phpcs:ignore
 		if ( ! $car ) { $err[] = 'Choose the car.'; }
 		if ( $ins && 'active' !== $ins['status'] ) { $err[] = $ins['name'] . ' is not active.'; }
 		if ( $car && 'active' !== $car['status'] ) { $err[] = 'Car ' . $car['plate_number'] . ' is not active.'; }
 		if ( $car && 'operational' !== $car['maintenance_status'] ) { $warn[] = 'Car ' . $car['plate_number'] . ' is marked "' . $car['maintenance_status'] . '".'; }
-		if ( $ins && class_exists( 'SDSC_Onboard' ) && ( $m = SDSC_Onboard::missing( $ins ) ) ) { $warn[] = $ins['name'] . ' has not finished onboarding yet (' . implode( ', ', $m ) . '). You can still assign them.'; }
+		if ( $ins && empty( $ins['new'] ) && class_exists( 'SDSC_Onboard' ) && ( $m = SDSC_Onboard::missing( $ins ) ) ) { $warn[] = $ins['name'] . ' has not finished onboarding yet (' . implode( ', ', $m ) . '). You can still assign them.'; }
 
 		$over = function ( $where, $args ) use ( $wpdb, $T, $d, $end ) {
 			return (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, student_name, instructor_name, plate_number, scheduled_start, scheduled_end FROM `{$T}` WHERE status IN ('upcoming','active') AND scheduled_start < %s AND scheduled_end > %s AND id <> %d AND {$where}", array_merge( array( $end, $d['start'], (int) ( $d['exclude'] ?? 0 ) ), $args ) ), ARRAY_A ); // phpcs:ignore
 		};
 		$fmt = function ( $r ) { return wp_date( 'g:i', self::ts( $r['scheduled_start'] ) ) . '–' . wp_date( 'g:i A', self::ts( $r['scheduled_end'] ) ); };
 		if ( $ins ) {
-			foreach ( $over( '(instructor_id = %d OR instructor_name = %s)', array( (int) $ins['id'], $ins['name'] ) ) as $r ) { $err[] = $ins['name'] . ' already teaches ' . $r['student_name'] . ' at ' . $fmt( $r ) . '.'; }
+			$iw = (int) $ins['id'] ? array( '(instructor_id = %d OR instructor_name = %s)', array( (int) $ins['id'], $ins['name'] ) ) : array( 'instructor_name = %s', array( $ins['name'] ) );
+			foreach ( $over( $iw[0], $iw[1] ) as $r ) { $err[] = $ins['name'] . ' already teaches ' . $r['student_name'] . ' at ' . $fmt( $r ) . '.'; }
 		}
 		if ( $car ) {
 			foreach ( $over( '(vehicle_id = %d OR plate_number = %s)', array( (int) $car['id'], $car['plate_number'] ) ) as $r ) { $err[] = 'Car ' . $car['plate_number'] . ' is out with ' . $r['student_name'] . ' at ' . $fmt( $r ) . '.'; }
@@ -206,7 +216,7 @@ class SDSC_DFBook {
 		}
 		// Instructor's previous lesson ends right before somewhere else: a short travel gap.
 		if ( $ins && ! $err ) {
-			$prev = $wpdb->get_row( $wpdb->prepare( "SELECT scheduled_end FROM `{$T}` WHERE status IN ('upcoming','active') AND (instructor_id = %d OR instructor_name = %s) AND scheduled_end <= %s AND scheduled_end > %s ORDER BY scheduled_end DESC LIMIT 1", (int) $ins['id'], $ins['name'], $d['start'], wp_date( 'Y-m-d H:i:s', $a - 15 * 60 ) ), ARRAY_A ); // phpcs:ignore
+			$prev = $wpdb->get_row( $wpdb->prepare( "SELECT scheduled_end FROM `{$T}` WHERE status IN ('upcoming','active') AND (instructor_id = %d OR instructor_name = %s) AND scheduled_end <= %s AND scheduled_end > %s ORDER BY scheduled_end DESC LIMIT 1", (int) $ins['id'] ? (int) $ins['id'] : -1, $ins['name'], $d['start'], wp_date( 'Y-m-d H:i:s', $a - 15 * 60 ) ), ARRAY_A ); // phpcs:ignore
 			if ( $prev ) { $warn[] = $ins['name'] . "'s previous lesson ends less than 15 minutes before — check the travel time."; }
 		}
 		$hours       = class_exists( 'SDSC_Lessons' ) ? (int) SDSC_Lessons::settings()['hours'] : 48;
@@ -245,6 +255,8 @@ class SDSC_DFBook {
 			'minutes' => in_array( $min, array( 60, 90, 120, 180 ), true ) ? $min : 120,
 			'type'    => $type,
 			'ins'     => absint( $p['ins'] ?? 0 ),
+			'ins_new' => 'new' === ( $p['ins'] ?? '' ) ? sanitize_text_field( mb_substr( (string) ( $p['ins_name'] ?? '' ), 0, 120 ) ) : '',
+			'ins_ph'  => sanitize_text_field( mb_substr( (string) ( $p['ins_phone'] ?? '' ), 0, 40 ) ),
 			'car'     => absint( $p['car'] ?? 0 ),
 			'first'   => $first,
 			'last'    => $last,
@@ -299,6 +311,14 @@ class SDSC_DFBook {
 			if ( $d['phone'] ) { $up['phone'] = $d['phone']; }
 			if ( $d['email'] ) { $up['email'] = $d['email']; }
 			$wpdb->update( $ST, $up, array( 'id' => $sid ) );
+		}
+		if ( ! $d['ins'] && '' !== $d['ins_new'] ) {
+			$d['ins'] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}driveflow_instructors WHERE LOWER(name) = %s ORDER BY status = 'active' DESC LIMIT 1", strtolower( $d['ins_new'] ) ) ); // phpcs:ignore
+			if ( ! $d['ins'] ) {
+				$wpdb->insert( $wpdb->prefix . 'driveflow_instructors', array( 'user_id' => 0, 'name' => $d['ins_new'], 'phone' => $d['ins_ph'], 'email' => '', 'default_vehicle_id' => $d['car'], 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
+				$d['ins'] = (int) $wpdb->insert_id;
+				if ( class_exists( 'SDSC_Instructors' ) ) { SDSC_Instructors::mark_temp( $d['ins'] ); }
+			}
 		}
 		$ins   = $wpdb->get_row( $wpdb->prepare( "SELECT id, name FROM {$wpdb->prefix}driveflow_instructors WHERE id = %d", $d['ins'] ), ARRAY_A ); // phpcs:ignore
 		$car   = $wpdb->get_row( $wpdb->prepare( "SELECT id, plate_number FROM {$wpdb->prefix}driveflow_vehicles WHERE id = %d", $d['car'] ), ARRAY_A ); // phpcs:ignore
@@ -386,7 +406,9 @@ class SDSC_DFBook {
 
 						<fieldset class="sdfb-sec"><legend>3 · Instructor, car and place</legend>
 							<div class="sdfb-grid">
-								<label>Instructor<select name="ins" id="sdfb-ins" required><option value="">Choose…</option></select></label>
+								<label>Instructor<select name="ins" id="sdfb-ins" required><option value="">Choose…</option><option value="new">+ Type a name (no account yet)</option></select></label>
+								<label class="sdfb-newins" hidden>Instructor&rsquo;s name<input name="ins_name" id="sdfb-insname" maxlength="120" placeholder="First and last name"></label>
+								<label class="sdfb-newins" hidden>Instructor&rsquo;s mobile <small>(optional)</small><input type="tel" name="ins_phone" maxlength="40"></label>
 								<label>Car<select name="car" id="sdfb-car" required><option value="">Choose…</option></select></label>
 								<label class="sdfb-wide">Meeting place<input name="place" id="sdfb-place" list="sdfb-places" required maxlength="250"><datalist id="sdfb-places"></datalist></label>
 								<label class="sdfb-wide">Note for the team <small>(not sent to the student)</small><input name="note" id="sdfb-note" maxlength="500"></label>
