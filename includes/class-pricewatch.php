@@ -228,26 +228,44 @@ class SDSC_PriceWatch {
 			if ( ! $whole_page && ! preg_match( $pat, $lines[ $i ] ) ) { continue; }
 			if ( 'course36' === $svc && preg_match( '/(practice|extra|additional|remedial|refresher)/i', $lines[ $i ] ) ) { continue; }
 			if ( 'dip' === $svc && preg_match( '/young\s+driver/i', $lines[ $i ] ) ) { continue; }
-			$win   = implode( ' | ', array_slice( $lines, $i, $whole_page ? 1 : 3 ) );
-			if ( mb_strlen( $win ) > 400 ) { $win = mb_substr( $win, 0, 400 ); }
-			$ps    = array_values( array_filter( self::prices_in( $win ), function ( $p ) use ( $lo, $hi ) { return $p[0] >= $lo && $p[0] <= $hi; } ) );
+			// The first line (of this one and the next two) that holds a price in range; the line after it too
+			// when it also has a price and sale words ("Regular $425" / "Special price down to $360").
+			$inr  = function ( $t ) use ( $lo, $hi ) { return array_values( array_filter( self::prices_in( $t ), function ( $p ) use ( $lo, $hi ) { return $p[0] >= $lo && $p[0] <= $hi; } ) ); };
+			$win  = '';
+			$ps   = array();
+			for ( $j = $i; $j < min( $n, $i + ( $whole_page ? 1 : 3 ) ); $j++ ) {
+				$ps = $inr( $lines[ $j ] );
+				if ( ! $ps ) { continue; }
+				$win = $lines[ $j ];
+				if ( isset( $lines[ $j + 1 ] ) && $inr( $lines[ $j + 1 ] ) && preg_match( $sale, $lines[ $j ] . ' ' . $lines[ $j + 1 ] ) ) {
+					$win .= ' | ' . $lines[ $j + 1 ];
+					$ps   = $inr( $win );
+				}
+				break;
+			}
 			if ( ! $ps ) { continue; }
-			$first = $ps[0][0];
+			$ctx   = implode( ' | ', array_slice( $lines, $i, max( 1, $j - $i + 1 ) ) );
+			if ( mb_strlen( $ctx ) > 400 ) { $ctx = mb_substr( $ctx, 0, 400 ); }
+			// Several prices for one service (online / in person, regular / sale): the lowest is the one people
+			// compare; a "total" price wins over its parts ("$360 + $30 fee, $390 total").
+			$first = min( array_map( function ( $p ) { return $p[0]; }, $ps ) );
+			if ( preg_match( '/total[^$]{0,25}\$\s*([0-9][0-9,]*)/i', $win, $tm ) && (float) str_replace( ',', '', $tm[1] ) >= $lo && (float) str_replace( ',', '', $tm[1] ) <= $hi ) { $first = (float) str_replace( ',', '', $tm[1] ); }
 			$reg   = null;
 			$disc  = 0;
-			$pair = false;
-			if ( isset( $ps[1] ) && abs( $ps[1][0] - $first ) > 0.5 ) {
+			$pair  = false;
+			if ( isset( $ps[1] ) && abs( $ps[1][0] - $ps[0][0] ) > 0.5 ) {
 				$between = substr( $win, $ps[0][1], $ps[1][1] - $ps[0][1] );
 				$between = preg_replace( '/^\$?\s*[0-9][0-9,*.]*/', '', $between );
 				// Two prices with nothing but separators between them (a crossed-out regular price beside the
-				// sale price), or close together with sale words around them.
-				$pair = (bool) preg_match( '/^[\s|\/\-–—:]*\$?$/u', $between ) || ( ( $ps[1][1] - $ps[0][1] ) < 60 && preg_match( $sale, $win ) );
+				// sale price), or with sale words around them.
+				$pair = (bool) preg_match( '/^[\s|\/\-–—:]*\$?$/u', $between ) || preg_match( $sale, $win );
 			}
 			if ( $pair ) {
-				$reg   = max( $first, $ps[1][0] );
-				$first = min( $first, $ps[1][0] );
+				$reg   = max( $ps[0][0], $ps[1][0] );
+				$first = min( $ps[0][0], $ps[1][0] );
 				$disc  = 1;
 			}
+			$win = $ctx;
 			return array( 'price' => $first, 'reg' => $reg, 'disc' => $disc, 'snippet' => mb_substr( preg_replace( '/\s+/', ' ', $win ), 0, 250 ) );
 		}
 		return null;
@@ -312,8 +330,10 @@ class SDSC_PriceWatch {
 		$pending = get_option( self::PENDING, array() );
 		$pending = is_array( $pending ) ? $pending : array();
 		$events  = array();
+		$ignore  = (array) get_option( 'sdsc_pw_ignore', array() );
 		foreach ( $found as $svc => $r ) {
 			$k    = $id . '|' . $svc;
+			if ( in_array( $k . '|' . round( $r['price'] ), $ignore, true ) ) { continue; } // marked "wrong reading" before
 			$last = $cur[ $id ][ $svc ] ?? null;
 			if ( $last && abs( (float) $last['price'] - $r['price'] ) < 0.5 ) {
 				unset( $pending[ $k ] );
@@ -322,7 +342,8 @@ class SDSC_PriceWatch {
 				continue;
 			}
 			if ( ! $last ) {
-				self::add( $id, $svc, $r['price'], $r['reg'], $r['disc'], 'auto', $r['url'], $r['snippet'] );
+				// A service never seen for this school: a person confirms it once.
+				$pending[ $k ] = array_merge( $r, array( 'old' => null, 'new' => 1, 'first' => $pending[ $k ]['first'] ?? current_time( 'mysql' ) ) );
 				continue;
 			}
 			$p = $pending[ $k ] ?? null;
@@ -567,7 +588,11 @@ class SDSC_PriceWatch {
 			list( $id, $svc ) = explode( '|', $k );
 			$r = $pend[ $k ];
 			self::add( $id, $svc, $r['price'], $r['reg'], $r['disc'], 'auto', $r['url'], $r['snippet'] );
-			self::log_events( array( array( 'type' => 'change', 'school' => $id, 'service' => $svc, 'old' => (float) $r['old'], 'new' => (float) $r['price'], 'disc' => $r['disc'], 'reg' => $r['reg'] ) ) );
+			if ( null !== $r['old'] ) { self::log_events( array( array( 'type' => 'change', 'school' => $id, 'service' => $svc, 'old' => (float) $r['old'], 'new' => (float) $r['price'], 'disc' => $r['disc'], 'reg' => $r['reg'] ) ) ); }
+		} elseif ( isset( $pend[ $k ] ) ) {
+			$ig   = (array) get_option( 'sdsc_pw_ignore', array() );
+			$ig[] = $k . '|' . round( (float) $pend[ $k ]['price'] );
+			update_option( 'sdsc_pw_ignore', array_slice( array_values( array_unique( $ig ) ), -300 ), false );
 		}
 		unset( $pend[ $k ] );
 		update_option( self::PENDING, $pend, false );
@@ -702,8 +727,8 @@ class SDSC_PriceWatch {
 			<details open><summary>Waiting for confirmation (<?php echo count( $pend ); ?>)</summary>
 				<table class="t"><tr><th>School</th><th>Service</th><th>Was</th><th>Read now</th><th>Words on the page</th><th></th></tr>
 				<?php foreach ( $pend as $k => $r ) : list( $sid, $svc ) = explode( '|', $k ); ?>
-					<tr><td><?php echo esc_html( $names[ $sid ] ?? $sid ); ?></td><td><?php echo esc_html( $svcs[ $svc ][0] ?? $svc ); ?></td><td>$<?php echo esc_html( self::n( (float) $r['old'] ) ); ?></td>
-					<td class="<?php echo $r['price'] > $r['old'] ? 'up' : 'dn'; ?>">$<?php echo esc_html( self::n( (float) $r['price'] ) ); ?><?php echo $r['disc'] ? ' <span class="tag">sale</span>' : ''; ?></td>
+					<tr><td><?php echo esc_html( $names[ $sid ] ?? $sid ); ?></td><td><?php echo esc_html( $svcs[ $svc ][0] ?? $svc ); ?></td><td><?php echo null === $r['old'] ? '<span class="tag ok">new</span>' : '$' . esc_html( self::n( (float) $r['old'] ) ); ?></td>
+					<td class="<?php echo null === $r['old'] ? '' : ( $r['price'] > $r['old'] ? 'up' : 'dn' ); ?>">$<?php echo esc_html( self::n( (float) $r['price'] ) ); ?><?php echo $r['disc'] ? ' <span class="tag">sale</span>' : ''; ?></td>
 					<td class="sm"><?php echo esc_html( $r['snippet'] ); ?> <a href="<?php echo esc_url( $r['url'] ); ?>" target="_blank" rel="noopener">page</a></td>
 					<td><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:4px"><input type="hidden" name="action" value="sdsc_pw_pending"><input type="hidden" name="k" value="<?php echo esc_attr( $k ); ?>"><?php wp_nonce_field( 'sdsc_pw_pending' ); ?><button class="btn" name="accept" value="1">Correct</button><button class="btn ghost">Wrong reading</button></form></td></tr>
 				<?php endforeach; ?></table>
