@@ -139,6 +139,13 @@
 			});
 		});
 	}
+	/** A card can lie upside down on the glass: read it both ways and keep the way the text reads better. */
+	function upright(c) {
+		return ocrWorker(null).then(function (w) {
+			var a = canvasFrom(c, 1100), b = rotate(a, 180);
+			return w.recognize(a).then(function (ra) { return w.recognize(b).then(function (rb) { return rb.data.confidence > ra.data.confidence + 5 ? rotate(c, 180) : c; }); });
+		}).catch(function () { return c; });
+	}
 	function parseFront(text) {
 		var t = String(text || '').toUpperCase().replace(/[|]/g, 'I'), f = {}, m;
 		function d(s) { var x = /(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})/.exec(s || ''); return x ? x[3] + '-' + x[1] + '-' + x[2] : ''; }
@@ -227,9 +234,11 @@
 			id++; var x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0; st.push(i); seen[i] = id;
 			while (st.length) { var j = st.pop(), jx = j % w, jy = (j / w) | 0; n++; if (jx < x0) { x0 = jx; } if (jx > x1) { x1 = jx; } if (jy < y0) { y0 = jy; } if (jy > y1) { y1 = jy; }
 				[j - 1, j + 1, j - w, j + w].forEach(function (q) { if (q >= 0 && q < w * h && m2[q] && !seen[q] && Math.abs((q % w) - jx) <= 1) { seen[q] = id; st.push(q); } }); }
-			if (n > w * h * 0.004) { out.push({ x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k, n: n / (k * k) }); }
+			if (n > w * h * 0.004) { out.push({ id: id, x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k, n: n / (k * k) }); }
 		}
-		return out.sort(function (a, b) { return b.w * b.h - a.w * a.h; }); // a card outline encloses its printing
+		out.sort(function (a, b) { return b.w * b.h - a.w * a.h; }); // a card outline encloses its printing
+		out.labels = seen; out.lw = w; out.k = k;
+		return out;
 	}
 	/** The ID card among the blobs (about 3.4 × 2.1 in, any rotation); dpi = pixels per inch of the page. */
 	function cardOn(c, dpi) {
@@ -241,12 +250,13 @@
 	function deskewCrop(c) {
 		var k = Math.min(1, 700 / Math.max(c.width, c.height)), w = Math.round(c.width * k), h = Math.round(c.height * k);
 		var t = document.createElement('canvas'); t.width = w; t.height = h; var tx = t.getContext('2d'); tx.filter = 'blur(1px)'; tx.drawImage(c, 0, 0, w, h); tx.filter = 'none';
-		var b = blobs(t, 700)[0]; if (!b) { return c; }
+		var bl = blobs(t, 700), b = bl[0]; if (!b || bl.k !== 1) { return c; }
+		var lab = bl.labels; // only the card's own pixels (dust on the glass is left out)
 		var d = t.getContext('2d').getImageData(0, 0, w, h).data, hist = new Uint32Array(256), i, pts = [];
 		for (i = 0; i < w * h; i++) { hist[(d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0]++; }
 		var gg2 = new Uint8Array(w * h); for (i = 0; i < w * h; i++) { gg2[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0; } var bg = ring(gg2, w, h);
 		var L = function (q) { return d[q * 4] * 0.299 + d[q * 4 + 1] * 0.587 + d[q * 4 + 2] * 0.114; };
-		for (var y = Math.max(1, Math.floor(b.y)); y < Math.min(h - 1, b.y + b.h); y += 1) { for (var x = Math.max(1, Math.floor(b.x)); x < Math.min(w - 1, b.x + b.w); x += 1) { i = (y * w + x) * 4; var q = y * w + x, l = L(q), sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]), gr = Math.abs(L(q + 1) - L(q - 1)) + Math.abs(L(q + w) - L(q - w)); if (Math.abs(bg - l) > 8 || sat > 18 || gr > 9) { pts.push(x, y); } } }
+		for (var y = Math.max(1, Math.floor(b.y)); y < Math.min(h - 1, b.y + b.h); y += 1) { for (var x = Math.max(1, Math.floor(b.x)); x < Math.min(w - 1, b.x + b.w); x += 1) { i = (y * w + x) * 4; var q = y * w + x, l = L(q), sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]), gr = Math.abs(L(q + 1) - L(q - 1)) + Math.abs(L(q + w) - L(q - w)); if (lab[q] === b.id && (Math.abs(bg - l) > 8 || sat > 18 || gr > 9)) { pts.push(x, y); } } }
 		if (pts.length < 200) { return c; }
 		// Smallest box around the card at any angle: coarse 1° steps over a quarter turn, then 0.1° around the best.
 		var step = Math.max(2, Math.floor(pts.length / 12000) * 2);
@@ -316,7 +326,9 @@
 		/** Put a picture in its place: the side that was asked for — unless its barcode shows it is the back. */
 		function place(c, scanned, want) {
 			return zx().then(function (Z) {
-				var f = scanned ? fixScan(c) : fix(c), t = quickCode(Z, f);
+				return (scanned ? upright(fixScan(c)) : Promise.resolve(fix(c))).then(function (f) { return [Z, f]; });
+			}).then(function (zf) {
+				var Z = zf[0], f = zf[1], t = quickCode(Z, f);
 				var side = t ? 'back' : (want || (!S.front ? 'front' : 'back'));
 				if (side === 'back') { S.back = f; S.code = t || null; } else { S.front = f; }
 				S.imgsSaved = false;
@@ -626,5 +638,5 @@
 		}
 	}
 
-	window.SDSC_IDSCAN = { mount: mount, _aamva: aamva, _front: parseFront, _barcode: barcode, _ocr: ocr, _fix: function (c) { return enhance(autoCrop(c)); }, _blobs: blobs, _card: cardOn, _deskew: deskewCrop };
+	window.SDSC_IDSCAN = { mount: mount, _aamva: aamva, _front: parseFront, _barcode: barcode, _ocr: ocr, _fix: function (c) { return enhance(autoCrop(c)); }, _blobs: blobs, _card: cardOn, _deskew: deskewCrop, _up: upright };
 })();
