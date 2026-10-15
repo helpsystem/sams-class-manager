@@ -120,10 +120,10 @@ class SDSC_Reports {
 			'course' => absint( $g( 'course', '0' ) ),
 			'rid'    => absint( $g( 'rid', '0' ) ),
 			'uid'    => absint( $g( 'uid', '0' ) ),
-			'parts'  => array_values( array_intersect( array( 'form', 'sheet', 'attendance', 'idcopy', 'de003' ), array_map( 'sanitize_key', (array) ( $_GET['parts'] ?? array( 'form', 'sheet', 'attendance' ) ) ) ) ), // phpcs:ignore
+			'parts'  => array_values( array_intersect( array( 'form', 'sheet', 'attendance', 'idcopy', 'de003' ), array_map( 'sanitize_key', (array) ( $_GET['parts'] ?? array( 'form', 'sheet', 'idcopy', 'attendance' ) ) ) ) ), // phpcs:ignore
 		);
 		if ( in_array( $a['r'], array( 'exams', 'file' ), true ) && empty( $_GET['from'] ) ) { $a['from'] = wp_date( 'Y-m-d', time() - 90 * DAY_IN_SECONDS ); } // phpcs:ignore
-		if ( ! $a['parts'] ) { $a['parts'] = array( 'form', 'sheet', 'attendance' ); }
+		if ( ! $a['parts'] ) { $a['parts'] = array( 'form', 'sheet', 'idcopy', 'attendance' ); }
 		if ( $a['from'] > $a['to'] ) { list( $a['from'], $a['to'] ) = array( $a['to'], $a['from'] ); }
 		if ( 'instructor' === self::kind() ) { $a['who'] = class_exists( 'SDSC_Overview' ) ? SDSC_Overview::instructor_name( wp_get_current_user() ) : wp_get_current_user()->display_name; }
 		return $a;

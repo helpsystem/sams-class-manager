@@ -305,7 +305,7 @@ table.wrap > tbody > tr > td { padding: 0; }
 .who .s { font-size: 9pt; color: #5b646d; }
 .who .r { text-align: right; font-size: 8.5pt; color: #5b646d; line-height: 1.35; }
 .road { height: 3px; margin: 3px 0 0; background: repeating-linear-gradient(90deg, #ffc20e 0 20px, transparent 20px 34px); }
-h2 { margin: 10px 0 4px; padding: 3px 8px; font-size: 8.5pt; letter-spacing: .6px; text-transform: uppercase; background: #e7f5ec; color: #0b3d24; border-radius: 3px; break-after: avoid; }
+h2 { margin: 7px 0 3px; padding: 2px 8px; font-size: 8.5pt; letter-spacing: .6px; text-transform: uppercase; background: #e7f5ec; color: #0b3d24; border-radius: 3px; break-after: avoid; }
 table.f { width: 100%; border-collapse: collapse; }
 table.f th { width: 1.5in; padding: 3.5px 8px; text-align: left; font-size: 8pt; font-weight: 700; color: #5b646d; text-transform: uppercase; letter-spacing: .3px; vertical-align: top; border-bottom: 0.5pt solid #e1e5e8; }
 table.f td { padding: 3.5px 8px; border-bottom: 0.5pt solid #e1e5e8; vertical-align: top; }
@@ -313,16 +313,19 @@ table.f tr, .agree, .sigs, .office, .unit, .final { break-inside: avoid; page-br
 .blank { color: #9aa3ab; }
 .agree { margin: 4px 0; padding: 6px 8px; border: 0.75pt solid #d5dbe0; border-radius: 4px; font-size: 9pt; }
 .box { display: inline-block; width: 11px; height: 11px; margin-right: 6px; border: 1pt solid #15191d; text-align: center; line-height: 9px; font-size: 9px; vertical-align: -1px; }
-.policy { font-size: 9.2pt; line-height: 1.45; color: #1d2327; }
-.policy h1, .policy h2, .policy h3, .policy h4 { all: unset; display: block; font-weight: 700; font-size: 9.8pt; margin: 8px 0 3px; color: #0b3d24; break-after: avoid; }
+.policy { font-size: 8.4pt; line-height: 1.34; color: #1d2327; columns: 2; column-gap: 0.25in; }
+table.f2 tbody { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.2in; }
+table.f2 tr { display: flex; } table.f2 th { flex: 0 0 1.05in; width: auto; padding: 2.5px 6px; } table.f2 td { flex: 1; padding: 2.5px 6px; }
+table.f2 tr.wide { grid-column: 1 / -1; }
+.policy h1, .policy h2, .policy h3, .policy h4 { all: unset; display: block; font-weight: 700; font-size: 8.9pt; margin: 5px 0 2px; color: #0b3d24; break-after: avoid; }
 .policy p { margin: 0 0 4px; } .policy ul, .policy ol { margin: 0 0 4px; padding-left: 14px; } .policy li { margin: 0 0 1px; }
 .policy a { color: inherit; text-decoration: none; }
-.policy p { text-align: left; margin: 0 0 5px; break-inside: avoid; } .policy h4 { margin-top: 10px; }
+.policy p { text-align: left; margin: 0 0 3px; break-inside: avoid; } .policy h4 { margin-top: 6px; } .policy > :first-child { margin-top: 0; }
 .keep { break-inside: avoid; page-break-inside: avoid; }
 .sigs { display: flex; gap: 18px; margin-top: 8px; }
 .sig { flex: 1; }
-.sig .pad { height: 0.95in; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1pt solid #15191d; }
-.sig .pad img { max-height: 0.9in; max-width: 100%; }
+.sig .pad { height: 0.62in; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1pt solid #15191d; }
+.sig .pad img { max-height: 0.58in; max-width: 100%; }
 .sig small { display: flex; justify-content: space-between; font-size: 8pt; color: #5b646d; padding-top: 2px; }
 .office { display: flex; gap: 18px; margin-top: 16px; font-size: 8pt; color: #5b646d; }
 .office div { flex: 1; border-top: 0.75pt solid #9aa3ab; padding-top: 2px; }
@@ -397,18 +400,18 @@ table.t tr { break-inside: avoid; }
 		$pol   = class_exists( 'SDSC_Policies' ) ? SDSC_Policies::html() : '';
 		$pol   = $pol ? wp_kses( $pol, array( 'h1' => array(), 'h2' => array(), 'h3' => array(), 'h4' => array(), 'p' => array(), 'ul' => array(), 'ol' => array(), 'li' => array(), 'strong' => array(), 'b' => array(), 'em' => array(), 'i' => array(), 'br' => array() ) ) : '';
 		$h  = '<section class="pg"><table class="wrap">' . self::who( 'Student Registration Form', $p, self::file_no( $p ) ) . '<tbody><tr><td>';
-		$h .= '<h2>Course</h2><table class="f"><tr><th>Class</th><td>' . $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : self::online_span( $p ) ) . '</td></tr>'
+		$h .= '<h2>Course</h2><table class="f f2"><tr class="wide"><th>Class</th><td>' . $v( $r['class_id'] ? SDSC_Registration::class_label( (int) $r['class_id'], true ) : self::online_span( $p ) ) . '</td></tr>'
 			. '<tr><th>Registration</th><td>#' . (int) $r['id'] . ' · submitted ' . esc_html( $d( $r['created_at'], 'm/d/Y g:i A' ) ) . ( 'forminator' === $r['source'] ? ' (earlier website form)' : '' ) . '</td></tr>'
 			. '<tr><th>Payment</th><td>' . $v( $paid ? 'Paid online ' . '$' . number_format( $paid['amount'] / 100, 2 ) . ( ! empty( $paid['paid_at'] ) ? ' on ' . $d( $paid['paid_at'] ) : '' ) : 'Not paid online (see the office records)' ) . '</td></tr></table>';
-		$h .= '<h2>Student</h2><table class="f">'
+		$h .= '<h2>Student</h2><table class="f f2">'
 			. '<tr><th>Full name</th><td>' . $v( trim( $r['first_name'] . ' ' . $r['middle_name'] . ' ' . $r['last_name'] ) ) . '</td></tr>'
 			. '<tr><th>Date of birth</th><td>' . $v( $r['dob'] ? wp_date( 'm/d/Y', strtotime( $r['dob'] . ' 12:00:00' ) ) . ( $r['age'] ? '  (age ' . (int) $r['age'] . ' when registered)' : '' ) : '' ) . '</td></tr>'
 			. '<tr><th>Gender</th><td>' . $v( ucfirst( (string) $r['gender'] ) ) . '</td></tr>'
 			. '<tr><th>Phone</th><td>' . $v( $r['phone'] ) . '</td></tr>'
 			. '<tr><th>E-mail</th><td>' . $v( $r['email'] ) . '</td></tr>'
-			. '<tr><th>Home address</th><td>' . $v( $addr ) . '</td></tr></table>';
+			. '<tr class="wide"><th>Home address</th><td>' . $v( $addr ) . '</td></tr></table>';
 		if ( $minor ) {
-			$h .= '<h2>Parent / guardian</h2><table class="f"><tr><th>Name</th><td>' . $v( $r['parent_name'] ) . '</td></tr><tr><th>Phone</th><td>' . $v( $r['parent_phone'] ) . '</td></tr><tr><th>E-mail</th><td>' . $v( $r['parent_email'] ) . '</td></tr></table>';
+			$h .= '<h2>Parent / guardian</h2><table class="f f2"><tr><th>Name</th><td>' . $v( $r['parent_name'] ) . '</td></tr><tr><th>Phone</th><td>' . $v( $r['parent_phone'] ) . '</td></tr><tr><th>E-mail</th><td>' . $v( $r['parent_email'] ) . '</td></tr></table>';
 		}
 		if ( trim( (string) $r['notes'] ) ) { $h .= '<h2>Notes</h2><table class="f"><tr><td>' . nl2br( esc_html( $r['notes'] ) ) . '</td></tr></table>'; }
 		// The full policy text first, then what the student (and parent) agreed to and signed.

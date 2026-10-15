@@ -248,12 +248,18 @@
 		var L = function (q) { return d[q * 4] * 0.299 + d[q * 4 + 1] * 0.587 + d[q * 4 + 2] * 0.114; };
 		for (var y = Math.max(1, Math.floor(b.y)); y < Math.min(h - 1, b.y + b.h); y += 1) { for (var x = Math.max(1, Math.floor(b.x)); x < Math.min(w - 1, b.x + b.w); x += 1) { i = (y * w + x) * 4; var q = y * w + x, l = L(q), sat = Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]), gr = Math.abs(L(q + 1) - L(q - 1)) + Math.abs(L(q + w) - L(q - w)); if (Math.abs(bg - l) > 8 || sat > 18 || gr > 9) { pts.push(x, y); } } }
 		if (pts.length < 200) { return c; }
+		// Smallest box around the card at any angle: coarse 1° steps over a quarter turn, then 0.1° around the best.
+		var step = Math.max(2, Math.floor(pts.length / 12000) * 2);
 		var best = 0, area = Infinity, box = null;
-		for (var a = -12; a <= 12; a += 0.5) {
+		function tryA(a) {
 			var r = a * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), mx = 1e9, my = 1e9, Mx = -1e9, My = -1e9;
-			for (i = 0; i < pts.length; i += 2) { var px = pts[i] * cs - pts[i + 1] * sn, py = pts[i] * sn + pts[i + 1] * cs; if (px < mx) { mx = px; } if (px > Mx) { Mx = px; } if (py < my) { my = py; } if (py > My) { My = py; } }
-			var ar = (Mx - mx) * (My - my); if (ar < area - 0.5) { area = ar; best = a; box = [mx, my, Mx, My]; }
+			for (var q = 0; q < pts.length; q += step) { var px = pts[q] * cs - pts[q + 1] * sn, py = pts[q] * sn + pts[q + 1] * cs; if (px < mx) { mx = px; } if (px > Mx) { Mx = px; } if (py < my) { my = py; } if (py > My) { My = py; } }
+			var ar = (Mx - mx) * (My - my); if (ar < area - 0.5) { area = ar; best = a; }
 		}
+		for (var a = -45; a < 45; a += 1) { tryA(a); }
+		var c0 = best; for (a = c0 - 1; a <= c0 + 1; a += 0.1) { tryA(a); }
+		// the exact box with every point at the best angle
+		(function () { var r = best * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), mx = 1e9, my = 1e9, Mx = -1e9, My = -1e9; for (var q = 0; q < pts.length; q += 2) { var px = pts[q] * cs - pts[q + 1] * sn, py = pts[q] * sn + pts[q + 1] * cs; if (px < mx) { mx = px; } if (px > Mx) { Mx = px; } if (py < my) { my = py; } if (py > My) { My = py; } } box = [mx, my, Mx, My]; })();
 		// Rotate the full picture by the same angle (around the origin, then shift) and cut the box out.
 		var R = best * Math.PI / 180, s1 = 1 / k, pad = 0.005 * Math.max(box[2] - box[0], box[3] - box[1]);
 		var bx = (box[0] - pad) * s1, by = (box[1] - pad) * s1, bw = (box[2] - box[0] + 2 * pad) * s1, bh = (box[3] - box[1] + 2 * pad) * s1;
