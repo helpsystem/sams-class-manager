@@ -168,7 +168,7 @@ class SDSC_Overview {
 		if ( class_exists( 'SDSC_Reports' ) && SDSC_Reports::mine() ) {
 			array_unshift( $groups['reports'][1], array( '📊', 'Reports & printing', 'Rosters, attendance, registrations, payments, lessons and fees — print or download.', SDSC_Reports::url() ) );
 		}
-		if ( current_user_can( 'edit_posts' ) && ( class_exists( 'SDSC_Access' ) && SDSC_Access::is_staff() ) ) {
+		if ( class_exists( 'SDSC_Access' ) && SDSC_Access::may_edit_classes() ) {
 			$groups['students'][1][] = array( '🏫', 'Classes', 'Add or edit a class: dates, price, Zoom link, timetable and instructor.', admin_url( 'edit.php?post_type=sdsc_class' ) );
 		}
 		return array_filter( $groups, function ( $g ) { return (bool) $g[1]; } );
@@ -268,7 +268,7 @@ class SDSC_Overview {
 				$o    .= '<li><span class="sov-what"><b>' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) ) . '</b><small>' . esc_html( ( $st ? 'Starts ' . wp_date( 'M j', strtotime( $st . ' 12:00' ) ) : 'No start date' ) . ' · ' . ( $cap ? $taken . ' of ' . $cap . ' seats' : $taken . ' registered' ) ) . '</small>' . ( $cap ? '<i class="sov-bar"><i style="width:' . $pct . '%"></i></i>' : '' ) . '</span>' . ( SDSC_Schedule::sessions( $c->ID ) ? '' : '<span class="sov-chip sov-chip--due" title="Fill in Timetable &amp; calendar on the class">No timetable</span>' ) . '</li>';
 			}
 		}
-		$h .= self::card( 'Open classes', $o ? '<ul class="sov-list">' . $o . '</ul>' : self::empty_note( 'No classes are open for registration.' ), 'Edit classes', admin_url( 'edit.php?post_type=sdsc_class' ) );
+		$h .= self::card( 'Open classes', $o ? '<ul class="sov-list">' . $o . '</ul>' : self::empty_note( 'No classes are open for registration.' ), SDSC_Access::may_edit_classes() ? 'Edit classes' : '', SDSC_Access::may_edit_classes() ? admin_url( 'edit.php?post_type=sdsc_class' ) : '' );
 		$h .= '</div>';
 
 		$h .= self::tools_html();

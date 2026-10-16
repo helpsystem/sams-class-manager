@@ -101,3 +101,8 @@
 #sdd .sdd-miss { color: #b42318; font-weight: 700; } #sdd .sdd-okk { color: #0b7a3b; font-weight: 700; }
 #sdd .sdd-note { margin: 6px 0 12px; padding: 8px 12px; border-radius: 8px; background: #f6f8f9; font-size: 13px; color: #3c434a; }
 #sdd .sdd-staff .sdd-n { display: block; width: 100%; text-align: left; }
+
+/* Instructors: a stamp-size preview only */
+.sdd-doc--tiny { flex-direction: row; align-items: center; gap: 12px; padding: 10px; }
+.sdd-doc--tiny .sdd-doc-img { flex: 0 0 56px; width: 56px; aspect-ratio: 4 / 3; border-radius: 6px; }
+.sdd-doc--tiny .sdd-doc-b { padding: 0; }

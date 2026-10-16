@@ -116,6 +116,11 @@
   /* ---------------------------------------------------------------- views */
   function docCard(d, withWho) {
     var img = d.thumb ? '<img src="' + esc(d.thumb) + '" alt="" loading="lazy">' : '<span class="sdd-ico">' + (d.pdf ? 'PDF' : 'FILE') + '</span>';
+    if (d.tiny) {
+      return '<li class="sdd-doc sdd-doc--tiny"><span class="sdd-doc-img" aria-hidden="true">' + img + '</span>' +
+        '<div class="sdd-doc-b"><b>' + esc(d.typeL) + '</b><span class="sdd-chip">✓ On file</span><small>' + esc(d.when) + '</small>' +
+        '<small class="sdd-doc-l">Only the office can open documents.</small></div></li>';
+    }
     var acts = '<a class="sdd-b" href="' + esc(d.view) + '" target="_blank" rel="noopener">View</a><a class="sdd-b sdd-b--ghost" href="' + esc(d.dl) + '">Download</a>';
     if (C.office && d.status === 'new') { acts += '<button type="button" class="sdd-b sdd-b--go" data-check="' + d.id + '">Mark checked</button>'; }
     if (C.remove || (!C.office && d.status === 'new')) { acts += '<button type="button" class="sdd-b sdd-b--del" data-del="' + d.id + '" aria-label="Remove ' + esc(d.typeL) + '">Remove</button>'; }
@@ -212,8 +217,8 @@
     root.innerHTML = tabs('st') +
       (C.ok ? '' : '<p class="sdd-err">The private document folder is not ready on the server. Please tell the administrator.</p>') +
       '<div class="sdd-find"><label for="sdd-q">Find a student</label><input id="sdd-q" type="search" autocomplete="off" placeholder="Name, e-mail or phone" value="' + esc(S.q) + '"><ul class="sdd-results" role="listbox"></ul></div>' +
-      '<section class="sdd-list"><h4>From students — to check <span class="sdd-count sdd-count--new">…</span></h4><ul class="sdd-docs sdd-pend"></ul></section>' +
-      '<section class="sdd-list"><h4>Recently added</h4><ul class="sdd-docs sdd-recent"></ul></section>';
+      (C.front ? '<section class="sdd-list"><h4>From students — to check <span class="sdd-count sdd-count--new">…</span></h4><ul class="sdd-docs sdd-pend"></ul></section>' +
+      '<section class="sdd-list"><h4>Recently added</h4><ul class="sdd-docs sdd-recent"></ul></section>' : '<p class="sdd-note">Find a student to see which documents are on file. Only the office can open them.</p>');
     var q = root.querySelector('#sdd-q'), t = null;
     q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { find(q.value); }, 250); });
     if (S.q) { find(S.q); }

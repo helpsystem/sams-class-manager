@@ -74,7 +74,7 @@ class SDSC_Workspace {
 			'board'          => array( 'Class board', 'students', 'admin.php?page=sdsc-board', class_exists( 'SDSC_Board' ) && SDSC_Board::can(), '🧩', 'Seats, instructors and cars for every class.' ),
 			'pricewatch'     => array( 'Price watch', 'money', 'admin.php?page=sdsc-price-watch', class_exists( 'SDSC_PriceWatch' ) && SDSC_PriceWatch::can(), '📉', 'Other Maryland schools’ prices next to ours: changes, sales, charts.' ),
 			// Sam's Class Manager.
-			'classes'        => array( 'Classes', 'students', 'edit.php?post_type=sdsc_class', current_user_can( 'edit_posts' ) && class_exists( 'SDSC_Access' ) && SDSC_Access::is_staff(), '🏫', 'Add or edit a class: dates, price, Zoom link, timetable and instructor.' ),
+			'classes'        => array( 'Classes', 'students', 'edit.php?post_type=sdsc_class', class_exists( 'SDSC_Access' ) && SDSC_Access::may_edit_classes(), '🏫', 'Add or edit a class: dates, price, Zoom link, timetable and instructor.' ),
 			'registrations'  => array( 'Registrations', 'students', 'admin.php?page=sdsc-registrations', $can( 'registrations' ), '📝', 'Sign-ups, contracts and signatures.' ),
 			'records'        => array( 'Student records (print)', 'students', 'admin.php?page=sdsc-reports', $can( 'reports' ), '🗂️', 'Full student records to print and file.' ),
 			'btw'            => array( 'BTW lessons & fees', 'lessons', 'admin.php?page=sdsc-lessons', $can( 'lessons' ), '🚗', 'Lesson confirmations, late-cancellation and no-show fees, waivers.' ),

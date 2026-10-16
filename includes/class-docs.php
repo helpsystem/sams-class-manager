@@ -168,6 +168,11 @@ class SDSC_Docs {
 		return class_exists( 'SDSC_Access' ) && (bool) array_intersect( (array) wp_get_current_user()->roles, array( SDSC_Access::MANAGER, SDSC_Access::FRONTDESK ) );
 	}
 
+	/** Instructors see other people's documents only as "on file" with a stamp-size preview. */
+	public static function limited( $email ) {
+		return ! self::is_front_office() && self::me() !== strtolower( (string) $email );
+	}
+
 	/** Remove a document: administrator and school manager only. */
 	public static function can_remove() {
 		if ( current_user_can( 'manage_options' ) ) { return true; }
@@ -229,7 +234,7 @@ class SDSC_Docs {
 		$by = $r['by_user'] ? get_userdata( (int) $r['by_user'] ) : null;
 		$ck = $r['checked_by'] ? get_userdata( (int) $r['checked_by'] ) : null;
 		$f  = admin_url( 'admin-ajax.php?action=sdsc_doc_file&id=' . (int) $r['id'] . '&_wpnonce=' . wp_create_nonce( 'sdsc_doc_file' ) );
-		return array(
+		$out = array(
 			'id'      => (int) $r['id'],
 			'type'    => $r['type'],
 			'typeL'   => self::types()[ $r['type'] ] ?? 'Document',
@@ -245,6 +250,8 @@ class SDSC_Docs {
 			'thumb'   => $r['thumb'] ? $f . '&thumb=1' : '',
 			'dl'      => $f . '&dl=1',
 		);
+		if ( self::limited( $r['email'] ) ) { $out = array_merge( $out, array( 'view' => '', 'dl' => '', 'tiny' => 1 ) ); }
+		return $out;
 	}
 
 	/** Search students by name, e-mail or phone across registrations, behind-the-wheel students and accounts. */
@@ -315,6 +322,7 @@ class SDSC_Docs {
 		self::guard();
 		global $wpdb;
 		$email = self::is_office() ? strtolower( sanitize_email( wp_unslash( $_POST['email'] ?? '' ) ) ) : self::me();
+		if ( self::is_office() && ! $email && ! self::is_front_office() ) { wp_send_json_success( array( 'pending' => array(), 'recent' => array(), 'limited' => 1 ) ); }
 		if ( self::is_office() && ! $email ) {
 			// Office home: student uploads still to check, and the latest additions.
 			$pend = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t_docs() . ' WHERE status = %s ORDER BY id DESC LIMIT 50', 'new' ), ARRAY_A );
@@ -409,8 +417,11 @@ class SDSC_Docs {
 		$r = self::row( absint( $_GET['id'] ?? 0 ) );
 		if ( ! self::may( $r ) ) { status_header( 403 ); exit( 'Not allowed.' ); }
 		$thumb = ! empty( $_GET['thumb'] ) && $r['thumb'];
+		$tiny  = self::limited( $r['email'] );
+		if ( $tiny && ! $thumb ) { status_header( 403 ); exit( 'Only the office can open this document.' ); }
 		$bytes = self::get( $thumb ? $r['thumb'] : $r['file'] );
 		if ( '' === $bytes ) { status_header( 404 ); exit( 'File not found.' ); }
+		if ( $tiny ) { $bytes = self::stamp( $bytes ); if ( '' === $bytes ) { status_header( 403 ); exit( 'Not allowed.' ); } }
 		if ( ! $thumb ) { self::log( (int) $r['id'], ! empty( $_GET['dl'] ) ? 'download' : 'view' ); }
 		$ext  = self::MIMES[ $r['mime'] ] ?? 'bin';
 		$file = sanitize_file_name( ( $r['name'] ? $r['name'] : 'student' ) . ' - ' . ( self::types()[ $r['type'] ] ?? 'document' ) . '.' . $ext );
@@ -424,6 +435,25 @@ class SDSC_Docs {
 		header( 'Referrer-Policy: no-referrer' );
 		echo $bytes; // phpcs:ignore -- binary file
 		exit;
+	}
+
+	/** A stamp-size copy (72 px wide) of a thumbnail: enough to see a document is there, too small to read. */
+	protected static function stamp( $bytes ) {
+		if ( ! function_exists( 'imagecreatefromstring' ) ) { return ''; }
+		$im = @imagecreatefromstring( $bytes ); // phpcs:ignore
+		if ( ! $im ) { return ''; }
+		$w  = imagesx( $im );
+		$h  = imagesy( $im );
+		$nw = 72;
+		$nh = max( 1, (int) round( $h * $nw / max( 1, $w ) ) );
+		$sm = imagecreatetruecolor( $nw, $nh );
+		imagecopyresampled( $sm, $im, 0, 0, 0, 0, $nw, $nh, $w, $h );
+		ob_start();
+		imagejpeg( $sm, null, 60 );
+		$out = (string) ob_get_clean();
+		imagedestroy( $im );
+		imagedestroy( $sm );
+		return $out;
 	}
 
 	/** Instructors and how complete their files are (front office). */

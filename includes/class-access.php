@@ -71,6 +71,36 @@ class SDSC_Access {
 		add_action( 'admin_menu', array( __CLASS__, 'organise' ), 999 );
 		add_action( 'admin_post_sdsc_team_save', array( __CLASS__, 'save' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
+		// Classes (dates, prices, Zoom links) are edited by the administrator and the school manager only.
+		add_filter( 'map_meta_cap', array( __CLASS__, 'class_caps' ), 20, 4 );
+		foreach ( array( 'load-edit.php', 'load-post-new.php', 'load-post.php' ) as $h ) { add_action( $h, array( __CLASS__, 'class_gate' ) ); }
+		add_action( 'admin_menu', function () { if ( ! self::may_edit_classes() ) { remove_menu_page( 'edit.php?post_type=sdsc_class' ); } }, 1000 );
+	}
+
+	/** An instructor (or other helper) who is not administrator, school manager or front desk. */
+	public static function plain_instructor() {
+		if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) ) { return false; }
+		$r = (array) wp_get_current_user()->roles;
+		if ( array_intersect( $r, array( self::MANAGER, self::FRONTDESK ) ) ) { return false; }
+		return (bool) array_intersect( $r, array( 'tutor_instructor', self::OWN_INSTR, 'driveflow_instructor' ) );
+	}
+
+	/** Who may add or change classes: administrator and school manager. */
+	public static function may_edit_classes() {
+		if ( current_user_can( 'manage_options' ) ) { return true; }
+		return is_user_logged_in() && in_array( self::MANAGER, (array) wp_get_current_user()->roles, true );
+	}
+
+	public static function class_caps( $caps, $cap, $uid, $args ) {
+		if ( ! in_array( $cap, array( 'edit_post', 'delete_post', 'publish_post' ), true ) || empty( $args[0] ) ) { return $caps; }
+		if ( 'sdsc_class' !== get_post_type( (int) $args[0] ) || (int) $uid !== get_current_user_id() || self::may_edit_classes() ) { return $caps; }
+		return array( 'do_not_allow' );
+	}
+
+	public static function class_gate() {
+		global $typenow;
+		$pt = $typenow ? $typenow : ( isset( $_GET['post'] ) ? get_post_type( absint( $_GET['post'] ) ) : '' ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( 'sdsc_class' === $pt && ! self::may_edit_classes() ) { wp_die( 'Classes are managed by the office (administrator and school manager).', 'Not allowed', array( 'response' => 403, 'back_link' => true ) ); }
 	}
 
 	/* ------------------------------------------------------------ roles */
