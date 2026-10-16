@@ -27,6 +27,7 @@ class SDSC_ZoomAuto {
 		add_action( 'admin_post_sdsc_zoom_send', array( __CLASS__, 'h_send' ) );
 		add_action( 'admin_post_sdsc_zoom_start', array( __CLASS__, 'h_start' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
+		add_filter( 'wp_mail', array( __CLASS__, 'upgrade_auto_mail' ), 5 );
 	}
 
 	public static function schedule() {
@@ -190,15 +191,12 @@ class SDSC_ZoomAuto {
 		return trim( chunk_split( $d, 4, ' ' ) );
 	}
 
-	public static function send( $cid ) {
-		$link = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
-		if ( ! $link ) { return new WP_Error( 'zoom', 'This class has no Zoom link yet.' ); }
-		$to = self::recipients( $cid );
-		if ( ! $to ) { return new WP_Error( 'zoom', 'No students are registered in this class yet.' ); }
+	/** The welcome / reminder e-mail (HTML) for one student of a class: every unit, Zoom details, the forms reminder. */
+	public static function welcome_html( $cid, $firstn = '' ) {
+		$link  = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
 		$id    = (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true );
 		$pass  = (string) get_post_meta( $cid, '_sdsc_zoom_passcode', true );
 		$list  = SDSC_Schedule::sessions( $cid );
-		$name  = SDSC_Schedule::class_name( $cid );
 		$sch   = SDSC_Schedule::sched( $cid );
 		$f     = 'font-family:Arial,Helvetica,sans-serif;';
 		$ts    = function ( $x ) { return class_exists( 'SDSC_Lessons' ) ? SDSC_Lessons::ts( $x ) : strtotime( $x ); };
@@ -213,26 +211,54 @@ class SDSC_ZoomAuto {
 		$p     = function ( $html, $extra = '' ) use ( $f ) { return '<p style="' . $f . 'margin:0 0 12px;font-size:15px;line-height:1.6;' . $extra . '">' . $html . '</p>'; };
 		$units = '';
 		foreach ( $list as $x ) { $units .= '<tr><td style="' . $f . 'padding:3px 14px 3px 0;font-size:14px;white-space:nowrap">' . esc_html( wp_date( 'F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:3px 0;font-size:14px;color:#5b646d">(unit ' . (int) $x['n'] . ')</td></tr>'; }
-		$zoom  = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;border-radius:12px;background:#f7f9fa;width:100%">'
+		$zoom  = $link ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;border-radius:12px;background:#f7f9fa;width:100%">'
 			. '<tr><td style="' . $f . 'padding:10px 14px;font-size:14px;color:#5b646d;width:120px">Join Zoom</td><td style="' . $f . 'padding:10px 14px;font-size:14px"><a href="' . esc_url( $link ) . '" style="color:#00703c;font-weight:700;word-break:break-all">' . esc_html( $link ) . '</a></td></tr>'
 			. ( $id ? '<tr><td style="' . $f . 'padding:6px 14px;font-size:14px;color:#5b646d">Meeting ID</td><td style="' . $f . 'padding:6px 14px;font-size:14px"><b>' . esc_html( self::fmt_id( $id ) ) . '</b></td></tr>' : '' )
 			. ( $pass ? '<tr><td style="' . $f . 'padding:6px 14px 10px;font-size:14px;color:#5b646d">Passcode</td><td style="' . $f . 'padding:6px 14px 10px;font-size:14px"><b>' . esc_html( $pass ) . '</b></td></tr>' : '' )
-			. '</table>';
+			. '</table>' : $p( 'The Zoom link will be e-mailed to you before the first session.', 'font-size:14px' );
+		return $p( 'Dear ' . esc_html( $firstn ? $firstn : 'Student' ) . ',' )
+			. $p( 'We want to welcome you to Sam’s Driving School!' )
+			. $p( 'This e-mail is a friendly reminder that you are enrolled in the <b>Driver Education Course</b>' . ( $first ? ' with a class beginning <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b> from <b>' . esc_html( $tfrom ) . '</b> to <b>' . esc_html( $tto ) . '</b>' : '' ) . '.' )
+			. $p( '<b>Topic:</b> Driver Education' . ( $first ? '<br><b>Time:</b> From ' . esc_html( wp_date( 'F j, Y g:i A', $first ) ) . ' Eastern Time (US and Canada) to ' . esc_html( wp_date( 'F j, Y', $lastd ) ) . ', ' . count( $list ) . ' meetings' . ( $dl ? ' (' . esc_html( implode( ', ', $dl ) ) . ')' : '' ) : '' ) )
+			. ( $units ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse">' . $units . '</table>' : '' )
+			. $zoom
+			. '<p style="' . $f . 'margin:0 0 6px;font-size:14px;font-weight:800;color:#b32d2e;letter-spacing:.5px">IMPORTANT</p>'
+			. $p( 'Please click the link below and fill out the forms with the correct information. Make sure to select the course you registered for — morning or evening. If you are under the age of 18, a parent or guardian’s signature is required. Please sign and submit the forms before the class starts' . ( $first ? ' on <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b>' : '' ) . '.', 'font-size:14px' )
+			. $p( '<a href="' . esc_url( $furl ) . '" style="color:#00703c;font-weight:700">' . esc_html( $furl ) . '</a>', 'font-size:14px' )
+			. $p( '<b>No Zoom account is needed.</b> On a computer, click the link (or choose “Join from your browser”). On a phone or tablet, install the free Zoom app first. Join with your camera and microphone on, sitting at a desk, and use your full name so we can let you in from the waiting room. <b>The first session is mandatory</b> (MVA rule). You will also get a reminder the day before and one hour before each session.', 'font-size:14px' )
+			. $p( 'Questions? Call or text (301) 726-3030.', 'font-size:14px' )
+			. $p( 'Thanks,<br>Best regards,<br>Sam’s Driving School', 'font-size:14px' );
+	}
+
+	public static function subject( $cid ) { return 'Welcome to your Driver Education class — ' . SDSC_Schedule::class_name( $cid ); }
+
+	/**
+	 * The automatic send (24 h before the class, paid students only — class-email.php) builds a short plain-text
+	 * e-mail. Replace its body and subject with the welcome e-mail above, so both routes send the same thing.
+	 */
+	public static function upgrade_auto_mail( $a ) {
+		if ( ! is_array( $a ) || 0 !== strpos( (string) ( $a['subject'] ?? '' ), 'Your Zoom class link — ' ) || false === strpos( (string) ( $a['message'] ?? '' ), 'Here is everything for your class' ) ) { return $a; }
+		if ( ! preg_match( '/\(class ([^)]+)\):/', (string) $a['message'], $m ) ) { return $a; }
+		$cid = (int) get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sdsc_course_code', 'meta_value' => trim( $m[1] ) ) )[0] ?? 0;
+		if ( ! $cid ) { return $a; }
+		$first = preg_match( '/^Hi ([^,\n]*),/', (string) $a['message'], $n ) ? trim( preg_replace( '/\s.*$/', '', trim( $n[1] ) ) ) : '';
+		$a['subject'] = self::subject( $cid );
+		$a['message'] = self::welcome_html( $cid, $first );
+		$h = is_array( $a['headers'] ?? null ) ? $a['headers'] : array_filter( explode( "\n", (string) ( $a['headers'] ?? '' ) ) );
+		$h[] = 'Content-Type: text/html; charset=UTF-8';
+		$h[] = 'X-SDSC-From: info';
+		$a['headers'] = $h;
+		return $a;
+	}
+
+	public static function send( $cid ) {
+		$link = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
+		if ( ! $link ) { return new WP_Error( 'zoom', 'This class has no Zoom link yet.' ); }
+		$to = self::recipients( $cid );
+		if ( ! $to ) { return new WP_Error( 'zoom', 'No students are registered in this class yet.' ); }
 		$sent = 0;
 		foreach ( $to as $email => $firstn ) {
-			$body = $p( 'Dear ' . esc_html( $firstn ? $firstn : 'Student' ) . ',' )
-				. $p( 'We want to welcome you to Sam’s Driving School!' )
-				. $p( 'This e-mail is a friendly reminder that you are enrolled in the <b>Driver Education Course</b>' . ( $first ? ' with a class beginning <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b> from <b>' . esc_html( $tfrom ) . '</b> to <b>' . esc_html( $tto ) . '</b>' : '' ) . '.' )
-				. $p( '<b>Topic:</b> Driver Education' . ( $first ? '<br><b>Time:</b> From ' . esc_html( wp_date( 'F j, Y g:i A', $first ) ) . ' Eastern Time (US and Canada) to ' . esc_html( wp_date( 'F j, Y', $lastd ) ) . ', ' . count( $list ) . ' meetings' . ( $dl ? ' (' . esc_html( implode( ', ', $dl ) ) . ')' : '' ) : '' ) )
-				. ( $units ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse">' . $units . '</table>' : '' )
-				. $zoom
-				. '<p style="' . $f . 'margin:0 0 6px;font-size:14px;font-weight:800;color:#b32d2e;letter-spacing:.5px">IMPORTANT</p>'
-				. $p( 'Please click the link below and fill out the forms with the correct information. Make sure to select the course you registered for — morning or evening. If you are under the age of 18, a parent or guardian’s signature is required. Please sign and submit the forms before the class starts' . ( $first ? ' on <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b>' : '' ) . '.', 'font-size:14px' )
-				. $p( '<a href="' . esc_url( $furl ) . '" style="color:#00703c;font-weight:700">' . esc_html( $furl ) . '</a>', 'font-size:14px' )
-				. $p( '<b>No Zoom account is needed.</b> On a computer, click the link (or choose “Join from your browser”). On a phone or tablet, install the free Zoom app first. Join with your camera and microphone on, sitting at a desk, and use your full name so we can let you in from the waiting room. <b>The first session is mandatory</b> (MVA rule). You will also get a reminder the day before and one hour before each session.', 'font-size:14px' )
-				. $p( 'Questions? Call or text (301) 726-3030.', 'font-size:14px' )
-				. $p( 'Thanks,<br>Best regards,<br>Sam’s Driving School', 'font-size:14px' );
-			if ( SDSC_Mailer::send( $email, 'Welcome to your Driver Education class — ' . $name, $body, 'info' ) ) { $sent++; }
+			if ( SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $firstn ), 'info' ) ) { $sent++; }
 		}
 		update_post_meta( $cid, '_sdsc_zoom_sent', array( 'at' => current_time( 'mysql' ), 'by' => wp_get_current_user()->display_name, 'n' => $sent ) );
 		if ( class_exists( 'SDSC_Board' ) ) { SDSC_Board::note( 'Zoom details e-mailed to ' . $sent . ' address(es) — ' . $name ); }

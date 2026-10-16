@@ -44,6 +44,10 @@ $m = end( $sent );
 $miss = array(); foreach ( array( 'August 11, 2025 9:00 AM', '(unit 10)', '920 6636 7353', '876573', 'IMPORTANT', '10 meetings (Monday, Tuesday, Wednesday, Thursday, Friday)' ) as $needle ) { if ( ! $m || false === strpos( $m['message'], $needle ) ) { $miss[] = $needle; } }
 $t( 1 === $n && ! $miss, 'welcome e-mail: units, Zoom ID, passcode, IMPORTANT, 10 meetings Mon–Fri' . ( $miss ? ' — missing: ' . implode( ' | ', $miss ) . ' (sent=' . $n . ')' : '' ) );
 $t( $m && 0 === strpos( $m['subject'], 'Welcome to your Driver Education class' ), 'subject: ' . ( $m ? $m['subject'] : '-' ) );
+// the automatic 24h-before e-mail (plain text from class-email.php) is upgraded to the same welcome e-mail
+$up = SDSC_ZoomAuto::upgrade_auto_mail( array( 'to' => 'x@example.test', 'subject' => 'Your Zoom class link — ZZTEST', 'message' => "Hi Zed,\n\nHere is everything for your class “ZZTEST” (class ZZ-1):\n\nZoom link: x\n\nSee you", 'headers' => '' ) );
+$t( 0 === strpos( $up['subject'], 'Welcome to your Driver Education class' ) && false !== strpos( $up['message'], 'Dear Zed,' ) && false !== strpos( $up['message'], '(unit 10)' ) && in_array( 'X-SDSC-From: info', (array) $up['headers'], true ), 'automatic 24h e-mail uses the same welcome text' );
+$t( 'Other' === SDSC_ZoomAuto::upgrade_auto_mail( array( 'subject' => 'Other', 'message' => 'x', 'headers' => '' ) )['subject'], 'other e-mails untouched' );
 // cleanup
 $wpdb->delete( SDSC_Registration::table(), array( 'email' => 'zztest-sched@example.test' ) );
 foreach ( get_posts( array( 'post_type' => 'sdsc_registrant', 'post_status' => 'any', 'numberposts' => -1, 'meta_key' => '_sdsc_class_id', 'meta_value' => $cid, 'fields' => 'ids' ) ) as $p ) { wp_delete_post( $p, true ); }

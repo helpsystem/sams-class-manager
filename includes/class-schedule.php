@@ -78,7 +78,7 @@ class SDSC_Schedule {
 	/** The school's usual timetable: 10 sessions, Monday to Friday. Morning 9:00–12:00; evening classes keep the same days. */
 	public static function preset( $which = 'am' ) {
 		return 'pm' === $which
-			? array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '18:00', 'to' => '21:00', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() )
+			? array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '18:00', 'to' => '21:15', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() )
 			: array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '09:00', 'to' => '12:00', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() );
 	}
 
@@ -161,7 +161,7 @@ class SDSC_Schedule {
 			<label style="margin-left:12px">Number of sessions <input type="number" min="1" max="60" name="sdsc_sched[count]" value="<?php echo (int) $s['count']; ?>" style="width:70px"></label>
 		</p>
 		<p><label><input type="checkbox" name="sdsc_sched[remind]" value="1"<?php checked( $s['remind'] ); ?>> Send each student a reminder the day before every session (and one hour before if they have not answered)</label></p>
-		<p><b>Usual timetable:</b> <button type="button" class="button button-small" data-sdsc-preset="am">Morning · Mon–Fri · 9:00 AM–12:00 PM · 10 sessions</button> <button type="button" class="button button-small" data-sdsc-preset="pm">Evening · Mon–Fri · 6:00–9:00 PM · 10 sessions</button> <span class="description">— sets the days, times and count above; adjust the evening times if yours differ.</span></p>
+		<p><b>Usual timetable:</b> <button type="button" class="button button-small" data-sdsc-preset="am">Morning · Mon–Fri · 9:00 AM–12:00 PM · 10 sessions</button> <button type="button" class="button button-small" data-sdsc-preset="pm">Evening · Mon–Fri · 6:00–9:15 PM · 10 sessions</button> <span class="description">— sets the days, times and count above; adjust the evening times if yours differ.</span></p>
 		<input type="hidden" name="sdsc_sched[skip]" id="sdsc-sched-skip" value="<?php echo esc_attr( implode( ',', (array) $s['skip'] ) ); ?>">
 		<input type="hidden" name="sdsc_sched[extra]" id="sdsc-sched-extra" value="<?php echo esc_attr( implode( ',', (array) $s['extra'] ) ); ?>">
 		<?php
@@ -232,7 +232,7 @@ class SDSC_Schedule {
 				skipI.value=skip.sort().join(','); extraI.value=extra.sort().join(','); render();});
 			document.querySelectorAll('[data-sdsc-preset]').forEach(function(b){b.addEventListener('click',function(){var pm=b.getAttribute('data-sdsc-preset')==='pm';
 				document.querySelectorAll('[name="sdsc_sched[days][]"]').forEach(function(c){c.checked=+c.value>=1&&+c.value<=5;});
-				q('from').value=pm?'18:00':'09:00'; q('to').value=pm?'21:00':'12:00'; q('count').value=10; skipI.value=''; extraI.value=''; render();});});
+				q('from').value=pm?'18:00':'09:00'; q('to').value=pm?'21:15':'12:00'; q('count').value=10; skipI.value=''; extraI.value=''; render();});});
 			['change','input'].forEach(function(ev){document.addEventListener(ev,function(e){if(e.target&&(e.target.id==='sdsc_start'||e.target.id==='sdsc_end'||/sdsc_sched\[(days|count)/.test(e.target.name||'')))render();});});
 			render();
 		})();
