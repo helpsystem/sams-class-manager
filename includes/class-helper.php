@@ -148,7 +148,7 @@ class SDSC_Helper {
 	/** Words that mean the same thing for matching (the first word is what they turn into). */
 	protected static function groups() {
 		return array(
-			array( 'login', 'log', 'signin', 'sign', 'access', 'enter', 'verification', 'verify', 'code' ),
+			array( 'login', 'log', 'signin', 'access', 'enter', 'verification', 'verify', 'code' ),
 			array( 'email', 'mail', 'inbox' ),
 			array( 'password', 'passcode', 'pass' ),
 			array( 'cancel', 'reschedule', 'change', 'move', 'postpone' ),
@@ -170,6 +170,8 @@ class SDSC_Helper {
 			foreach ( self::groups() as $g ) { foreach ( $g as $w ) { $map[ $w ] = $g[0]; } }
 		}
 		$s = strtolower( str_replace( array( '’', "'" ), '', wp_strip_all_tags( (string) $s ) ) );
+		$s = preg_replace( '/\bsign[\s-]+in\b/', 'signin', $s );
+		$s = preg_replace( '/\blog[\s-]+in\b/', 'login', $s );
 		$out = array();
 		foreach ( preg_split( '/[^a-z0-9]+/', $s, -1, PREG_SPLIT_NO_EMPTY ) as $w ) {
 			if ( isset( $stop[ $w ] ) || strlen( $w ) < 2 ) { continue; }
