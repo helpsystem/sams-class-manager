@@ -1335,6 +1335,23 @@ class SDSC_Lessons {
 		if ( self::ts( $l['starts_at'] ) > time() ) { self::back( 'schedule', array( 'id' => $id, 'err' => 'This lesson has not started yet.' ) ); }
 		$wpdb->update( self::t_lessons(), array( 'status' => $o ), array( 'id' => $id ) );
 		self::add_log( $id, 'Marked: ' . self::statuses()[ $o ][0] );
+		if ( ! empty( $l['df_id'] ) && class_exists( 'SDSC_DriveFlow' ) ) {
+			// Keep DriveFlow in step: done = completed (credit used), no-show / no permit = not taught.
+			$dfs = $wpdb->get_row( $wpdb->prepare( 'SELECT id, status, student_id, form_data FROM ' . SDSC_DriveFlow::t() . ' WHERE id = %d', (int) $l['df_id'] ), ARRAY_A ); // phpcs:ignore
+			if ( $dfs && in_array( $dfs['status'], array( 'upcoming', 'active' ), true ) ) {
+				$now = current_time( 'mysql' );
+				if ( 'done' === $o ) {
+					$wpdb->update( SDSC_DriveFlow::t(), array( 'status' => 'completed', 'updated_at' => $now ), array( 'id' => (int) $dfs['id'] ) );
+					if ( (int) $dfs['student_id'] && class_exists( 'DriveFlow_Credit_Manager' ) ) { DriveFlow_Credit_Manager::deduct_session_credit( (int) $dfs['student_id'], (int) $dfs['id'] ); }
+				} else {
+					$fd = json_decode( (string) $dfs['form_data'], true );
+					$fd = is_array( $fd ) ? $fd : array();
+					$fd['outcome'] = $o;
+					$wpdb->update( SDSC_DriveFlow::t(), array( 'status' => 'cancelled', 'form_data' => wp_json_encode( $fd ), 'updated_at' => $now ), array( 'id' => (int) $dfs['id'] ) );
+				}
+				if ( method_exists( 'DriveFlow_Pro', 'notify_calendar_change' ) ) { DriveFlow_Pro::notify_calendar_change(); }
+			}
+		}
 		if ( 'done' === $o ) { self::back( 'schedule', array( 'msg' => self::name( $l ) . ': lesson completed.' ) ); }
 		self::make_fee( self::lesson( $id ), $o );
 		self::back( 'schedule', array( 'id' => $id, 'msg' => 'Recorded. The fee waits for the manager’s decision below — nothing was charged or sent to the student.' ) );

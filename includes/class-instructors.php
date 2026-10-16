@@ -118,6 +118,11 @@ class SDSC_Instructors {
 		$up  = array( 'name' => trim( $d['first'] . ' ' . $d['last'] ) ?: $r['name'], 'email' => $d['email'], 'phone' => $d['phone'], 'license_number' => $d['lic'], 'default_vehicle_id' => $d['car'], 'updated_at' => current_time( 'mysql' ) );
 		if ( ! empty( $_POST['login'] ) && ! (int) $r['user_id'] ) { $up['user_id'] = self::login_for( $d['email'], $d['first'], $d['last'] ); } // phpcs:ignore
 		$wpdb->update( self::t(), $up, array( 'id' => $id ) );
+		if ( $up['name'] !== $r['name'] && '' !== (string) $r['name'] ) {
+			// Lessons, pay and blocked time are matched on the instructor's name: carry the new name over.
+			$wpdb->update( $wpdb->prefix . 'driveflow_sessions', array( 'instructor_name' => $up['name'] ), array( 'instructor_name' => $r['name'] ) );
+			$wpdb->update( $wpdb->prefix . 'driveflow_blocked_slots', array( 'target_identifier' => $up['name'] ), array( 'target_type' => 'instructor', 'target_identifier' => $r['name'] ) );
+		}
 		self::set_meta( $id, array( 'langs' => $d['langs'], 'note' => $d['note'], 'temp' => ( $d['email'] && $d['lic'] ) ? 0 : (int) ( self::meta_all()[ $id ]['temp'] ?? 0 ) ) );
 		if ( method_exists( 'DriveFlow_Pro', 'notify_calendar_change' ) ) { DriveFlow_Pro::notify_calendar_change(); }
 		self::back( $up['name'] . ' saved.' );

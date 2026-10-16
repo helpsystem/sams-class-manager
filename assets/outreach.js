@@ -116,7 +116,7 @@
 			.replace(/\{website\}/g, location.host)
 			.replace(/\{link\}/g, link);
 	}
-	function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+	function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 	function val(l, f) { var el = document.querySelector('#sdo-editor [name="' + l + '[' + f + ']"]'); return el ? el.value : ''; }
 	function preview(l) {
 		var ed = document.getElementById('sdo-editor');

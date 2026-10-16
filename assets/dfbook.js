@@ -10,7 +10,7 @@
 
 	var $ = function (id) { return document.getElementById(id); };
 	var F = $('sdfb-form'), q = $('sdfb-q'), hits = $('sdfb-hits'), card = $('sdfb-card'), chk = $('sdfb-check'), go = $('sdfb-go');
-	var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+	var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
 	// Lists
 	D.ins.forEach(function (i) {
@@ -121,7 +121,8 @@
 	}
 	F.addEventListener('change', check);
 	F.addEventListener('input', function (e) { if (e.target !== q) { check(); } });
-	F.addEventListener('submit', function (e) { if (go.disabled) { e.preventDefault(); } else { go.textContent = offer() ? 'Sending…' : 'Booking…'; } });
+	F.addEventListener('submit', function (e) { if (go.disabled || F.getAttribute('data-sent')) { e.preventDefault(); } else { F.setAttribute('data-sent', '1'); go.textContent = offer() ? 'Sending…' : 'Booking…'; setTimeout(function () { go.disabled = true; }, 0); } });
+	window.addEventListener('pageshow', function (ev) { if (ev.persisted) { F.removeAttribute('data-sent'); go.disabled = false; } });
 
 	// Offer several times: the student chooses from the list.
 	var lastOk = false, slots = [];

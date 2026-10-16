@@ -259,6 +259,7 @@ class SDSC_DFCal {
 		if ( in_array( $to, array( 'no_show', 'no_permit', 'done' ), true ) ) {
 			if ( ! $started ) { wp_send_json_error( array( 'msg' => 'This lesson has not started yet.' ) ); }
 			if ( 'completed' === $s['status'] ) { wp_send_json_error( array( 'msg' => 'This lesson is already completed.' ) ); }
+			if ( 'cancelled' === $s['status'] ) { wp_send_json_error( array( 'msg' => 'This lesson was cancelled. Book a new lesson if it took place.' ) ); }
 			if ( 'done' === $to ) {
 				$wpdb->update( SDSC_DriveFlow::t(), array( 'status' => 'completed', 'updated_at' => $now ), array( 'id' => $id ) );
 				if ( $s['student_id'] && class_exists( 'DriveFlow_Credit_Manager' ) && method_exists( 'DriveFlow_Credit_Manager', 'deduct_session_credit' ) ) { DriveFlow_Credit_Manager::deduct_session_credit( (int) $s['student_id'], $id ); }

@@ -126,7 +126,8 @@ class SDSC_DFOffer {
 		}
 		$pick  = max( 1, min( count( $slots ), absint( $p['pick'] ?? 1 ) ) );
 		$days  = in_array( (int) ( $p['days'] ?? 3 ), array( 1, 2, 3, 7 ), true ) ? (int) $p['days'] : 3;
-		$exp   = min( time() + $days * DAY_IN_SECONDS, SDSC_Lessons::ts( $slots[0]['start'] ) - 2 * HOUR_IN_SECONDS );
+		$last  = end( $slots );
+		$exp   = max( time() + 30 * MINUTE_IN_SECONDS, min( time() + $days * DAY_IN_SECONDS, SDSC_Lessons::ts( $last['start'] ) - 2 * HOUR_IN_SECONDS ) );
 		$token = bin2hex( random_bytes( 16 ) );
 		$wpdb->insert( self::t(), array( 'token' => $token, 'student' => wp_json_encode( $st ), 'slots' => wp_json_encode( $slots ), 'pick' => $pick, 'status' => 'open', 'created_by' => get_current_user_id(), 'created_at' => current_time( 'mysql' ), 'expires_at' => wp_date( 'Y-m-d H:i:s', $exp ) ) );
 		if ( ! $wpdb->insert_id ) { $fail( 'The offer could not be saved.' ); }

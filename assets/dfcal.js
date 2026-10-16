@@ -45,7 +45,7 @@
 	function hm(t) { var d = new Date(t), h = d.getUTCHours(), m = d.getUTCMinutes(); return ((h + 11) % 12 + 1) + (m ? ':' + pad(m) : '') + (h < 12 ? ' AM' : ' PM'); }
 	function hmShort(t) { var d = new Date(t), h = d.getUTCHours(), m = d.getUTCMinutes(); return ((h + 11) % 12 + 1) + (m ? ':' + pad(m) : ''); }
 	function dlong(t) { var d = new Date(t); return DN[d.getUTCDay()] + ', ' + MN[d.getUTCMonth()] + ' ' + d.getUTCDate(); }
-	function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+	function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 	function monday(t) { var d = new Date(t); return addDays(dayStart(t), -((d.getUTCDay() + 6) % 7)); }
 	function store(k, v) { try { if (v === undefined) { return JSON.parse(localStorage.getItem('scal_' + C.user + '_' + k)); } localStorage.setItem('scal_' + C.user + '_' + k, JSON.stringify(v)); } catch (e) { return null; } }
 	function post(action, data) {
