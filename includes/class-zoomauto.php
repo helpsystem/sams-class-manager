@@ -337,6 +337,7 @@ class SDSC_ZoomAuto {
 		$rows = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT first_name, email, parent_email FROM ' . SDSC_Registration::table() . " WHERE class_id = %d AND source <> 'demo'", $cid ), ARRAY_A ); // phpcs:ignore
 		$out  = array();
 		foreach ( $rows as $r ) {
+			if ( class_exists( 'SDSC_Transfer' ) && ! SDSC_Transfer::classroom( $cid, (string) $r['email'] ) ) { continue; } // behind-the-wheel-only: no Zoom
 			foreach ( array( $r['email'], $r['parent_email'] ) as $e ) {
 				$e = strtolower( trim( (string) $e ) );
 				if ( is_email( $e ) && ! isset( $out[ $e ] ) ) { $out[ $e ] = trim( (string) $r['first_name'] ); }

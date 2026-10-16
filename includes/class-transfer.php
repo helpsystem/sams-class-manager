@@ -29,8 +29,12 @@ class SDSC_Transfer {
 		add_action( 'admin_post_sdsc_transfer_mail', array( __CLASS__, 'h_mail' ) );
 	}
 
+	const BTW   = 6;  // behind-the-wheel hours of the course
+	const PURPOSES = array( 'both' => 'Classroom + behind the wheel', 'class' => 'Classroom only', 'btw' => 'Behind the wheel only', 'extra' => 'Extra practice only' );
+	const MVA      = array( '' => 'Not known', 'none' => 'No permit yet', 'permit' => 'Learner’s permit', 'provisional' => 'Provisional license', 'license' => 'Full driver’s license' );
+
 	public static function install() {
-		if ( '2' === get_option( self::DBV ) ) { return; }
+		if ( '3' === get_option( self::DBV ) ) { return; }
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		$t = self::table();
@@ -42,6 +46,14 @@ class SDSC_Transfer {
 			hours decimal(4,1) NOT NULL DEFAULT 0,
 			on_date date DEFAULT NULL,
 			note text NULL,
+			units varchar(60) NOT NULL DEFAULT '',
+			btw_hours decimal(4,1) NOT NULL DEFAULT 0,
+			btw_lessons tinyint(3) unsigned NOT NULL DEFAULT 0,
+			final_pass tinyint(1) NOT NULL DEFAULT 0,
+			mva varchar(12) NOT NULL DEFAULT '',
+			mva_no varchar(40) NOT NULL DEFAULT '',
+			mva_date date DEFAULT NULL,
+			purpose varchar(12) NOT NULL DEFAULT 'both',
 			sent_log text NULL,
 			by_user bigint(20) unsigned NOT NULL DEFAULT 0,
 			created datetime NOT NULL,
@@ -49,7 +61,7 @@ class SDSC_Transfer {
 			PRIMARY KEY  (id),
 			UNIQUE KEY reg_dir (reg_id,dir)
 		) " . $wpdb->get_charset_collate() . ';' );
-		update_option( self::DBV, '2', false );
+		update_option( self::DBV, '3', false );
 	}
 
 	public static function can() { return class_exists( 'SDSC_Access' ) ? SDSC_Access::can( 'registrations' ) : current_user_can( 'manage_options' ); }
@@ -72,6 +84,14 @@ class SDSC_Transfer {
 			'hours'   => max( 0, min( 99, round( (float) ( $a['hours'] ?? 0 ) * 2 ) / 2 ) ),
 			'on_date' => preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $a['on_date'] ?? '' ) ) ? $a['on_date'] : null,
 			'note'    => mb_substr( sanitize_textarea_field( (string) ( $a['note'] ?? '' ) ), 0, 2000 ),
+			'units'       => mb_substr( sanitize_text_field( (string) ( $a['units'] ?? '' ) ), 0, 60 ),
+			'btw_hours'   => max( 0, min( 99, round( (float) ( $a['btw_hours'] ?? 0 ) * 2 ) / 2 ) ),
+			'btw_lessons' => max( 0, min( 99, (int) ( $a['btw_lessons'] ?? 0 ) ) ),
+			'final_pass'  => empty( $a['final_pass'] ) ? 0 : 1,
+			'mva'         => isset( self::MVA[ (string) ( $a['mva'] ?? '' ) ] ) ? (string) $a['mva'] : '',
+			'mva_no'      => mb_substr( sanitize_text_field( (string) ( $a['mva_no'] ?? '' ) ), 0, 40 ),
+			'mva_date'    => preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $a['mva_date'] ?? '' ) ) ? $a['mva_date'] : null,
+			'purpose'     => isset( self::PURPOSES[ (string) ( $a['purpose'] ?? '' ) ] ) ? (string) $a['purpose'] : 'both',
 			'by_user' => get_current_user_id(),
 			'updated' => current_time( 'mysql' ),
 		);
@@ -98,12 +118,66 @@ class SDSC_Transfer {
 	public static function tag( $rid ) {
 		$b = self::both( $rid );
 		$o = array();
-		if ( $b['in'] ) { $o[] = 'Transfer in' . ( $b['in']['hours'] > 0 ? ' · ' . self::h( $b['in']['hours'] ) . ' done elsewhere' : '' ); }
+		if ( $b['in'] ) {
+			$i = $b['in']; $bits = array();
+			if ( $i['hours'] > 0 ) { $bits[] = self::h( $i['hours'] ) . ' class'; }
+			if ( $i['btw_hours'] > 0 ) { $bits[] = self::h( $i['btw_hours'] ) . ' BTW'; }
+			if ( in_array( $i['mva'], array( 'license', 'provisional' ), true ) ) { $bits[] = 'has license'; }
+			if ( 'both' !== $i['purpose'] && isset( self::PURPOSES[ $i['purpose'] ] ) ) { $bits[] = strtolower( self::PURPOSES[ $i['purpose'] ] ); }
+			$o[] = 'Transfer in' . ( $bits ? ' · ' . implode( ' · ', $bits ) : '' );
+		}
 		if ( $b['out'] ) { $o[] = 'Transferred out' . ( $b['out']['school'] ? ' → ' . $b['out']['school'] : '' ); }
 		return implode( ' · ', $o );
 	}
 
 	public static function h( $n ) { $n = (float) $n; return ( abs( $n - round( $n ) ) < 0.05 ? (string) (int) round( $n ) : number_format( $n, 1 ) ) . ' h'; }
+
+	/* ------------------------------------------------------------ what other screens need */
+
+	/** Transfer-in rows of a class keyed by the student's e-mail (for attendance, Zoom and the roster). */
+	public static function ins_of_class( $cid ) {
+		global $wpdb;
+		static $cache = array();
+		$cid = (int) $cid;
+		if ( ! isset( $cache[ $cid ] ) ) {
+			$cache[ $cid ] = array();
+			if ( $cid && self::table() === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', self::table() ) ) ) {
+				foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT t.*, r.email FROM ' . self::table() . ' t JOIN ' . SDSC_Registration::table() . " r ON r.id = t.reg_id WHERE t.dir = 'in' AND r.class_id = %d", $cid ), ARRAY_A ) as $x ) { // phpcs:ignore
+					$e = strtolower( trim( (string) $x['email'] ) );
+					if ( $e ) { $cache[ $cid ][ $e ] = $x; }
+				}
+			}
+		}
+		return $cache[ $cid ];
+	}
+
+	/** Is this student in the class for the classroom part? (Behind-the-wheel-only and extra-practice students are not.) */
+	public static function classroom( $cid, $email ) {
+		$x = self::ins_of_class( $cid )[ strtolower( trim( (string) $email ) ) ] ?? null;
+		return ! $x || in_array( $x['purpose'], array( 'both', 'class' ), true );
+	}
+
+	/**
+	 * Session dates of the class this student already completed at the previous school: the first N sessions,
+	 * N = hours done there ÷ length of a session. Those sessions are not expected and never count as absences.
+	 */
+	public static function covered( $cid, $email ) {
+		$x = self::ins_of_class( $cid )[ strtolower( trim( (string) $email ) ) ] ?? null;
+		if ( ! $x || (float) $x['hours'] <= 0 || ! class_exists( 'SDSC_Schedule' ) ) { return array(); }
+		$list = SDSC_Schedule::sessions( $cid );
+		if ( ! $list ) { return array(); }
+		$len  = max( 0.5, ( strtotime( $list[0]['end'] ) - strtotime( $list[0]['start'] ) ) / 3600 );
+		$n    = (int) floor( (float) $x['hours'] / $len + 0.01 );
+		return array_slice( array_column( $list, 'date' ), 0, $n );
+	}
+
+	/** MVA status recorded on a transfer-in for this e-mail ('' when none): permit | provisional | license | none. */
+	public static function mva_for( $email ) {
+		global $wpdb;
+		$email = strtolower( trim( (string) $email ) );
+		if ( ! is_email( $email ) || self::table() !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', self::table() ) ) ) { return ''; }
+		return (string) $wpdb->get_var( $wpdb->prepare( 'SELECT t.mva FROM ' . self::table() . ' t JOIN ' . SDSC_Registration::table() . " r ON r.id = t.reg_id WHERE t.dir = 'in' AND LOWER(r.email) = %s ORDER BY t.updated DESC LIMIT 1", $email ) ); // phpcs:ignore
+	}
 
 	/* ------------------------------------------------------------ hours completed here (attendance) */
 
@@ -143,16 +217,21 @@ class SDSC_Transfer {
 		$need = max( 0, self::HOURS - (float) ( $in['hours'] ?? 0 ) );
 
 		$h  = '<div style="margin:14px 0;padding:14px 16px;border-radius:12px;background:#f6f8f7;border:1px solid #dfe5e1;max-width:800px"><h3 style="margin:0 0 4px">Transfer between schools</h3>';
-		$h .= '<p style="margin:0 0 10px;color:#5b646d">Classroom hours attended here so far: <b>' . esc_html( self::h( $hrs ) ) . '</b> (' . (int) $att . ' of ' . (int) $tot . ' sessions)' . ( $in ? ' · still needed here: <b>' . esc_html( self::h( $need ) ) . '</b>' : '' ) . '. The course is ' . self::HOURS . ' classroom hours.</p>';
+		$h .= '<p style="margin:0 0 10px;color:#5b646d">Classroom hours attended here so far: <b>' . esc_html( self::h( $hrs ) ) . '</b> (' . (int) $att . ' of ' . (int) $tot . ' sessions)' . ( $in ? ' · still needed here: <b>' . esc_html( self::h( $need ) ) . '</b> classroom, <b>' . esc_html( self::h( max( 0, self::BTW - (float) ( $in['btw_hours'] ?? 0 ) ) ) ) . '</b> behind the wheel' . ( $in['hours'] > 0 && ! empty( $r['class_id'] ) ? ' · the first ' . count( self::covered( (int) $r['class_id'], $r['email'] ) ) . ' sessions count as done at ' . esc_html( $in['school'] ?: 'the previous school' ) : '' ) : '' ) . '. The course is ' . self::HOURS . ' classroom + ' . self::BTW . ' behind-the-wheel hours.</p>';
 		if ( $msg ) { $h .= '<div class="notice notice-success inline" style="margin:0 0 10px"><p>' . esc_html( $msg ) . '</p></div>'; }
 		$h .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">';
 
 		// Transfer IN
+		$sel = function ( $name, $opts, $cur ) { $o = '<select name="' . $name . '">'; foreach ( $opts as $k => $v ) { $o .= '<option value="' . esc_attr( $k ) . '"' . selected( (string) $cur, (string) $k, false ) . '>' . esc_html( $v ) . '</option>'; } return $o . '</select>'; };
 		$h .= '<form method="post" action="' . esc_url( $act ) . '" style="background:#fff;border:1px solid #dfe5e1;border-radius:10px;padding:12px">' . wp_nonce_field( 'sdsc_transfer_' . $rid, '_wpnonce', true, false )
 			. '<input type="hidden" name="action" value="sdsc_transfer_save"><input type="hidden" name="r" value="' . $rid . '"><input type="hidden" name="dir" value="in">'
 			. '<h4 style="margin:0 0 8px">Came from another school' . ( $in ? ' <span style="color:#00703c">✓</span>' : '' ) . '</h4>'
 			. '<p style="margin:0 0 6px"><label>School they came from<br><input type="text" name="school" value="' . $f( 'school', 'in', $in ) . '" class="regular-text" maxlength="200" placeholder="Name of the other driving school"></label></p>'
-			. '<p style="margin:0 0 6px"><label>Classroom hours completed there<br><input type="number" name="hours" value="' . $f( 'hours', 'in', $in ) . '" min="0" max="30" step="0.5" style="width:90px"> of ' . self::HOURS . '</label></p>'
+			. '<p style="margin:0 0 6px"><label>Here for<br>' . $sel( 'purpose', self::PURPOSES, $in['purpose'] ?? 'both' ) . '</label></p>'
+			. '<p style="margin:0 0 6px"><label>Classroom hours completed there <input type="number" name="hours" value="' . $f( 'hours', 'in', $in ) . '" min="0" max="30" step="0.5" style="width:80px"> of ' . self::HOURS . '</label> &nbsp; <label>units <input type="text" name="units" value="' . $f( 'units', 'in', $in ) . '" maxlength="60" style="width:90px" placeholder="1–4"></label></p>'
+			. '<p style="margin:0 0 6px"><label>Behind-the-wheel hours there <input type="number" name="btw_hours" value="' . $f( 'btw_hours', 'in', $in ) . '" min="0" max="6" step="0.5" style="width:80px"> of ' . self::BTW . '</label> &nbsp; <label>lessons <input type="number" name="btw_lessons" value="' . $f( 'btw_lessons', 'in', $in ) . '" min="0" max="9" style="width:60px"></label></p>'
+			. '<p style="margin:0 0 6px"><label><input type="checkbox" name="final_pass" value="1"' . checked( ! empty( $in['final_pass'] ), true, false ) . '> Passed the final exam there</label></p>'
+			. '<p style="margin:0 0 6px"><label>MVA status<br>' . $sel( 'mva', self::MVA, $in['mva'] ?? '' ) . '</label> <label>number <input type="text" name="mva_no" value="' . $f( 'mva_no', 'in', $in ) . '" maxlength="40" style="width:130px"></label> <label>issued <input type="date" name="mva_date" value="' . $f( 'mva_date', 'in', $in ) . '"></label></p>'
 			. '<p style="margin:0 0 6px"><label>Transfer date<br><input type="date" name="on_date" value="' . $f( 'on_date', 'in', $in ) . '"></label></p>'
 			. '<p style="margin:0 0 8px"><label>Note (units done, paperwork received…)<br><textarea name="note" rows="2" class="large-text">' . esc_textarea( (string) ( $in['note'] ?? '' ) ) . '</textarea></label></p>'
 			. '<p style="margin:0"><button class="button button-primary">Save</button> ' . ( $in ? '<button class="button" name="remove" value="1" onclick="return confirm(\'Remove the transfer-in record?\')">Remove</button>' : '' ) . '</p></form>';
@@ -261,9 +340,11 @@ class SDSC_Transfer {
 			'Classroom hours completed here' => self::h( $here ) . ' of ' . self::HOURS . ' (' . (int) $att . ' of ' . (int) $tot . ' sessions attended)',
 		);
 		if ( $in ) {
-			$rows['Previous school']               = $in['school'] ?: '—';
-			$rows['Hours completed at that school'] = self::h( $in['hours'] ) . ( $in['on_date'] ? ' · transferred in ' . $d( $in['on_date'] ) : '' );
+			$rows['Previous school']               = ( $in['school'] ?: '—' ) . ( $in['on_date'] ? ' · transferred in ' . $d( $in['on_date'] ) : '' ) . ( 'both' !== $in['purpose'] && isset( self::PURPOSES[ $in['purpose'] ] ) ? ' · here for: ' . self::PURPOSES[ $in['purpose'] ] : '' );
+			$rows['Classroom hours at that school'] = self::h( $in['hours'] ) . ( $in['units'] ? ' (units ' . $in['units'] . ')' : '' ) . ( $in['final_pass'] ? ' · final exam passed there' : '' );
+			$rows['Behind-the-wheel at that school'] = self::h( $in['btw_hours'] ) . ( $in['btw_lessons'] ? ' (' . (int) $in['btw_lessons'] . ' lessons)' : '' );
 			$rows['Total classroom hours to date']  = self::h( (float) $in['hours'] + $here ) . ' of ' . self::HOURS;
+			if ( $in['mva'] ) { $rows['MVA status'] = ( self::MVA[ $in['mva'] ] ?? $in['mva'] ) . ( $in['mva_no'] ? ' · ' . $in['mva_no'] : '' ) . ( $in['mva_date'] ? ' · issued ' . $d( $in['mva_date'] ) : '' ); }
 		}
 		$rows['Hours still required'] = self::h( max( 0, self::HOURS - $here - (float) ( $in['hours'] ?? 0 ) ) ) . ' classroom · behind-the-wheel per the receiving school’s records';
 		if ( $out ) {

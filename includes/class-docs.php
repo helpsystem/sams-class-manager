@@ -104,6 +104,7 @@ class SDSC_Docs {
 			'practice_log' => 'Practice log',
 			'certificate'  => 'Certificate',
 			'parent_id'    => 'Parent / guardian ID',
+			'transfer'     => 'Transfer record — other school',
 			'other'        => 'Other document',
 		) + self::ins_types();
 		return $student ? array_intersect_key( $t, array_flip( array( 'id_front', 'id_back', 'permit', 'license', 'practice_log', 'other' ) ) ) : $t;

@@ -32,6 +32,27 @@ $p = SDSC_Student_File::from_regs( array( $rid ) )[0];
 $rec = SDSC_Transfer::record_html( $p );
 $ok( false !== strpos( $rec, 'Driver Education Transfer Record' ) && false !== strpos( $rec, '6 h of 30' ) && false !== strpos( $rec, 'Total classroom hours to date' ) && false !== strpos( $rec, '18 h of 30' ) && false !== strpos( $rec, '12 h classroom' ), 'record: hours here 6, total 18, still required 12' );
 $ok( in_array( 'transfer', array_keys( SDSC_Student_File::parts() ), true ), 'student file has the transfer part' );
+// extended transfer-in: purpose, BTW, MVA; covered sessions; classroom flag; docs needed
+SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 6, 'btw_hours' => 2, 'btw_lessons' => 1, 'units' => '1-2', 'final_pass' => 0, 'mva' => 'permit', 'mva_no' => 'X123', 'purpose' => 'both', 'on_date' => '2026-10-01' ) );
+$in = SDSC_Transfer::get( $rid, 'in' );
+$ok( 2.0 == $in['btw_hours'] && 'permit' === $in['mva'] && 'both' === $in['purpose'] && '1-2' === $in['units'], 'extended fields saved' );
+$ok( false !== strpos( SDSC_Transfer::tag( $rid ), '6 h class · 2 h BTW' ), 'tag: ' . SDSC_Transfer::tag( $rid ) );
+$cov = SDSC_Transfer::covered( $cid, 'trtest@example.test' );
+$sess = $cid ? SDSC_Schedule::sessions( $cid ) : array();
+$ok( ( $sess ? 2 === count( $cov ) && $cov[0] === $sess[0]['date'] : array() === $cov ), 'covered sessions: ' . count( $cov ) . ( $sess ? ' of ' . count( $sess ) . ' (6 h = 2 sessions)' : ' (class has no timetable)' ) );
+$ok( SDSC_Transfer::classroom( $cid, 'trtest@example.test' ), 'classroom student (both)' );
+$ok( 'permit' === SDSC_Transfer::mva_for( 'trtest@example.test' ), 'MVA status by e-mail' );
+if ( class_exists( 'SDSC_Followup' ) ) { $ok( isset( SDSC_Followup::docs_missing( 'trtest@example.test' )['permit'] ), 'follow-up asks for the permit scan' ); }
+if ( $sess ) { list( $abs ) = SDSC_Schedule::absences( $cid, 'trtest@example.test' ); $ok( 0 === $abs, 'no absences counted for covered sessions' ); }
+$ok( $cid ? isset( SDSC_ZoomAuto::recipients( $cid )['trtest@example.test'] ) : true, 'gets the Zoom e-mail' );
+SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 30, 'purpose' => 'btw', 'mva' => 'license' ) );
+$ok( ! SDSC_Transfer::classroom( $cid, 'trtest@example.test' ), 'behind-the-wheel-only is not a classroom student' );
+$ok( $cid ? ! isset( SDSC_ZoomAuto::recipients( $cid )['trtest@example.test'] ) : true, 'behind-the-wheel-only gets no Zoom e-mail' );
+$ok( $cid ? ! isset( SDSC_Schedule::roster( $cid )['trtest@example.test'] ) : true, 'behind-the-wheel-only is not on the attendance roster' );
+$ok( isset( SDSC_Followup::docs_missing( 'trtest@example.test' )['license'] ) || ! class_exists( 'SDSC_Followup' ), 'license holder: follow-up asks for the license scan' );
+$rec = SDSC_Transfer::record_html( SDSC_Student_File::from_regs( array( $rid ) )[0] );
+$ok( false !== strpos( $rec, 'Behind-the-wheel at that school' ) && false !== strpos( $rec, 'Full driver’s license' ) && false !== strpos( $rec, 'Behind the wheel only' ), 'record shows BTW, MVA status and purpose' );
+SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 12, 'on_date' => '2026-10-01' ) );
 // e-mail (no attachments: no docs on file) — the test site never e-mails the office; wp_mail goes to the guard
 $_POST = array( 'r' => $rid, '_wpnonce' => wp_create_nonce( 'sdsc_transfer_' . $rid ), 'to' => array( 'email', 'parent_email' ), 'docs' => array(), 'msg' => 'Test message' );
 $caught = array();

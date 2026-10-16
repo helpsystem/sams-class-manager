@@ -279,6 +279,7 @@ class SDSC_Schedule {
 		foreach ( $rows as $r ) {
 			$e = strtolower( trim( $r['email'] ) );
 			if ( ! is_email( $e ) || isset( $out[ $e ] ) ) { continue; }
+			if ( class_exists( 'SDSC_Transfer' ) && ! SDSC_Transfer::classroom( $class_id, $e ) ) { continue; } // behind-the-wheel-only students are not in the classroom
 			$out[ $e ] = array( 'email' => $e, 'first' => self::nice( $r['first_name'] ), 'last' => self::nice( $r['last_name'] ), 'phone' => $r['phone'], 'lang' => self::lang( $e ) );
 		}
 		uasort( $out, function ( $a, $b ) { return strcasecmp( $a['last'] . $a['first'], $b['last'] . $b['first'] ); } );
@@ -340,7 +341,9 @@ class SDSC_Schedule {
 		$rows  = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT sess, rsvp, actual FROM ' . self::table() . " WHERE kind = 'zoom' AND ref = %d AND email = %s", $class_id, strtolower( $email ) ), ARRAY_A ); // phpcs:ignore
 		$n     = 0;
 		$miss1 = false;
+		$cov   = class_exists( 'SDSC_Transfer' ) ? SDSC_Transfer::covered( $class_id, $email ) : array(); // sessions done at a previous school
 		foreach ( $rows as $r ) {
+			if ( in_array( $r['sess'], $cov, true ) ) { continue; }
 			$abs = 'absent' === $r['actual'] || ( 'no' === $r['rsvp'] && '' === $r['actual'] && $r['sess'] <= current_time( 'Y-m-d' ) );
 			if ( ! $abs ) { continue; }
 			if ( $r['sess'] === $first ) { $miss1 = true; } else { $n++; }

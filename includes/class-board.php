@@ -392,7 +392,7 @@ class SDSC_Board {
 		$rid = (int) $wpdb->insert_id;
 		if ( ! $rid ) { wp_send_json_error( array( 'msg' => 'Could not save. Please try again.' ) ); }
 		if ( ! empty( $_POST['transfer_in'] ) && class_exists( 'SDSC_Transfer' ) ) { // phpcs:ignore
-			SDSC_Transfer::save( $rid, 'in', array( 'school' => $f( 't_school', 200 ), 'hours' => (float) ( $_POST['t_hours'] ?? 0 ), 'on_date' => current_time( 'Y-m-d' ) ) ); // phpcs:ignore
+			SDSC_Transfer::save( $rid, 'in', array( 'school' => $f( 't_school', 200 ), 'hours' => (float) ( $_POST['t_hours'] ?? 0 ), 'btw_hours' => (float) ( $_POST['t_btw'] ?? 0 ), 'mva' => $f( 't_mva', 12 ), 'purpose' => $f( 't_purpose', 12 ), 'on_date' => current_time( 'Y-m-d' ) ) ); // phpcs:ignore
 			$wpdb->query( $wpdb->prepare( 'UPDATE ' . self::rt() . " SET notes = CONCAT(notes, %s) WHERE id = %d", "\nTransfer in from " . ( $f( 't_school', 200 ) ?: 'another school' ) . ' — ' . SDSC_Transfer::h( (float) ( $_POST['t_hours'] ?? 0 ) ) . ' classroom hours completed there.', $rid ) ); // phpcs:ignore
 		}
 		if ( $cid ) {
@@ -531,8 +531,11 @@ class SDSC_Board {
 				<label class="sdb-tin"><input type="checkbox" name="transfer_in" value="1" /> Transferring from another driving school</label>
 				<div class="sdb-tin-f" hidden>
 					<label>School they came from <input name="t_school" maxlength="200" /></label>
+					<label>Here for <select name="t_purpose"><option value="both">Classroom + behind the wheel</option><option value="class">Classroom only</option><option value="btw">Behind the wheel only</option><option value="extra">Extra practice only</option></select></label>
 					<label>Classroom hours completed there <input name="t_hours" type="number" min="0" max="30" step="0.5" inputmode="decimal" placeholder="0–30" /></label>
-					<p class="description">The student’s record will show the hours still needed here. The other school’s paperwork can be scanned into Documents.</p>
+					<label>Behind-the-wheel hours there <input name="t_btw" type="number" min="0" max="6" step="0.5" inputmode="decimal" placeholder="0–6" /></label>
+					<label>MVA status <select name="t_mva"><option value="">Not known</option><option value="none">No permit yet</option><option value="permit">Learner’s permit</option><option value="provisional">Provisional license</option><option value="license">Full driver’s license</option></select></label>
+					<p class="description">The record shows what is still needed here; the first sessions already done elsewhere are not expected on Zoom. Scan the other school’s paperwork into Documents (type “Transfer record — other school”). You can complete the details later on the student’s record.</p>
 				</div>
 				<p class="description">The student still has to fill in and sign the registration form.</p>
 				<p class="sdb-err" role="alert"></p>
@@ -624,7 +627,7 @@ class SDSC_Board {
 			function tinShow(){af.querySelector('.sdb-tin-f').hidden=!af.transfer_in.checked;}
 			af.transfer_in.addEventListener('change',tinShow);
 			function openAdd(col){acol=col;af.reset();tinShow();af.querySelector('.sdb-err').textContent='';ad.querySelector('.sdb-who').textContent=col.querySelector('h2').textContent;ad.showModal();af.first_name.focus();}
-			function add(grow){var d={cid:acol.dataset.cid,grow:grow?1:0};['first_name','last_name','email','phone','parent_name','parent_email','parent_phone','t_school','t_hours'].forEach(function(k){d[k]=af[k].value;});d.transfer_in=af.transfer_in.checked?1:0;
+			function add(grow){var d={cid:acol.dataset.cid,grow:grow?1:0};['first_name','last_name','email','phone','parent_name','parent_email','parent_phone','t_school','t_hours','t_btw','t_mva','t_purpose'].forEach(function(k){d[k]=af[k].value;});d.transfer_in=af.transfer_in.checked?1:0;
 				post('add',d).then(function(r){if(r.success){ad.close();var t=document.createElement('div');t.innerHTML=r.data.card;acol.querySelector('.sdb-list').prepend(t.firstElementChild);seats(r.data.seats);say('Student added.');return;}
 					if(r.data.full&&confirm(r.data.msg+'\n\nAdd one more seat and add the student?')){add(true);return;}af.querySelector('.sdb-err').textContent=r.data.msg;});}
 			af.addEventListener('submit',function(e){if(e.submitter&&e.submitter.value==='cancel')return;e.preventDefault();add(false);});

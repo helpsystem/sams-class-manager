@@ -90,6 +90,8 @@ class SDSC_Followup {
 		if ( ! isset( $cache[ $email ] ) ) {
 			$have = (array) $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT type FROM ' . SDSC_Docs::t_docs() . ' WHERE email = %s', $email ) );
 			$need = array( 'id_front' => 'ID front', 'id_back' => 'ID back' );
+			$mva  = class_exists( 'SDSC_Transfer' ) ? SDSC_Transfer::mva_for( $email ) : '';
+			if ( 'permit' === $mva ) { $need['permit'] = 'Learner’s permit'; } elseif ( in_array( $mva, array( 'provisional', 'license' ), true ) ) { $need['license'] = 'Driver’s license'; }
 			$cache[ $email ] = array_diff_key( $need, array_flip( $have ) );
 		}
 		return $cache[ $email ];

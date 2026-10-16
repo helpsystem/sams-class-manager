@@ -478,17 +478,22 @@ table.t tr { break-inside: avoid; }
 		$lbl   = array( 'present' => 'Present', 'late' => 'Late', 'left' => 'Left early', 'absent' => 'Absent' );
 		$today = current_time( 'Y-m-d' );
 		$att   = 0;
+		$cov   = class_exists( 'SDSC_Transfer' ) ? SDSC_Transfer::covered( $p['class'], $p['email'] ) : array();
 		$t     = '<table class="t"><thead><tr><th>#</th><th>Date</th><th>Time</th><th>Attendance</th><th>Note</th></tr></thead><tbody>';
 		foreach ( $list as $x ) {
 			$m    = $mine[ $x['date'] ] ?? array();
 			$v    = (string) ( $m['actual'] ?? '' );
+			if ( in_array( $x['date'], $cov, true ) ) {
+				$t .= '<tr><td>' . (int) $x['n'] . '</td><td>' . esc_html( wp_date( 'D m/d/Y', SDSC_Lessons::ts( $x['start'] ) ) ) . '</td><td>' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $x['start'] ) ) ) . '</td><td>Completed at previous school</td><td>' . esc_html( SDSC_Transfer::ins_of_class( $p['class'] )[ $p['email'] ]['school'] ?? '' ) . '</td></tr>';
+				continue;
+			}
 			$att += in_array( $v, array( 'present', 'late', 'left' ), true ) ? 1 : 0;
 			$t   .= '<tr><td>' . (int) $x['n'] . '</td><td>' . esc_html( wp_date( 'D m/d/Y', SDSC_Lessons::ts( $x['start'] ) ) ) . '</td><td>' . esc_html( wp_date( 'g:i A', SDSC_Lessons::ts( $x['start'] ) ) ) . '</td><td>' . esc_html( $v ? ( $lbl[ $v ] ?? ucfirst( $v ) ) : ( $x['date'] <= $today ? 'Not marked' : 'Upcoming' ) ) . '</td>'
 				. '<td>' . esc_html( (string) ( $m['staff_note'] ?? '' ) ) . '</td></tr>';
 		}
 		$t .= '</tbody></table>';
 		list( $used, $miss1 ) = SDSC_Schedule::absences( $p['class'], $p['email'] );
-		$sum = '<div class="result"><span>Attended: <b>' . $att . ' of ' . count( $list ) . '</b></span><span>Absences counted: <b>' . (int) $used . ' of ' . SDSC_Schedule::ALLOWED . ' allowed</b></span>' . ( $miss1 ? '<span><b>Missed the first session</b></span>' : '' ) . '</div>';
+		$sum = '<div class="result"><span>Attended here: <b>' . $att . ' of ' . ( count( $list ) - count( $cov ) ) . '</b></span>' . ( $cov ? '<span>Completed at previous school: <b>' . count( $cov ) . '</b></span>' : '' ) . '<span>Absences counted: <b>' . (int) $used . ' of ' . SDSC_Schedule::ALLOWED . ' allowed</b></span>' . ( $miss1 ? '<span><b>Missed the first session</b></span>' : '' ) . '</div>';
 		return '<section class="pg"><table class="wrap">' . self::who( 'Class Attendance Record', $p, self::file_no( $p ) ) . '<tbody><tr><td>' . $t . $sum . '<div class="office"><div>Instructor signature</div><div>Date</div><div>School manager</div></div></td></tr></tbody></table></section>';
 	}
 
