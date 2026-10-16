@@ -38,7 +38,8 @@ class SDSC_IDScan {
 	public static function assets() {
 		if ( ! is_user_logged_in() || ! class_exists( 'SDSC_Docs' ) || SDSC_Docs::TAB !== get_query_var( 'tutor_dashboard_page' ) || ! self::can() ) { return; }
 		$v = SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/idscan.js' );
-		wp_enqueue_script( 'sdsc-idscan', SDSC_URL . 'assets/idscan.js', array(), $v, true );
+		wp_enqueue_script( 'sdsc-scanpop', SDSC_URL . 'assets/scanpop.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/scanpop.js' ), true );
+		wp_enqueue_script( 'sdsc-idscan', SDSC_URL . 'assets/idscan.js', array( 'sdsc-scanpop' ), $v, true );
 		wp_enqueue_style( 'sdsc-idscan', SDSC_URL . 'assets/idscan.css', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/idscan.css' ) );
 		wp_localize_script( 'sdsc-idscan', 'SDSC_IDS', array(
 			'ajax'  => admin_url( 'admin-ajax.php' ),
@@ -46,8 +47,8 @@ class SDSC_IDScan {
 			'apply' => self::can_apply() ? 1 : 0,
 			'zxing' => SDSC_URL . 'assets/vendor/zxing.min.js?ver=0.21.3',
 			'tess'  => SDSC_URL . 'assets/vendor/tesseract/',
-			'scanWin' => SDSC_URL . 'assets/scan/SDS-Scan-Windows.zip?v=1.1.0',
-			'scanMac' => SDSC_URL . 'assets/scan/SDS-Scan-Mac.zip?v=1.1.0',
+			'scanWin' => SDSC_URL . 'assets/scan/SDS-Scan-Windows.zip?v=1.2.0',
+			'scanMac' => SDSC_URL . 'assets/scan/SDS-Scan-Mac.zip?v=1.2.0',
 		) );
 	}
 

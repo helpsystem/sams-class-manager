@@ -4,7 +4,8 @@
  * Runs quietly on the office computer. When a staff member presses "Scan on the office scanner" on the
  * school's website, the website asks this program (on this computer only, http://localhost:52700) to scan,
  * and this program asks the network scanner (Brother DCP-L2550DW or any AirPrint / eSCL scanner) for the
- * picture and hands it back to the page. Nothing is stored here and nothing goes anywhere else.
+ * picture (from the glass or the document feeder) and hands it back to the page. Nothing is kept on disk and
+ * nothing goes anywhere else.
  *
  * Only pages of samsdrivingschool.org (and its test site) may use it.
  */
@@ -15,7 +16,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const PORT = 52700;
 const ALLOWED = [/^https:\/\/(www\.)?samsdrivingschool\.org$/, /^https:\/\/testsaman\.samsdrivingschool\.org$/];
 if (process.env.SDS_SCAN_DEV_ORIGIN) { ALLOWED.push(new RegExp('^' + process.env.SDS_SCAN_DEV_ORIGIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')); }
@@ -71,7 +72,13 @@ async function probe(base) {
     // Size of the glass (in 1/300 inch) from the platen section.
     const pl = (/<scan:Platen>([\s\S]*?)<\/scan:Platen>/.exec(x) || [])[1] || x;
     const mw = +tag(pl, 'MaxWidth') || 2550, mh = +tag(pl, 'MaxHeight') || 3508;
-    return { base, model: tag(x, 'MakeAndModel') || 'eSCL scanner', platen: /Platen/.test(x), maxW: mw, maxH: mh };
+    // Document feeder (ADF): present, its largest page, and whether it scans both sides by itself.
+    const ad = (/<scan:Adf>([\s\S]*?)<\/scan:Adf>/.exec(x) || [])[1] || '';
+    const adS = (/<scan:AdfSimplexInputCaps>([\s\S]*?)<\/scan:AdfSimplexInputCaps>/.exec(ad) || [])[1] || ad;
+    return {
+      base, model: tag(x, 'MakeAndModel') || 'eSCL scanner', platen: /Platen/.test(x), maxW: mw, maxH: mh,
+      adf: !!ad, duplex: /AdfDuplexInputCaps/.test(ad), adfW: +tag(adS, 'MaxWidth') || 2550, adfH: +tag(adS, 'MaxHeight') || 4200,
+    };
   } catch (e) { return null; }
 }
 async function probeHost(ip, port, rs) {
@@ -170,17 +177,23 @@ async function scan(o) {
   const s = await scanner(false);
   if (!s) { throw Object.assign(new Error('The office scanner was not found on the network. Check that the Brother is on and on the same Wi-Fi, or enter its IP address.'), { code: 404 }); }
   const dpi = [75, 100, 150, 200, 300, 600].includes(+o.dpi) ? +o.dpi : 300;
+  const feeder = o.source === 'adf';
+  if (feeder && !s.adf) { throw Object.assign(new Error('This scanner has no document feeder. Use the glass.'), { code: 400 }); }
+  if (feeder) { await feederReady(s); }
   // Region in 1/300 inch, from the top-left corner of the glass. Default: the whole Letter glass.
   // Region in 1/300 inch from the scanner's own corner; "full" = the whole glass.
-  const MW = s.maxW || 2550, MH = s.maxH || 3508;
+  const MW = feeder ? (s.adfW || 2550) : (s.maxW || 2550), MH = feeder ? (s.adfH || 4200) : (s.maxH || 3508);
+  // Page size: letter 8.5 x 11 in, legal 8.5 x 14 in (in 1/300 inch); otherwise the whole glass / the largest feeder page.
+  const PAPER = { letter: [2550, 3300], legal: [2550, 4200] }[o.paper] || null;
   const X = Math.max(0, Math.min(MW - 30, Math.round((+o.x || 0) * 300))), Y = Math.max(0, Math.min(MH - 30, Math.round((+o.y || 0) * 300)));
-  const W = Math.min(MW - X, o.w ? Math.round(+o.w * 300) : MW), H = Math.min(MH - Y, o.h ? Math.round(+o.h * 300) : MH);
+  const W = Math.min(MW - X, o.w ? Math.round(+o.w * 300) : (PAPER ? PAPER[0] : MW)), H = Math.min(MH - Y, o.h ? Math.round(+o.h * 300) : (PAPER ? PAPER[1] : MH));
   const color = o.gray ? 'Grayscale8' : 'RGB24';
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<scan:ScanSettings xmlns:scan="http://schemas.hp.com/imaging/escl/2011/05/03" xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm">' +
     '<pwg:Version>2.0</pwg:Version>' +
     '<pwg:ScanRegions><pwg:ScanRegion><pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits><pwg:XOffset>' + X + '</pwg:XOffset><pwg:YOffset>' + Y + '</pwg:YOffset><pwg:Width>' + W + '</pwg:Width><pwg:Height>' + H + '</pwg:Height></pwg:ScanRegion></pwg:ScanRegions>' +
-    '<pwg:InputSource>Platen</pwg:InputSource>' +
+    '<pwg:InputSource>' + (feeder ? 'Feeder' : 'Platen') + '</pwg:InputSource>' +
+    (feeder ? '<scan:Duplex>' + (o.duplex && s.duplex ? 'true' : 'false') + '</scan:Duplex>' : '') +
     '<scan:ColorMode>' + color + '</scan:ColorMode>' +
     '<scan:XResolution>' + dpi + '</scan:XResolution><scan:YResolution>' + dpi + '</scan:YResolution>' +
     '<pwg:DocumentFormat>image/jpeg</pwg:DocumentFormat><scan:DocumentFormatExt>image/jpeg</scan:DocumentFormatExt>' +
@@ -194,7 +207,8 @@ async function scan(o) {
   }
   if (!job) { throw Object.assign(new Error('The scanner is busy. Try again in a moment.'), { code: 503 }); }
   const jobUrl = /^https?:/.test(job) ? job : new URL(job, s.base).toString();
-  log('scan job', jobUrl, dpi + 'dpi', W + 'x' + H);
+  log('scan job', jobUrl, dpi + 'dpi', W + 'x' + H, feeder ? 'feeder' + (o.duplex ? ' duplex' : '') : 'glass');
+  if (feeder) { return feederPages(jobUrl, s); }
   for (let i = 0; i < 60; i++) {
     const r = await req(jobUrl.replace(/\/$/, '') + '/NextDocument', { timeout: 90000 });
     if (r.status === 200 && r.body.length > 1000) {
@@ -206,6 +220,34 @@ async function scan(o) {
   }
   throw Object.assign(new Error('The scan took too long.'), { code: 504 });
 }
+
+/** Feeder: is there paper in it? (eSCL ScannerStatus → AdfState) */
+async function feederReady(s) {
+  try {
+    const r = await req(s.base + '/ScannerStatus', { timeout: 4000 });
+    const st = tag(r.body.toString('utf8'), 'AdfState');
+    if (/Empty/i.test(st)) { throw Object.assign(new Error('The document feeder is empty. Put the pages in the feeder (face up, top edge first) and try again.'), { code: 409 }); }
+    if (/Jam/i.test(st)) { throw Object.assign(new Error('Paper is jammed in the feeder. Clear it and try again.'), { code: 409 }); }
+    if (/Open/i.test(st)) { throw Object.assign(new Error('The feeder cover is open. Close it and try again.'), { code: 409 }); }
+  } catch (e) { if (e.code === 409) { throw e; } /* status not readable: just try the scan */ }
+}
+/** Every page the feeder gives, until it says there is none left (404). */
+async function feederPages(jobUrl, s) {
+  const pages = [];
+  for (let i = 0; i < 400 && pages.length < 120; i++) {
+    const r = await req(jobUrl.replace(/\/$/, '') + '/NextDocument', { timeout: 90000 });
+    if (r.status === 200 && r.body.length > 1000) { pages.push(r.body); continue; }
+    if (r.status === 503) { await sleep(400); continue; }
+    if (r.status === 404 && (pages.length || i >= 3)) { break; }
+    if (r.status === 404) { await sleep(500); continue; }
+    if (pages.length) { break; }
+    throw Object.assign(new Error('The scanner did not return the pages (' + r.status + ').'), { code: 502 });
+  }
+  if (!pages.length) { throw Object.assign(new Error('No pages came from the feeder. Check that the pages are in the feeder face up.'), { code: 409 }); }
+  log('feeder:', pages.length, 'page(s)');
+  return { pages, model: s.model };
+}
+let lastJob = { id: '', pages: [] };
 
 /* ---------------------------------------------------------------- the local service */
 function cors(req0, res) {
@@ -231,7 +273,7 @@ const server = http.createServer(async (rq, res) => {
   try {
     if (u.pathname === '/status') {
       const s = await scanner(u.searchParams.get('find') === '1');
-      json(res, 200, { ok: true, version: VERSION, scanner: s ? { model: s.model, base: s.base.replace(/\/eSCL.*$/i, ''), glass: [s.maxW || 2550, s.maxH || 3508] } : null });
+      json(res, 200, { ok: true, version: VERSION, scanner: s ? { model: s.model, base: s.base.replace(/\/eSCL.*$/i, ''), glass: [s.maxW || 2550, s.maxH || 3508], adf: !!s.adf, duplex: !!s.duplex, adfMax: [s.adfW || 0, s.adfH || 0] } : null });
       return;
     }
     if (u.pathname === '/config' && rq.method === 'POST') {
@@ -247,10 +289,26 @@ const server = http.createServer(async (rq, res) => {
       if (busy) { json(res, 409, { ok: false, msg: 'A scan is already running.' }); return; }
       busy = true;
       try {
-        const r = await scan({ dpi: u.searchParams.get('dpi'), x: u.searchParams.get('x'), y: u.searchParams.get('y'), w: u.searchParams.get('w'), h: u.searchParams.get('h'), gray: u.searchParams.get('gray') === '1' });
+        const q = u.searchParams;
+        const r = await scan({ dpi: q.get('dpi'), x: q.get('x'), y: q.get('y'), w: q.get('w'), h: q.get('h'), gray: q.get('gray') === '1', source: q.get('source'), duplex: q.get('duplex') === '1', paper: q.get('paper') });
+        if (r.pages) {
+          // Feeder: the pages stay here for a moment; the page fetches them one by one (/page?id=…&i=0…).
+          lastJob = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), pages: r.pages };
+          json(res, 200, { ok: true, id: lastJob.id, pages: r.pages.length, model: r.model });
+          return;
+        }
         res.writeHead(200, { 'Content-Type': r.type, 'Content-Length': r.img.length, 'X-Scanner': r.model, 'X-Glass': r.glass, 'Cache-Control': 'no-store' });
         res.end(r.img);
       } finally { busy = false; }
+      return;
+    }
+    if (u.pathname === '/page') {
+      const i = +u.searchParams.get('i');
+      const img = lastJob.id && u.searchParams.get('id') === lastJob.id ? lastJob.pages[i] : null;
+      if (!img) { json(res, 404, { ok: false, msg: 'That page is no longer here. Scan again.' }); return; }
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': img.length, 'Cache-Control': 'no-store' });
+      res.end(img);
+      if (i === lastJob.pages.length - 1) { setTimeout(() => { if (lastJob.pages[i] === img) { lastJob = { id: '', pages: [] }; } }, 60000); }
       return;
     }
     json(res, 404, { ok: false, msg: 'Unknown request.' });

@@ -49,6 +49,7 @@
   }
   /** -> Promise<{file, thumb}> */
   function prep(file) {
+    if (file._thumb) { return Promise.resolve({ file: file, thumb: file._thumb }); } // e.g. a scanned PDF with its first page as preview
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { return Promise.resolve({ file: file, thumb: '' }); }
     return loadImage(file).then(function (im) {
       var thumb = draw(im, 420, 1).toDataURL('image/jpeg', 0.72);
@@ -160,7 +161,7 @@
       '<div class="sdd-slots"></div>' +
       '<div class="sdd-other"><label>Other document <select class="sdd-type">' + opts + '</select></label>' +
       '<label>Note (optional) <input type="text" class="sdd-label" maxlength="120" placeholder="' + (isIns() ? 'e.g. expires 2028' : 'e.g. practice log page 2') + '"></label>' +
-      '<div class="sdd-other-acts"><button type="button" class="sdd-b" data-cam="other">📷 Take photo</button><button type="button" class="sdd-b sdd-b--ghost" data-file="other">⬆ Upload files</button></div></div>' +
+      '<div class="sdd-other-acts"><button type="button" class="sdd-b" data-cam="other">📷 Take photo</button>' + (C.office && window.SDSC_SCANPOP ? '<button type="button" class="sdd-b" data-scan="other">🖨 Office scanner (glass or feeder)</button>' : '') + '<button type="button" class="sdd-b sdd-b--ghost" data-file="other">⬆ Upload files</button></div></div>' +
       '<div class="sdd-drop" tabindex="0"><b>Drop scanned files here</b><span>PDF or photos · up to 20 MB each · several at once</span></div>' +
       '<ul class="sdd-queue" aria-live="polite"></ul></section>';
   }
@@ -247,8 +248,17 @@
 
   /* ---------------------------------------------------------------- events */
   root.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-open],[data-home],[data-cam],[data-file],[data-check],[data-del]');
+    var t = e.target.closest('[data-open],[data-home],[data-cam],[data-file],[data-check],[data-del],[data-scan]');
     if (!t) { return; }
+    if (t.hasAttribute('data-scan')) {
+      // Office scanner: glass page by page or the document feeder, one or both sides → one PDF in this file.
+      var ts = root.querySelector('.sdd-type'), tl = root.querySelector('.sdd-label'), list = {};
+      if (ts) { Array.prototype.forEach.call(ts.options, function (op) { list[op.value] = op.textContent; }); }
+      var I = window.SDSC_IDS || {};
+      window.SDSC_SCANPOP.documents({ types: list, type: ts ? ts.value : 'other', label: tl ? tl.value : '', scanWin: I.scanWin, scanMac: I.scanMac,
+        upload: function (file, type, label, thumb) { file._thumb = thumb; return upload([file], type, label); } });
+      return;
+    }
     if (t.hasAttribute('data-open')) { e.preventDefault(); openStudent(t.getAttribute('data-open')); return; }
     if (t.hasAttribute('data-home')) { e.preventDefault(); if (t.getAttribute('data-home') === 'ins' && C.front) { staffHome(); } else { officeHome(); } return; }
     var otherType = function () { var s = root.querySelector('.sdd-type'); return s ? s.value : 'other'; };

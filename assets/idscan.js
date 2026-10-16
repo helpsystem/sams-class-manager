@@ -529,42 +529,57 @@
 			});
 		}
 		var SIDE = { front: 'FRONT of the card — the side with the photo', back: 'BACK of the card — the side with the barcode' };
-		function scanSide(side, model, manual) {
+		/** Office scanner in a pop-up: "put the front face down" → countdown (3 s) → scan → picture → turn over → back. */
+		function scanSide(side, model) {
 			S.method = 'office'; S.model = model;
-			var other = side === 'front' ? 'back' : 'front', have = S[other];
-			var n = side === 'front' && !have ? 2 : 6, tmr = null;
-			out.innerHTML = '<div class="ids-next ids-ask"><p class="ids-big">' + (side === 'front' ? '①' : '②') + ' Put the <b>' + SIDE[side] + '</b> face down on the glass</p>' +
-				'<p class="ids-m2">' + (have ? '✓ The ' + other + ' is done. Turn the card over in the same place and close the lid.' : 'Anywhere on the glass, then close the lid.') + '</p>' +
-				'<button type="button" class="sdd-b" data-go>🖨 Scan the ' + side + ' now</button> ' + (have ? '<button type="button" class="sdd-b sdd-b--ghost" data-skip>Skip — only the ' + other + ' is needed</button> ' : '') + '<button type="button" class="sdd-b sdd-b--ghost" data-x>Cancel</button> <span class="ids-cd"></span></div>';
-			var cd = out.querySelector('.ids-cd');
+			var SP = window.SDSC_SCANPOP, other = side === 'front' ? 'back' : 'front', have = S[other];
+			if (!SP.isOpen()) { SP.pop('Scan the card on the office scanner', function () { status('Scan cancelled.'); reset(); }); }
+			var shown = []; if (S.front) { shown.push([S.front, 'Front']); } if (S.back) { shown.push([S.back, 'Back']); }
+			out.innerHTML = '';
+			status('Scanner window open — follow the steps there.');
+			var box = SP.step({
+				art: have ? SP.art.turn : (side === 'front' ? SP.art.cardFront : SP.art.cardBack),
+				title: (side === 'front' ? '① ' : '② ') + 'Put the ' + SIDE[side] + ' face down on the glass',
+				text: have ? '✓ The ' + other + ' is done. Turn the card over in the same place and close the lid.' : 'Anywhere on the glass, then close the lid.',
+				done: shown.length ? shown : null,
+				extra: have ? '<button type="button" class="sdd-b sdd-b--ghost spop-skip">Only the ' + other + ' is needed</button>' : '',
+				go: go,
+				cancel: function () { status('Scan cancelled.'); reset(); },
+			});
+			var sk = box && box.querySelector('.spop-skip'); if (sk) { sk.addEventListener('click', function () { SP.close(); finish(); }); }
 			function go() {
-				if (tmr) { clearInterval(tmr); tmr = null; }
-				out.innerHTML = '<div class="ids-next"><p>Scanning the ' + side + '… <span class="ids-spin"></span></p></div>';
-				var t0 = Date.now();
-				// After the first side the card lies in a known spot: scan just there, with room for turning it over.
-				var hint = S.spot || null;
-				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (b) { return sharp(b, 0.35); }); })
-					: locate().then(function (b) { return sharp(b, 0.35); })
+				SP.busy('Scanning the ' + side + '…');
+				var t0 = Date.now(), hint = S.spot || null; // after the first side the card lies in a known spot: scan just there
+				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (bx) { return sharp(bx, 0.35); }); })
+					: locate().then(function (bx) { return sharp(bx, 0.35); })
 				).then(function (r) {
 					if (!r.inside) { return sharp(r.box, 0.7); } // the card touched the edge of the scan: once more with more room
 					return r;
 				}).then(function (r) {
 					S.spot = r.box;
+					SP.busy('Straightening and checking the ' + side + '…');
 					return place(r.c, true, side);
 				}).then(function (got) {
+					if (!SP.isOpen()) { return; } // the window was closed while scanning
 					beep();
-					var note = got !== side ? 'That was the ' + got + ' (its barcode was read) — fine. ' : '';
-					if (S.front && S.back) { finish(); return; }
-					status('✓ ' + (got === 'front' ? 'Front' : 'Back') + ' scanned in ' + Math.round((Date.now() - t0) / 1000) + ' s. ' + note);
+					status('✓ ' + (got === 'front' ? 'Front' : 'Back') + ' scanned in ' + Math.round((Date.now() - t0) / 1000) + ' s.' + (got !== side ? ' (That was the ' + got + ' — its barcode was read.)' : ''));
+					if (S.front && S.back) { both(); return; }
 					scanSide(S.front ? 'back' : 'front', model);
-				}).catch(function (e) { scanSide(side, model, true); status(e.message || 'Scan failed.', true); });
+				}).catch(function (e) { if (!SP.isOpen()) { return; } SP.problem(e.message || 'Scan failed.', function () { scanSide(side, model); }, function () { status('Scan cancelled.'); reset(); }); });
 			}
-			out.querySelector('[data-go]').addEventListener('click', go);
-			var sk = out.querySelector('[data-skip]'); if (sk) { sk.addEventListener('click', function () { if (tmr) { clearInterval(tmr); } finish(); }); }
-			out.querySelector('[data-x]').addEventListener('click', function () { if (tmr) { clearInterval(tmr); } out.innerHTML = ''; status('Scan cancelled.'); reset(); });
-			if (manual) { return; } // after a problem: wait for "Scan now"
-			tmr = setInterval(function () { n--; cd.textContent = n > 0 ? 'Scanning by itself in ' + n + '…' : ''; if (n <= 0) { go(); } }, 1000);
-			cd.textContent = 'Scanning by itself in ' + n + '…';
+		}
+		/** Both sides in the pop-up: look, scan one again, or carry on (by itself after a few seconds). */
+		function both() {
+			var SP = window.SDSC_SCANPOP, n = 4, tm = null;
+			var b = SP.body('<p class="spop-t">✓ Both sides scanned</p><div class="spop-two"><figure data-p="front"><figcaption>Front</figcaption></figure><figure data-p="back"><figcaption>Back</figcaption></figure></div>' +
+				'<div class="spop-acts"><button type="button" class="sdd-b spop-use">✓ Use these — read the card</button><button type="button" class="sdd-b sdd-b--ghost" data-again="front">↻ Front again</button><button type="button" class="sdd-b sdd-b--ghost" data-again="back">↻ Back again</button><span class="spop-auto"></span></div>');
+			['front', 'back'].forEach(function (k) { var im = new Image(); im.alt = k; im.src = S[k].toDataURL('image/jpeg', 0.8); b.querySelector('[data-p="' + k + '"]').prepend(im); });
+			var au = b.querySelector('.spop-auto');
+			function use() { if (tm) { clearInterval(tm); } SP.close(); finish(); }
+			b.querySelector('.spop-use').addEventListener('click', use);
+			b.querySelectorAll('[data-again]').forEach(function (x) { x.addEventListener('click', function () { if (tm) { clearInterval(tm); } var k = x.getAttribute('data-again'); S[k] = null; if (k === 'back') { S.code = null; } S.imgsSaved = false; steps(); scanSide(k, S.model); }); });
+			au.textContent = 'Continuing in ' + n + '…';
+			tm = setInterval(function () { n--; if (!document.body.contains(au)) { clearInterval(tm); return; } if (n <= 0) { use(); return; } au.textContent = 'Continuing in ' + n + '…'; }, 1000);
 		}
 		/** Scan one side again (from the result screen). */
 		function redo(side) {
