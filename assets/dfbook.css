@@ -53,3 +53,20 @@
 .sdfb-tgrid tbody th { text-align: left; color: #15191d; font-weight: 800; }
 .sdfb-tgrid tbody th small { font-weight: 600; color: #8a5a00; text-transform: uppercase; font-size: 10px; }
 .sdfb-tgrid td button { min-height: 34px; font-weight: 700; }
+
+/* Cars board */
+.sdfb-board{border:1px solid #e3e7ea;border-radius:10px;padding:8px;margin:0 0 12px;background:#fff}
+.sdfb-board[hidden]{display:none!important}
+.sdfb-bh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.sdfb-bh button{border:1px solid #cfd6db;background:#fff;border-radius:6px;width:30px;height:28px;cursor:pointer;font-size:16px}
+.sdfb-board table{width:100%;border-collapse:separate;border-spacing:3px;font-size:12px;table-layout:fixed}
+.sdfb-board thead th{padding:4px 2px;font-weight:800;text-align:center}
+.sdfb-board thead small{display:block;font-weight:400;color:#5b646d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sdfb-board tbody th{width:78px;text-align:left;font-weight:800;white-space:nowrap}
+.sdfb-board tbody th small{display:block;font-size:10px;color:#8a5a00;text-transform:uppercase}
+.sdfb-board td button,.sdfb-board td span{display:block;width:100%;min-height:36px;line-height:1.2;padding:4px 3px;border-radius:6px;text-align:center;font-size:11.5px;font-weight:700;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis}
+.sdfb-board td button{border:1px solid #b8dcc6;background:#f3faf6;color:#0b5d2e;cursor:pointer}
+.sdfb-board td button.is-early{border-style:dashed;background:#fff8e6;border-color:#e9c46a;color:#8a5a00}
+.sdfb-board td button.is-sel{background:#00703c;border-color:#00703c;color:#fff}
+.sdfb-board td span.is-busy{background:#fdecec;color:#8a1c1c;border:1px solid #f3c6c6}
+.sdfb-board td span.is-no{background:repeating-linear-gradient(135deg,#f1f3f4 0 4px,#e6e9eb 4px 8px);color:#6b747c;border:1px solid #e3e7ea;font-weight:600}

@@ -37,6 +37,7 @@ class SDSC_DFBook {
 		add_action( 'admin_footer', array( __CLASS__, 'modal' ) );
 		add_action( 'wp_ajax_sdsc_dfb_check', array( __CLASS__, 'ajax_check' ) );
 		add_action( 'wp_ajax_sdsc_dfb_grid', array( __CLASS__, 'ajax_grid' ) );
+		add_action( 'wp_ajax_sdsc_dfb_board', array( __CLASS__, 'ajax_board' ) );
 		add_action( 'admin_post_sdsc_dfb_book', array( __CLASS__, 'h_book' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
 	}
@@ -337,6 +338,69 @@ class SDSC_DFBook {
 		wp_send_json_success( array( 'days' => $days ) );
 	}
 
+
+	/**
+	 * "Cars board" for one day: every time block × every car. A free cell carries the instructor to use
+	 * (the car's usual instructor when free, otherwise the first free one). Booking still goes through check().
+	 */
+	public static function ajax_board() {
+		if ( ! self::can() || ! check_ajax_referer( 'sdsc_dfb', '_n', false ) ) { wp_send_json_error( 'Not allowed', 403 ); }
+		global $wpdb;
+		$day = preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $_POST['date'] ?? '' ) ) ? $_POST['date'] : wp_date( 'Y-m-d' ); // phpcs:ignore
+		$min = in_array( (int) ( $_POST['minutes'] ?? 120 ), array( 60, 90, 120, 180 ), true ) ? (int) $_POST['minutes'] : 120; // phpcs:ignore
+		$T   = $wpdb->prefix . 'driveflow_sessions';
+		$d0  = $day . ' 00:00:00';
+		$d1  = wp_date( 'Y-m-d H:i:s', strtotime( $day . ' 00:00:00 +1 day' ) );
+		$ses = (array) $wpdb->get_results( $wpdb->prepare( "SELECT student_name, instructor_id, instructor_name, vehicle_id, plate_number, scheduled_start, scheduled_end FROM `{$T}` WHERE status IN ('upcoming','active') AND scheduled_start < %s AND scheduled_end > %s", $d1, $d0 ), ARRAY_A ); // phpcs:ignore
+		$bl  = array();
+		$bt  = $wpdb->prefix . 'driveflow_blocked_slots';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $bt ) ) ) { $bl = (array) $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$bt}` WHERE start_time < %s AND end_time > %s", $d1, $d0 ), ARRAY_A ); } // phpcs:ignore
+		$cars = self::cars();
+		$ins  = self::instructors();
+		$now  = time();
+		$rows = array();
+		foreach ( self::slots() as $m ) {
+			if ( $m + $min > self::CLOSES * 60 ) { continue; }
+			$t  = sprintf( '%02d:%02d', intdiv( $m, 60 ), $m % 60 );
+			$a  = $day . ' ' . $t . ':00';
+			$b  = wp_date( 'Y-m-d H:i:s', self::ts( $a ) + $min * 60 );
+			$row = array( 't' => $t, 'label' => self::slot_label( $m ), 'early' => $m < self::DAY * 60, 'past' => self::ts( $a ) < $now + 300, 'cars' => array() );
+			$hit = function ( $r ) use ( $a, $b ) { return $r['scheduled_start'] < $b && $r['scheduled_end'] > $a; };
+			$school = false;
+			$free_ins = array();
+			foreach ( $bl as $x ) { if ( $x['start_time'] < $b && $x['end_time'] > $a && 'all' === $x['target_type'] ) { $school = true; } }
+			foreach ( $ins as $i ) {
+				$busy = false;
+				foreach ( $ses as $r ) { if ( $hit( $r ) && ( (int) $r['instructor_id'] === $i['id'] || $r['instructor_name'] === $i['name'] ) ) { $busy = true; } }
+				foreach ( $bl as $x ) { if ( 'instructor' === $x['target_type'] && $x['start_time'] < $b && $x['end_time'] > $a && 0 === strcasecmp( trim( $x['target_identifier'] ), $i['name'] ) ) { $busy = true; } }
+				if ( ! $busy ) { $free_ins[] = $i; }
+			}
+			$used = array();
+			foreach ( $cars as $c ) {
+				$cell = array( 'st' => 0, 'who' => '', 'ins' => 0, 'insName' => '' );
+				if ( $school ) { $cell['st'] = 2; $cell['who'] = 'School closed'; }
+				foreach ( $bl as $x ) { if ( 'vehicle' === $x['target_type'] && $x['start_time'] < $b && $x['end_time'] > $a && 0 === strcasecmp( trim( $x['target_identifier'] ), $c['plate'] ) ) { $cell['st'] = 2; $cell['who'] = $x['reason'] ? $x['reason'] : 'Car blocked'; } }
+				if ( $c['down'] ) { $cell['st'] = 2; $cell['who'] = ucfirst( $c['down'] ); }
+				foreach ( $ses as $r ) { if ( $hit( $r ) && ( (int) $r['vehicle_id'] === $c['id'] || $r['plate_number'] === $c['plate'] ) ) { $cell['st'] = 1; $cell['who'] = $r['student_name'] . ' · ' . $r['instructor_name'] . ' · ' . wp_date( 'g:i', self::ts( $r['scheduled_start'] ) ) . '–' . wp_date( 'g:i A', self::ts( $r['scheduled_end'] ) ); } }
+				if ( 0 === $cell['st'] ) {
+					$pick = null;
+					foreach ( $free_ins as $i ) { if ( $i['car'] === $c['id'] && ! isset( $used[ $i['id'] ] ) ) { $pick = $i; break; } }
+					if ( ! $pick ) { foreach ( $free_ins as $i ) { if ( ! isset( $used[ $i['id'] ] ) ) { $pick = $i; break; } } }
+					if ( $pick ) { $used[ $pick['id'] ] = 1; $cell['ins'] = $pick['id']; $cell['insName'] = $pick['name']; }
+					else { $cell['st'] = 3; $cell['who'] = 'No free instructor'; }
+				}
+				$row['cars'][ (string) $c['id'] ] = $cell;
+			}
+			$rows[] = $row;
+		}
+		wp_send_json_success( array(
+			'date'  => $day,
+			'label' => wp_date( 'l, F j', strtotime( $day . ' 12:00:00' ) ),
+			'cars'  => array_map( function ( $c ) { return array( 'id' => $c['id'], 'plate' => $c['plate'], 'model' => $c['model'] ); }, $cars ),
+			'rows'  => $rows,
+		) );
+	}
+
 	/* ------------------------------------------------------------------ book */
 
 	public static function h_book() {
@@ -484,6 +548,8 @@ class SDSC_DFBook {
 								<label class="sdfb-wide">Focus <small>(optional)</small><input name="topic" id="sdfb-topic" list="sdfb-topics" maxlength="150" placeholder="e.g. lane changes and merging"><datalist id="sdfb-topics"><option value="Basic control, mirrors, turns"><option value="Residential streets and intersections"><option value="Lane changes and merging"><option value="Highway driving"><option value="Parallel parking and backing"><option value="MVA test route practice"><option value="Night driving"></datalist></label>
 							</div>
 						</fieldset>
+
+						<div id="sdfb-board" class="sdfb-board sdfb-one" hidden></div>
 
 						<fieldset class="sdfb-sec"><legend>3 · Instructor, car and place</legend>
 							<div class="sdfb-grid">

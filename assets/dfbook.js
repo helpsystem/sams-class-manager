@@ -248,5 +248,60 @@
 		if (e.target === M || (e.target.closest && e.target.closest('#df-add-session-modal [data-df-close-modal]'))) { M.classList.remove('is-open'); }
 	});
 	document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && M.classList.contains('is-open') && document.activeElement !== q) { M.classList.remove('is-open'); } });
+
+	// Cars board: pick a free car + time (and the instructor to use) with one click.
+	(function () {
+		var B = $('sdfb-board'), seq = 0;
+		function fmt(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+		function draw(r) {
+			var h = '<div class="sdfb-bh"><button type="button" data-d="-1" aria-label="Previous day">‹</button><b>' + esc(r.label) + '</b><button type="button" data-d="1" aria-label="Next day">›</button><span class="sdfb-mini">Pick a free car — it fills the time, car and instructor.</span></div>';
+			h += '<table><thead><tr><th></th>' + r.cars.map(function (c) { return '<th>' + esc(c.plate) + '<small>' + esc(c.model) + '</small></th>'; }).join('') + '</tr></thead><tbody>';
+			r.rows.forEach(function (row) {
+				h += '<tr><th>' + esc(row.label) + (row.early ? '<small>early</small>' : '') + '</th>';
+				r.cars.forEach(function (c) {
+					var x = row.cars[c.id];
+					if (row.past) { h += '<td><span class="is-no">Past</span></td>'; }
+					else if (x.st === 0) { h += '<td><button type="button" class="' + (row.early ? 'is-early' : 'is-free') + '" data-t="' + row.t + '" data-c="' + c.id + '" data-i="' + x.ins + '" title="Free">' + esc(x.insName) + '</button></td>'; }
+					else { h += '<td><span class="is-' + (x.st === 1 ? 'busy' : 'no') + '" title="' + esc(x.who) + '">' + esc(x.st === 1 ? x.who.split(' · ')[0] : x.who) + '</span></td>'; }
+				});
+				h += '</tr>';
+			});
+			B.innerHTML = h + '</tbody></table>';
+			var sel = ($('sdfb-time').value || '') + '|' + $('sdfb-car').value;
+			[].forEach.call(B.querySelectorAll('button[data-t]'), function (b) { if (b.dataset.t + '|' + b.dataset.c === sel) { b.classList.add('is-sel'); } });
+		}
+		function load() {
+			var d = $('sdfb-date').value;
+			if (!d || offer()) { B.hidden = true; return; }
+			B.hidden = false;
+			var n = ++seq, fd = new FormData();
+			fd.append('action', 'sdsc_dfb_board'); fd.append('_n', D.nonce); fd.append('date', d); fd.append('minutes', $('sdfb-min').value);
+			fetch(D.ajax, { method: 'POST', credentials: 'same-origin', body: fd }).then(function (r) { return r.json(); }).then(function (r) {
+				if (n !== seq || !r.success) { return; }
+				draw(r.data);
+			});
+		}
+		B.addEventListener('click', function (e) {
+			var dd = e.target.closest('button[data-d]');
+			if (dd) {
+				var p = $('sdfb-date').value.split('-'), x = new Date(+p[0], +p[1] - 1, +p[2] + (+dd.dataset.d));
+				var today = fmt(new Date()); if (fmt(x) < today) { return; }
+				$('sdfb-date').value = fmt(x); $('sdfb-time').value = ''; load(); check(); return;
+			}
+			var b = e.target.closest('button[data-t]');
+			if (!b) { return; }
+			$('sdfb-time').value = b.dataset.t;
+			$('sdfb-car').value = b.dataset.c;
+			if (+b.dataset.i && $('sdfb-ins').querySelector('option[value="' + b.dataset.i + '"]')) { $('sdfb-ins').value = b.dataset.i; }
+			[].forEach.call(B.querySelectorAll('.is-sel'), function (z) { z.classList.remove('is-sel'); });
+			b.classList.add('is-sel');
+			check();
+		});
+		$('sdfb-date').addEventListener('change', load);
+		$('sdfb-min').addEventListener('change', load);
+		$('sdfb-type').addEventListener('change', function () { setTimeout(load, 0); });
+		F.querySelectorAll('input[name=mode]').forEach(function (r) { r.addEventListener('change', load); });
+		new MutationObserver(function () { if (M.classList.contains('is-open')) { setTimeout(function () { if (!$('sdfb-date').value) { $('sdfb-date').value = fmt(new Date()); } load(); }, 120); } }).observe(M, { attributes: true, attributeFilter: ['class'] });
+	})();
 	lengths();
 })();
