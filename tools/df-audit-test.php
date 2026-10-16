@@ -35,8 +35,8 @@ $wpdb->insert( "{$P}driveflow_students", array( 'name' => 'ZZTEST Student A', 'e
 $sa = (int) $wpdb->insert_id; $made['students'][] = $sa;
 $wpdb->insert( "{$P}driveflow_instructors", array( 'name' => 'ZZTEST Instructor', 'email' => 'zztest-i@example.invalid', 'phone' => '0', 'license_number' => 'ZZ1', 'status' => 'active', 'created_at' => $now, 'updated_at' => $now ) );
 $ia = (int) $wpdb->insert_id; $made['instructors'][] = $ia;
-$mk = function ( $start, $status = 'upcoming', $len = 2 ) use ( $wpdb, $P, $sa, $now, &$made ) {
-	$wpdb->insert( "{$P}driveflow_sessions", array( 'student_name' => 'ZZTEST Student A', 'student_id' => $sa, 'instructor_name' => 'ZZTEST Instructor', 'plate_number' => '', 'session_number' => 1, 'lesson_topic' => 'ZZTEST', 'scheduled_start' => $start, 'scheduled_end' => date( 'Y-m-d H:i:s', strtotime( $start ) + $len * 3600 ), 'status' => $status, 'form_data' => '{}', 'signature' => '', 'selfie' => '', 'created_at' => $now, 'updated_at' => $now ) );
+$mk = function ( $start, $status = 'upcoming', $len = 2, $iname = 'ZZTEST Instructor' ) use ( $wpdb, $P, $sa, $now, &$made ) {
+	$wpdb->insert( "{$P}driveflow_sessions", array( 'student_name' => 'ZZTEST Student A', 'student_id' => $sa, 'instructor_name' => $iname, 'plate_number' => '', 'session_number' => 1, 'lesson_topic' => 'ZZTEST', 'scheduled_start' => $start, 'scheduled_end' => date( 'Y-m-d H:i:s', strtotime( $start ) + $len * 3600 ), 'status' => $status, 'form_data' => '{}', 'signature' => '', 'selfie' => '', 'created_at' => $now, 'updated_at' => $now ) );
 	$id = (int) $wpdb->insert_id; $made['sessions'][] = $id; return $id;
 };
 $completed = function () use ( $wpdb, $P, $sa ) { return (int) $wpdb->get_var( $wpdb->prepare( "SELECT completed_sessions FROM {$P}driveflow_students WHERE id = %d", $sa ) ); };
@@ -103,11 +103,13 @@ $T( 'formula cells written as text', 0 === strpos( $line, '"\'=HYPERLINK' ) && f
 
 echo "6. Instructor evaluation limits\n";
 $iu = (int) ( get_users( array( 'role' => 'tutor_instructor', 'number' => 1, 'fields' => 'ID' ) )[0] ?? 0 );
-if ( $iu && ! $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$P}driveflow_instructors WHERE user_id = %d", $iu ) ) ) {
-	$wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => $iu ), array( 'id' => $ia ) );
+$linked = $iu ? $wpdb->get_row( $wpdb->prepare( "SELECT id, name, status FROM {$P}driveflow_instructors WHERE user_id = %d", $iu ), ARRAY_A ) : null;
+if ( $iu && ( ! $linked || 'active' === $linked['status'] ) ) {
+	if ( ! $linked ) { $wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => $iu ), array( 'id' => $ia ) ); }
+	$iname = $linked ? $linked['name'] : 'ZZTEST Instructor';
 	wp_set_current_user( $iu );
 	$n_ins = wp_create_nonce( 'driveflow_instructor_form' );
-	$s2 = $mk( date( 'Y-m-d 09:00:00', current_time( 'timestamp' ) ), 'upcoming' );
+	$s2 = $mk( date( 'Y-m-d 09:00:00', current_time( 'timestamp' ) ), 'upcoming', 2, $iname );
 	$r = $call( 'driveflow_submit_evaluation', array( 'df_nonce' => $n_ins, 'session_id' => $s2, 'student_name' => 'Someone Else', 'scheduled_start' => date( 'Y-m-d 00:00:00' ), 'scheduled_end' => date( 'Y-m-d 23:00:00' ), 'final_evaluation' => 'Pass' ) );
 	$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$P}driveflow_sessions WHERE id = %d", $s2 ), ARRAY_A );
 	$T( 'booked lesson keeps the office times', $row && 7200 === strtotime( $row['scheduled_end'] ) - strtotime( $row['scheduled_start'] ), $row ? $row['scheduled_start'] . '→' . $row['scheduled_end'] : wp_json_encode( $r ) );
@@ -122,7 +124,7 @@ if ( $iu && ! $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$P}driveflow_inst
 	$T( 'walk-in from 3 days ago refused', is_array( $r ) && empty( $r['success'] ), wp_json_encode( $r ) );
 	// office-completed lesson can still get its evaluation
 	wp_set_current_user( $admin );
-	$s3 = $mk( date( 'Y-m-d 11:00:00', current_time( 'timestamp' ) ), 'upcoming' );
+	$s3 = $mk( date( 'Y-m-d 11:00:00', current_time( 'timestamp' ) ), 'upcoming', 2, $iname );
 	$call( 'driveflow_quick_status', array( 'nonce' => $n_admin, 'session_id' => $s3, 'status' => 'completed' ) );
 	wp_set_current_user( $iu );
 	$r = $call( 'driveflow_submit_evaluation', array( 'df_nonce' => $n_ins, 'session_id' => $s3, 'student_name' => 'ZZTEST Student A', 'final_evaluation' => 'Pass' ) );
@@ -130,7 +132,7 @@ if ( $iu && ! $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$P}driveflow_inst
 	$r = $call( 'driveflow_submit_evaluation', array( 'df_nonce' => $n_ins, 'session_id' => $s3, 'student_name' => 'ZZTEST Student A', 'final_evaluation' => 'Pass' ) );
 	$T( '…and is locked after that', is_array( $r ) && empty( $r['success'] ) );
 	$T( 'office "done" + evaluation = one credit for that lesson', 1 === DriveFlow_Credit_Manager::session_net_deducted( $sa, $s3 ) );
-	$wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => 0 ), array( 'id' => $ia ) );
+	if ( ! $linked ) { $wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => 0 ), array( 'id' => $ia ) ); }
 } else {
 	echo "  skip (no free instructor user on staging)\n";
 }
