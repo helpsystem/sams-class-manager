@@ -17,10 +17,13 @@ $csv = '/tmp/courses.csv';
 if ( ! is_readable( $csv ) ) { echo "no $csv\n"; return; }
 $norm  = function ( $s ) { $s = strtolower( remove_accents( (string) $s ) ); return trim( preg_replace( '/\s+/', ' ', preg_replace( '/[^a-z ]+/', ' ', $s ) ) ); };
 $phone = function ( $p ) { $d = preg_replace( '/\D+/', '', (string) $p ); return strlen( $d ) >= 10 ? substr( $d, -10 ) : ''; };
-$rows  = array(); $courses = array();
+// Stripe cross-check (optional /tmp/stripe.csv: rowno,paid_date,amount,email,payer_is_student) made from the school's Stripe export
+$stripe = array();
+if ( is_readable( '/tmp/stripe.csv' ) ) { foreach ( array_map( 'str_getcsv', file( '/tmp/stripe.csv', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES ) ) as $x ) { if ( count( $x ) >= 5 ) { $stripe[ (int) $x[0] ] = array( 'date' => $x[1], 'amount' => $x[2], 'email' => strtolower( trim( $x[3] ) ), 'self' => '1' === $x[4] ); } } }
+$rows  = array(); $courses = array(); $rowno = 0;
 foreach ( array_map( 'str_getcsv', file( $csv, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES ) ) as $r ) {
 	if ( count( $r ) < 7 || ! ctype_digit( (string) $r[0] ) ) { continue; }
-	$n = (int) $r[0]; $rows[] = array( 'n' => $n, 'start' => $r[1], 'end' => $r[2], 'ap' => $r[3], 'name' => trim( $r[4] ), 'p1' => $phone( $r[5] ), 'p2' => $phone( $r[6] ) );
+	$n = (int) $r[0]; $rowno++; $rows[] = array( 'n' => $n, 'start' => $r[1], 'end' => $r[2], 'ap' => $r[3], 'name' => trim( $r[4] ), 'p1' => $phone( $r[5] ), 'p2' => $phone( $r[6] ), 'stripe' => $stripe[ $rowno ] ?? null );
 	if ( ! isset( $courses[ $n ] ) ) { $courses[ $n ] = array( 'start' => $r[1], 'end' => $r[2], 'ap' => $r[3], 'count' => 0 ); }
 	$courses[ $n ]['count']++;
 	if ( $courses[ $n ]['start'] > $r[1] ) { $courses[ $n ]['start'] = $r[1]; } // a few rows carry a different date — keep the earliest start, latest end
@@ -37,6 +40,7 @@ foreach ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => array(
 	$c = (string) get_post_meta( $p->ID, '_sdsc_course_code', true );
 	if ( preg_match( '/^C-0*(\d+)$/i', $c, $m ) ) { $cls[ (int) $m[1] ] = $p->ID; }
 }
+echo "Stripe cross-check rows: " . count( $stripe ) . "\n";
 echo "courses in file: " . count( $courses ) . " (" . min( array_keys( $courses ) ) . "–" . max( array_keys( $courses ) ) . "), rows: " . count( $rows ) . "; classes already on the site with a C-nn code: " . count( $cls ) . "\n";
 $overlap = array_intersect_key( $courses, $cls );
 if ( $overlap ) { echo "NOTE: file courses that already exist on the site (left untouched): " . implode( ', ', array_map( $code, array_keys( $overlap ) ) ) . "\n"; }
@@ -95,6 +99,8 @@ foreach ( $rows as $i => $r ) {
 	$seen_reg[ $g['id'] ] = $r['n'];
 	$link[] = array( 'reg' => $g, 'row' => $r, 'how' => $how );
 }
+$ws = count( array_filter( $rows, function ( $r ) { return ! empty( $r['stripe'] ); } ) );
+echo "roster rows with a Stripe course payment: $ws of " . count( $rows ) . " (" . count( array_filter( $rows, function ( $r ) { return $r['start'] >= '2024-04-25'; } ) ) . " rows fall in the Stripe period)\n";
 echo "roster rows matched to one site registration: " . count( $link ) . " (" . count( array_filter( $link, function ( $x ) { return 'phone' === $x['how']; } ) ) . " by phone); doubtful (listed, not applied): " . count( $amb ) . "; not on the site: " . count( $none ) . "\n";
 $has_class = array_filter( $link, function ( $x ) { return (int) $x['reg']['class_id'] > 0; } );
 echo "  of the matched registrations, " . count( $has_class ) . " already have a class and are left as they are\n";
@@ -118,7 +124,8 @@ if ( 'link' === $do ) {
 		// only when the roster course date does not contradict the old form's note
 		$note = (string) $g['notes'];
 		if ( false !== strpos( $note, 'Course date' ) && ! preg_match( $dre( $x['row']['start'] ), $note ) ) { $skip++; continue; }
-		$wpdb->update( $rt, array( 'class_id' => (int) $cls[ $n ], 'notes' => trim( $note . "\n" . 'Course ' . $code( $n ) . ' from the office course list (' . $x['row']['start'] . ')' ) ), array( 'id' => (int) $g['id'] ) );
+		$st = $x['row']['stripe'];
+		$wpdb->update( $rt, array( 'class_id' => (int) $cls[ $n ], 'notes' => trim( $note . "\n" . 'Course ' . $code( $n ) . ' from the office course list (' . $x['row']['start'] . ')' . ( $st ? '; Stripe course payment $' . $st['amount'] . ' on ' . $st['date'] : '; no online course payment found in Stripe' ) ) ), array( 'id' => (int) $g['id'] ) );
 		if ( $g['registrant_id'] && ! get_post_meta( (int) $g['registrant_id'], '_sdsc_class_id', true ) ) { update_post_meta( (int) $g['registrant_id'], '_sdsc_class_id', (int) $cls[ $n ] ); }
 		$set++;
 	}
@@ -134,10 +141,16 @@ if ( 'students' === $do ) {
 		$parts = preg_split( '/\s+/', trim( $r['name'] ) );
 		$first = array_shift( $parts ); $last = implode( ' ', $parts );
 		if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $rt WHERE source = 'archive' AND first_name = %s AND last_name = %s AND class_id = %d", $first, $last, (int) $cls[ $r['n'] ] ) ) ) { $dup++; continue; }
+		$st   = $r['stripe'];
+		$note = 'From the office course list (' . $code( $r['n'] ) . ', ' . $r['start'] . '). The list does not say whether the course was completed here or transferred.';
+		$note .= $st ? ' Stripe: course payment of $' . $st['amount'] . ' on ' . $st['date'] . ( $st['self'] ? ' (paid by the student)' : ' (paid by someone else — parent/guardian?)' ) . ( $st['email'] ? '; e-mail taken from that payment.' : '.' )
+			: ' No online course payment found in Stripe (cash / Zelle / check, a transfer, or paid under another name).';
+		$email = $st && $st['email'] && is_email( $st['email'] ) ? $st['email'] : '';
 		$wpdb->insert( $rt, array(
 			'created_at' => $r['start'] . ' 09:00:00', 'source' => 'archive', 'class_id' => (int) $cls[ $r['n'] ],
 			'first_name' => mb_substr( $first, 0, 100 ), 'last_name' => mb_substr( $last, 0, 100 ), 'phone' => $r['p1'], 'parent_phone' => $r['p2'],
-			'notes' => 'From the office course list (' . $code( $r['n'] ) . ', ' . $r['start'] . '). No e-mail on file. The list does not say whether the course was completed here, transferred, or paid.',
+			'email' => $st && $st['self'] ? $email : '', 'parent_email' => $st && ! $st['self'] ? $email : '',
+			'notes' => $note,
 		) );
 		$add++;
 	}
