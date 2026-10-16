@@ -75,6 +75,9 @@ class SDSC_Helper {
 		foreach ( (array) get_option( self::CUSTOM, array() ) as $c ) {
 			if ( (int) ( $c['aud'] ?? 0 ) <= $level && ! empty( $c['k'] ) && ! empty( $c['a'] ) ) { $out[] = array( 'id' => 'c' . $c['id'], 'k' => $c['k'], 't' => self::first_words( $c['k'] ), 'a' => wp_kses_post( $c['a'] ), 'body' => wp_strip_all_tags( $c['a'] ), 'link' => '' ); }
 		}
+		foreach ( self::policy_sections() as $i => $ps ) {
+			$out[] = array( 'id' => 'p' . $i, 'k' => $ps['t'] . ' policy', 't' => $ps['t'], 'a' => $ps['a'], 'body' => wp_strip_all_tags( $ps['a'] ), 'link' => $ps['link'], 'linkt' => 'Read the full policy' );
+		}
 		if ( class_exists( 'SDSC_Tours' ) ) {
 			// The written tours: students / instructors (website pages) and staff (dashboard screens).
 			if ( $level >= 1 ) {
@@ -100,6 +103,28 @@ class SDSC_Helper {
 			}
 		}
 		return $out;
+	}
+
+	/** The school's own policy page, cut into one entry per heading — so fees, refunds and attendance are answered in the school's words. */
+	protected static function policy_sections() {
+		static $c = null;
+		if ( null !== $c ) { return $c; }
+		$c = array();
+		if ( ! class_exists( 'SDSC_Policies' ) ) { return $c; }
+		$html = (string) SDSC_Policies::html();
+		if ( '' === $html ) { return $c; }
+		$pg   = SDSC_Policies::page();
+		$link = $pg ? get_permalink( $pg ) : home_url( '/policy/' );
+		$parts = preg_split( '#(<h[34][^>]*>.*?</h[34]>)#is', $html, -1, PREG_SPLIT_DELIM_CAPTURE );
+		$title = '';
+		foreach ( $parts as $x ) {
+			if ( preg_match( '#^<h[34]#i', $x ) ) { $title = trim( wp_strip_all_tags( $x ) ); continue; }
+			$txt = trim( wp_strip_all_tags( $x ) );
+			if ( '' === $title || strlen( $txt ) < 30 ) { continue; }
+			$short = strlen( $txt ) > 650 ? rtrim( mb_substr( $txt, 0, 650 ) ) . '…' : $txt;
+			$c[]   = array( 't' => $title, 'a' => '<p><b>' . esc_html( $title ) . '</b></p><p>' . esc_html( $short ) . '</p>', 'link' => $link );
+		}
+		return $c;
 	}
 
 	protected static function first_words( $s ) { return implode( ' ', array_slice( explode( ' ', $s ), 0, 6 ) ); }
