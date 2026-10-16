@@ -68,7 +68,7 @@ if ( 'classes' === $do || 'report' === $do ) {
 }
 
 /* ---------------- index the site's registrations */
-$regs = $wpdb->get_results( "SELECT id, first_name, last_name, phone, parent_phone, email, class_id, registrant_id, source, notes, DATE(created_at) d FROM $rt WHERE source <> 'demo' ORDER BY id", ARRAY_A );
+$regs = $wpdb->get_results( "SELECT id, first_name, last_name, phone, parent_phone, email, class_id, registrant_id, source, notes, DATE(created_at) d FROM $rt WHERE source NOT IN ('demo','archive') ORDER BY id", ARRAY_A ); // archive rows are this tool's own output
 $byName = array(); $byPhone = array();
 foreach ( $regs as $g ) {
 	$byName[ $norm( $g['first_name'] . ' ' . $g['last_name'] ) ][] = $g;
@@ -114,6 +114,22 @@ foreach ( $link as $x ) {
 echo "  cross-check with the old form's chosen course date: agree " . $chk['agree'] . ", differ " . $chk['differ'] . ", no note " . $chk['no note'] . "\n";
 foreach ( $differ as $d ) { echo "    differ: $d\n"; }
 if ( 'report' === $do ) { foreach ( array_slice( $amb, 0, 12 ) as $a ) { echo "  doubtful: course " . $a[0]['n'] . ' ' . $a[0]['name'] . ' → registrations ' . implode( ',', (array) $a[1] ) . "\n"; } }
+/* ---------------- doubtful: the full list for the office, one line per candidate registration */
+if ( 'doubtful' === $do ) {
+	$byId = array(); foreach ( $regs as $g ) { $byId[ $g['id'] ] = $g; }
+	$i = 0;
+	foreach ( $amb as $a ) {
+		$i++;
+		echo "\n$i. Course list: C-" . str_pad( $a[0]['n'], 2, '0', STR_PAD_LEFT ) . ' (' . $a[0]['start'] . ') ' . $a[0]['name'] . ( ! empty( $a[0]['stripe'] ) ? '  [Stripe ' . $a[0]['stripe']['paid_date'] . ']' : '' ) . "\n";
+		foreach ( (array) $a[1] as $id ) {
+			if ( ! is_numeric( $id ) ) { echo "     - $id\n"; continue; }
+			$g = $byId[ $id ] ?? null; if ( ! $g ) { continue; }
+			$note = (string) $g['notes']; $cd = preg_match( '/Course date[^\n]*?(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|[A-Z][a-z]+ \d{1,2})/', $note, $m ) ? $m[1] : '';
+			echo "     - reg #" . $g['id'] . ' ' . $g['first_name'] . ' ' . $g['last_name'] . ' | registered ' . $g['d'] . ' | class ' . ( $g['class_id'] ? get_post_meta( (int) $g['class_id'], '_sdsc_course_code', true ) : '—' ) . ( $cd ? " | form course date $cd" : '' ) . "\n";
+		}
+	}
+	echo "\n" . count( $amb ) . " doubtful roster rows\n";
+}
 
 /* ---------------- link */
 if ( 'link' === $do ) {
