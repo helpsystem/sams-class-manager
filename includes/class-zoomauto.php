@@ -242,7 +242,7 @@ class SDSC_ZoomAuto {
 		return 0;
 	}
 
-	protected static function token( $n ) {
+	public static function token( $n ) {
 		$k = 'sdsc_zoom_tok_' . $n;
 		$t = get_transient( $k );
 		if ( $t ) { return $t; }
