@@ -27,6 +27,7 @@ $l = SDSC_Schedule::sessions( $cid ); $dates = wp_list_pluck( $l, 'date' );
 $t( 10 === count( $l ) && ! in_array( '2025-08-13', $dates, true ) && in_array( '2025-08-23', $dates, true ) && '2025-08-25' === end( $dates ) ? false : ( 10 === count( $l ) && ! in_array( '2025-08-13', $dates, true ) && in_array( '2025-08-23', $dates, true ) ), 'taken-out day gone, added day in, still 10 units: ' . implode( ' ', $dates ) );
 $t( in_array( '2025-08-23', $dates, true ) && '2025-08-22' === $dates[8] && '2025-08-23' === $dates[9], 'the added Saturday becomes unit 10 (no overflow to the next week)' );
 // save handler
+wp_set_current_user( 17307 );
 $_POST = array( 'sdsc_sched_nonce' => wp_create_nonce( 'sdsc_sched' ), 'sdsc_sched' => array( 'days' => array( 1, 3 ), 'from' => '10:00', 'to' => '11:30', 'count' => '4', 'skip' => '2025-08-13,bad,2025-08-18', 'extra' => '2025-08-16' ) );
 wp_set_current_user( 17307 );
 SDSC_Schedule::save_meta( $cid );
@@ -40,7 +41,8 @@ update_post_meta( $cid, '_sdsc_zoom_passcode', '876573' );
 $wpdb->insert( SDSC_Registration::table(), array( 'first_name' => 'Zed', 'last_name' => 'Test', 'email' => 'zztest-sched@example.test', 'phone' => '3015550000', 'class_id' => $cid, 'source' => 'staff', 'created_at' => current_time( 'mysql' ) ) );
 $n = SDSC_ZoomAuto::send( $cid );
 $m = end( $sent );
-$t( 1 === $n && $m && false !== strpos( $m['message'], 'August 11, 2025 9:00 AM' ) && false !== strpos( $m['message'], '(unit 10)' ) && false !== strpos( $m['message'], '920 6636 7353' ) && false !== strpos( $m['message'], '876573' ) && false !== strpos( $m['message'], 'IMPORTANT' ) && false !== strpos( $m['message'], '10 meetings (Monday, Tuesday, Wednesday, Thursday, Friday)' ), 'welcome e-mail: units, Zoom ID, passcode, IMPORTANT, 10 meetings Mon–Fri' );
+$miss = array(); foreach ( array( 'August 11, 2025 9:00 AM', '(unit 10)', '920 6636 7353', '876573', 'IMPORTANT', '10 meetings (Monday, Tuesday, Wednesday, Thursday, Friday)' ) as $needle ) { if ( ! $m || false === strpos( $m['message'], $needle ) ) { $miss[] = $needle; } }
+$t( 1 === $n && ! $miss, 'welcome e-mail: units, Zoom ID, passcode, IMPORTANT, 10 meetings Mon–Fri' . ( $miss ? ' — missing: ' . implode( ' | ', $miss ) . ' (sent=' . $n . ')' : '' ) );
 $t( $m && 0 === strpos( $m['subject'], 'Welcome to your Driver Education class' ), 'subject: ' . ( $m ? $m['subject'] : '-' ) );
 // cleanup
 $wpdb->delete( SDSC_Registration::table(), array( 'email' => 'zztest-sched@example.test' ) );
