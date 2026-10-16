@@ -12,6 +12,10 @@ $cases=array(
  array('the quiz is locked',1,'open after your payment'),
  array('how many classes can I miss',1,'4 absences'),
  array('I am sick and cannot drive today',2,'Call the office'),
+ array('how much is the late cancellation fee',0,'$60'),
+ array('how long do I have to use my extra practice',0,'6 months'),
+ array('can I get a refund on the car rental for my road test',0,'full refund'),
+ array('what courses do you have',0,'36-hour Driver'),
 );
 foreach($cases as $x){ $a=$ask($x[0],$x[1]); $c($a['found'] && false!==strpos($a['html'],$x[2]),'"'.$x[0].'" -> '.($a['found']?substr(strip_tags($a['html']),0,40):'NOT FOUND')); }
 foreach(array('what is the meaning of life','blue banana airplane','best pizza in town') as $q){ $a=$ask($q,0); $c(!$a['found'],'no guess: '.$q); }
