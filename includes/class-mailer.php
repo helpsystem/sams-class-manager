@@ -1,5 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+require_once __DIR__ . '/class-inbox.php';
 /**
  * School e-mail: who sends what, through which mailbox, and how it looks.
  *
@@ -271,6 +272,13 @@ class SDSC_Mailer {
 		self::$plain = '';
 		self::$extra = '';
 		$GLOBALS['sdsc_mail_id'] = $id;
+	}
+
+	/** Login for reading the info@ mailbox (the school inbox). array( address, password ) — empty when not saved. */
+	public static function imap_account() {
+		$id = self::usable( 'info' );
+		$p  = self::password( $id );
+		return $p ? array( self::identities()[ $id ][0], $p ) : array( '', '' );
 	}
 
 	/** One-mailbox mode: if the wanted mailbox has no password yet, send through the one that has. */
