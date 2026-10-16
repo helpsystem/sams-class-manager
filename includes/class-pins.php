@@ -218,8 +218,8 @@ class SDSC_Pins {
 			. '.snv-a{display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:5px 8px;border-radius:10px;color:#1f2328!important;text-decoration:none!important;font-size:14px;line-height:1.3}'
 			. '.snv-a:hover{background:#f3f6f7}.snv-a.is-here{background:color-mix(in srgb,var(--c) 10%,#fff);font-weight:700;box-shadow:inset 3px 0 0 var(--c)}'
 			. '.snv-ic{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;font-size:15px;background:color-mix(in srgb,var(--c) 15%,#fff);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 32%,#fff)}'
-			. '.snv-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-			. '.snv .snv-star{position:static;flex:none;min-width:30px;min-height:30px;padding:4px;font-size:15px;color:#9aa3ab;opacity:0}'
+			. '.snv-t{min-width:0;white-space:normal;overflow-wrap:anywhere}.snv li::before,.snv li::after{content:none!important;display:none!important}'
+			. '.snv .snv-star{position:static;flex:none;min-width:26px;min-height:30px;padding:2px;font-size:15px;color:#9aa3ab;opacity:0}'
 			. '.snv-i:hover .snv-star,.snv .snv-star:focus,.snv .snv-star.is-on{opacity:1}.snv .snv-star.is-on{color:#c99500}'
 			. '@media(hover:none){.snv .snv-star{opacity:.55}}';
 		$js = '(function(){var s=document.getElementById("snv"),nav=document.querySelector(".tutor-dashboard-sidebar-nav");if(!s||!nav)return;'
