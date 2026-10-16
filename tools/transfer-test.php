@@ -4,7 +4,9 @@ if ( ! class_exists( 'SDSC_Transfer' ) ) { echo "SDSC_Transfer missing\n"; retur
 global $wpdb;
 $n = 0; $f = 0;
 $ok = function ( $c, $m ) use ( &$n, &$f ) { $n++; if ( ! $c ) { $f++; } echo ( $c ? 'ok   ' : 'FAIL ' ) . $m . "\n"; };
+wp_set_current_user( 1 );
 SDSC_Transfer::install();
+foreach ( (array) $wpdb->get_col( "SELECT id FROM " . SDSC_Registration::table() . " WHERE email = 'trtest@example.test'" ) as $old ) { $wpdb->delete( SDSC_Transfer::table(), array( 'reg_id' => $old ) ); $wpdb->delete( SDSC_Registration::table(), array( 'id' => $old ) ); }
 $ok( $wpdb->get_var( "SHOW TABLES LIKE '" . SDSC_Transfer::table() . "'" ) === SDSC_Transfer::table(), 'table exists' );
 $rt = SDSC_Registration::table();
 $cid = (int) ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'publish', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sdsc_status', 'meta_value' => 'upcoming' ) )[0] ?? 0 );
@@ -31,7 +33,6 @@ $ok( false !== strpos( $rec, 'Driver Education Transfer Record' ) && false !== s
 $ok( in_array( 'transfer', array_keys( SDSC_Student_File::parts() ), true ), 'student file has the transfer part' );
 // e-mail (no attachments: no docs on file) — the test site never e-mails the office; wp_mail goes to the guard
 $_POST = array( 'r' => $rid, '_wpnonce' => wp_create_nonce( 'sdsc_transfer_' . $rid ), 'to' => array( 'email', 'parent_email' ), 'docs' => array(), 'msg' => 'Test message' );
-wp_set_current_user( 1 );
 $caught = array();
 add_filter( 'wp_mail', function ( $a ) use ( &$caught ) { $caught[] = $a; return $a; } );
 add_filter( 'pre_wp_mail', function () { return true; } );
