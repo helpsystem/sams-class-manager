@@ -9,6 +9,7 @@
  * refuses a full class (see SDSC_Registration::save + SDSC_Board::is_full).
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+require_once __DIR__ . '/class-receipts.php';
 
 class SDSC_Board {
 	const PAGE        = 'sdsc-board';
@@ -436,7 +437,10 @@ class SDSC_Board {
 		$h .= '<p class="sdb-tags">';
 		foreach ( $d['pay'] as $p ) {
 			$h .= '<span class="sdb-tag sdb-tag--' . esc_attr( $p['k'] ) . '">' . esc_html( $p['t'] );
-			if ( 'offline' === $p['k'] ) { $h .= ' <button type="button" class="sdb-void" data-id="' . (int) $p['id'] . '" title="Cancel this recorded payment">×</button>'; }
+			if ( 'offline' === $p['k'] ) {
+				if ( class_exists( 'SDSC_Receipts' ) ) { $h .= ' <a class="sdb-rcpt" target="_blank" rel="noopener" href="' . esc_url( SDSC_Receipts::admin_url( 'board', (int) $p['id'] ) ) . '" title="Receipt: print, e-mail or text">🧾</a>'; }
+				$h .= ' <button type="button" class="sdb-void" data-id="' . (int) $p['id'] . '" title="Cancel this recorded payment">×</button>';
+			}
 			$h .= '</span>';
 		}
 		if ( ! $paid ) { $h .= ! empty( $d['refunded'] ) ? '<span class="sdb-tag sdb-tag--dup">' . esc_html( $d['refunded'] ) . '</span>' : '<span class="sdb-tag sdb-tag--due">Not paid</span>'; }
@@ -551,7 +555,7 @@ class SDSC_Board {
 			.sdb-tag{font-size:11px;border-radius:999px;padding:1px 8px;background:#f0f0f1}
 			.sdb-tag--online,.sdb-tag--offline,.sdb-tag--marked,.sdb-tag--opened{background:#e6f4ea;color:#00561f}
 			.sdb-tag--due{background:#fcf0f1;color:#8a2424}.sdb-tag--dup{background:#fff8e5;color:#6b4e00}
-			.sdb-void{border:0;background:none;color:#8a2424;cursor:pointer;padding:0 2px;font-weight:700}
+			.sdb-rcpt{text-decoration:none;margin-left:2px}.sdb-void{border:0;background:none;color:#8a2424;cursor:pointer;padding:0 2px;font-weight:700}
 			.sdb-card footer{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}
 			.sdb-moveto{max-width:140px;font-size:12px}
 			.sdb-dlg{border:0;border-radius:12px;padding:18px 22px;max-width:420px;width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.25)}
@@ -602,7 +606,7 @@ class SDSC_Board {
 			pf.method.addEventListener('change',refShow);
 			function openPay(card){pcard=card;pf.reset();refShow();pf.querySelector('.sdb-err').textContent='';pd.querySelector('.sdb-who').textContent=card.querySelector('b').textContent;pd.showModal();pf.amount.focus();}
 			pf.addEventListener('submit',function(e){if(e.submitter&&e.submitter.value==='cancel')return;e.preventDefault();var d={key:pcard.dataset.key};['method','amount','ref','paid_on','note'].forEach(function(k){d[k]=pf[k].value;});
-				post('pay',d).then(function(r){if(r.success){pd.close();swap(pcard,r.data.card);seats(r.data.seats);say('Payment saved. The course is open for this student.');}else pf.querySelector('.sdb-err').textContent=r.data.msg;});});
+				post('pay',d).then(function(r){if(r.success){pd.close();swap(pcard,r.data.card);seats(r.data.seats);say('Payment saved. The course is open for this student. Tap 🧾 on the card for the receipt.');}else pf.querySelector('.sdb-err').textContent=r.data.msg;});});
 			var ad=document.getElementById('sdb-adddlg'),af=ad.querySelector('form'),acol=null;
 			function openAdd(col){acol=col;af.reset();af.querySelector('.sdb-err').textContent='';ad.querySelector('.sdb-who').textContent=col.querySelector('h2').textContent;ad.showModal();af.first_name.focus();}
 			function add(grow){var d={cid:acol.dataset.cid,grow:grow?1:0};['first_name','last_name','email','phone','parent_name','parent_email','parent_phone'].forEach(function(k){d[k]=af[k].value;});

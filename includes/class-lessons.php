@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * phone); otherwise she waives it or records a payment at the office.
  */
 class SDSC_Lessons {
-	const DBV  = '2';
+	const DBV  = '3';
 	const DBO  = 'sdsc_lessons_db';
 	const SET  = 'sdsc_lessons_set';
 	const PAGE = 'sdsc-lessons';
@@ -103,7 +103,7 @@ class SDSC_Lessons {
 			status varchar(12) NOT NULL DEFAULT 'due',
 			order_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			paid_at datetime DEFAULT NULL,
-			paid_how varchar(40) NOT NULL DEFAULT '',
+			paid_how varchar(160) NOT NULL DEFAULT '',
 			waived_at datetime DEFAULT NULL,
 			waived_by bigint(20) unsigned NOT NULL DEFAULT 0,
 			waive_note varchar(255) NOT NULL DEFAULT '',
@@ -885,6 +885,7 @@ class SDSC_Lessons {
 				<p><b>Waived</b> on <?php echo esc_html( wp_date( 'M j, Y', self::ts( $f['waived_at'] ) ) ); ?><?php echo $by ? ' by ' . esc_html( $by->display_name ) : ''; ?>. Reason: <?php echo esc_html( $f['waive_note'] ); ?>. Nothing to pay.</p>
 			<?php elseif ( 'paid' === $f['status'] ) : ?>
 				<p><b>Paid</b> on <?php echo esc_html( wp_date( 'M j, Y', self::ts( $f['paid_at'] ) ) ); ?> — <?php echo esc_html( $f['paid_how'] ); ?>.</p>
+				<?php if ( class_exists( 'SDSC_Receipts' ) && 0 !== stripos( (string) $f['paid_how'], 'Online' ) && SDSC_Receipts::can( 'fee' ) ) : ?><p><a class="sdo-btn sdo-btn--ghost" target="_blank" rel="noopener" href="<?php echo esc_url( SDSC_Receipts::admin_url( 'fee', (int) $f['id'] ) ); ?>">🧾 Receipt — print, e-mail or text</a></p><?php endif; ?>
 			<?php else : ?>
 				<?php if ( 'review' === $f['status'] ) : ?>
 				<div class="sdo-hold"><b>Waiting for your decision.</b> Nothing has been charged and the student has not been told about this fee. Send the payment link only if the school decides to charge it.</div>
@@ -912,6 +913,7 @@ class SDSC_Lessons {
 					<?php echo self::form_open( 'paid', 'sdl-form' ); // phpcs:ignore ?>
 						<input type="hidden" name="fid" value="<?php echo (int) $f['id']; ?>">
 						<label class="sdo-f"><span>How</span><select name="how"><option>Cash</option><option>Card at the office</option><option>Zelle</option><option>Check</option><option>Other</option></select></label>
+						<label class="sdo-f"><span>Check number / reference (optional)</span><input type="text" name="ref" maxlength="40" placeholder="e.g. 1042"></label>
 						<p><button class="sdo-btn">Mark as paid</button></p>
 					</form>
 				</details>
@@ -1376,12 +1378,15 @@ class SDSC_Lessons {
 		global $wpdb;
 		self::guard();
 		$f   = self::fee( (int) ( $_POST['fid'] ?? 0 ) );
-		$how = sanitize_text_field( wp_unslash( $_POST['how'] ?? 'Office' ) );
+		$how = mb_substr( sanitize_text_field( wp_unslash( $_POST['how'] ?? 'Office' ) ), 0, 40 );
+		$ref = mb_substr( preg_replace( '/[^\w-]/', '', sanitize_text_field( wp_unslash( $_POST['ref'] ?? '' ) ) ), 0, 30 );
+		if ( 'Check' === $how && '' === $ref ) { self::back( 'schedule', array( 'id' => $f ? $f['lesson_id'] : 0, 'err' => 'Type the check number.' ) ); }
+		if ( $ref ) { $how .= ' #' . $ref; }
 		if ( ! $f || ! in_array( $f['status'], array( 'due', 'review' ), true ) ) { self::back( 'fees', array( 'err' => 'This fee is not open.' ) ); }
 		$wpdb->update( self::t_fees(), array( 'status' => 'paid', 'paid_at' => self::now(), 'paid_how' => $how . ' (recorded by ' . wp_get_current_user()->display_name . ')' ), array( 'id' => $f['id'] ) );
 		self::cancel_order( $f, 'Paid at the office instead.' );
 		self::add_log( $f['lesson_id'], 'Fee marked paid: ' . $how );
-		self::back( 'schedule', array( 'id' => $f['lesson_id'], 'msg' => 'Fee marked as paid.' ) );
+		self::back( 'schedule', array( 'id' => $f['lesson_id'], 'msg' => 'Fee marked as paid. Use “Receipt” to print, e-mail or text it.' ) );
 	}
 
 	/** The manager decided to charge: the fee becomes due and the student is e-mailed the payment link. */
