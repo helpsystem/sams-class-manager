@@ -435,7 +435,7 @@ class SDSC_Inbox {
 	/* ------------------------------------------------------------ answering the student */
 
 	/** Send $text to the sender of message $id from info@ (same conversation). Returns array( ok, message ). */
-	public static function reply( $id, $text, $uid, $how = 'from the panel' ) {
+	public static function reply( $id, $text, $uid, $how = 'from the panel', $cc = array() ) {
 		global $wpdb, $phpmailer;
 		$r = self::row( $id );
 		if ( ! $r || 'in' !== $r['kind'] || ! is_email( $r['from_email'] ) ) { return array( false, 'Message not found.' ); }
@@ -445,13 +445,15 @@ class SDSC_Inbox {
 		$q    = '<p style="color:#8a939b;font-size:12px;margin:22px 0 4px">On ' . esc_html( wp_date( 'M j, Y g:i a', strtotime( $r['sent_at'] ) ) ) . ', ' . esc_html( $r['from_name'] ? $r['from_name'] : $r['from_email'] ) . ' wrote:</p>'
 			. '<blockquote style="margin:0;padding:0 0 0 12px;border-left:3px solid #d9dee2;color:#5b646d;white-space:pre-wrap;font-size:13px">' . esc_html( mb_substr( (string) $r['body_text'], 0, 4000 ) ) . '</blockquote>';
 		$body = '<div style="white-space:pre-wrap">' . esc_html( $text ) . '</div>' . $q;
-		$hdr  = array( 'Content-Type: text/html; charset=UTF-8' );
+		$hdr  = array( 'Content-Type: text/html; charset=UTF-8', 'X-SDSC-Inbox: reply' );
+		$cc   = array_values( array_filter( array_map( 'sanitize_email', is_array( $cc ) ? $cc : preg_split( '/[\s,;]+/', (string) $cc ) ), 'is_email' ) );
+		if ( $cc ) { $hdr[] = 'Cc: ' . implode( ', ', $cc ); }
 		if ( $r['msgid'] ) { $hdr[] = 'In-Reply-To: <' . $r['msgid'] . '>'; $hdr[] = 'References: <' . $r['msgid'] . '>'; }
 		$ok = SDSC_Mailer::send( $r['from_email'], $subj, $body, 'info', $hdr );
 		$mime = ( $ok && isset( $phpmailer ) && is_object( $phpmailer ) && method_exists( $phpmailer, 'getSentMIMEMessage' ) ) ? $phpmailer->getSentMIMEMessage() : '';
 		$wpdb->insert( self::table(), array(
 			'kind' => 'out', 'parent_id' => (int) $id, 'from_email' => SDSC_Mailer::identities()['info'][0], 'to_email' => $r['from_email'], 'subject' => mb_substr( $subj, 0, 250 ),
-			'body_text' => $text, 'status' => $ok ? 'sent' : 'failed', 'note' => 'Answered ' . $how, 'by_user' => (int) $uid, 'sent_at' => current_time( 'mysql' ), 'created_at' => current_time( 'mysql' ),
+			'body_text' => $text, 'status' => $ok ? 'sent' : 'failed', 'note' => 'Answered ' . $how . ( $cc ? ' (cc ' . implode( ', ', $cc ) . ')' : '' ), 'by_user' => (int) $uid, 'sent_at' => current_time( 'mysql' ), 'created_at' => current_time( 'mysql' ),
 		) );
 		if ( $ok ) {
 			$wpdb->update( self::table(), array( 'status' => 'replied' ), array( 'id' => (int) $id ) );
@@ -496,7 +498,7 @@ class SDSC_Inbox {
 		$do = sanitize_key( $_POST['do'] ?? '' );
 		$id = absint( $_POST['id'] ?? 0 );
 		if ( 'reply' === $do ) {
-			$r = self::reply( $id, wp_unslash( $_POST['text'] ?? '' ), get_current_user_id() ); // phpcs:ignore
+			$r = self::reply( $id, wp_unslash( $_POST['text'] ?? '' ), get_current_user_id(), 'from the panel', wp_unslash( $_POST['cc'] ?? '' ) ); // phpcs:ignore
 			self::back( array( 'id' => $id, 'msg' => rawurlencode( ( $r[0] ? '' : '!' ) . $r[1] ) ) );
 		}
 		if ( in_array( $do, array( 'done', 'other', 'new' ), true ) ) {
@@ -558,7 +560,7 @@ class SDSC_Inbox {
 				echo '<div class="ib-msg ib-out"><p><b>' . esc_html( $u ? $u->display_name : 'Staff' ) . '</b> → ' . esc_html( $t['to_email'] ) . ' · ' . esc_html( wp_date( 'M j, g:i a', strtotime( $t['sent_at'] ) ) ) . ' · ' . esc_html( $t['note'] ) . ( 'failed' === $t['status'] ? ' <b style="color:#b32d2e">(not sent)</b>' : '' ) . '</p><div class="ib-body">' . esc_html( (string) $t['body_text'] ) . '</div></div>';
 			}
 			echo '<div class="ib-msg"><h3 style="margin-top:0">Answer ' . esc_html( $r['from_email'] ) . '</h3><p style="color:#646970">Sent from info@samsdrivingschool.org, in the same conversation.</p>';
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">' . wp_nonce_field( 'sdsc_inbox', '_wpnonce', true, false ) . '<input type="hidden" name="action" value="sdsc_inbox"><input type="hidden" name="do" value="reply"><input type="hidden" name="id" value="' . (int) $id . '"><textarea name="text" required placeholder="Hi …"></textarea><p><button class="button button-primary">Send answer</button></p></form>';
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">' . wp_nonce_field( 'sdsc_inbox', '_wpnonce', true, false ) . '<input type="hidden" name="action" value="sdsc_inbox"><input type="hidden" name="do" value="reply"><input type="hidden" name="id" value="' . (int) $id . '"><textarea name="text" required placeholder="Hi …"></textarea><p><label>Cc <input type="text" name="cc" class="regular-text" placeholder="optional, e.g. a colleague’s e-mail"></label></p><p><button class="button button-primary">Send answer</button></p></form>';
 			echo '<p>' . $form( 'done', 'Mark as handled' ) . ' ' . $form( 'other', 'Not for us (no answer needed)' ) . ' ' . $form( 'new', 'Mark as new' ) . '</p></div></div>'; // phpcs:ignore
 			if ( 'new' === $r['status'] ) { $wpdb->update( self::table(), array( 'status' => 'read' ), array( 'id' => $id ) ); }
 			return;
