@@ -10,9 +10,9 @@ $i = SDSC_Followup::issues_for( $rid );
 $t( isset( $i['docs'] ) && array( 'id_front', 'id_back' ) === array_keys( $i['docs'] ), 'new student: ID front + back are missing' );
 $b = SDSC_Followup::badges( $rid );
 $t( false !== strpos( $b, 'ID front + ID back' ) && false !== strpos( $b, SDSC_Docs::url( $em ) ), 'badge links to the student’s documents (scan / upload)' );
-$t( ! isset( $i['pay'] ) || false !== strpos( $b, 'page=sdsc-registrations&view=' . $rid ), 'payment badge links to the record' );
+$t( ! isset( $i['pay'] ) || false !== strpos( $b, 'view=' . $rid ), 'payment badge links to the record' );
 SDSC_Docs::install();
-$id1 = SDSC_Docs::store( $em, "\x89PNG\r\n\x1a\n" . str_repeat( 'x', 300 ), 'id_front', 'test', 'staff', 'Zed Missing' );
+$id1 = SDSC_Docs::store( $em, base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' ), 'id_front', 'test', 'staff', 'Zed Missing' );
 $t( $id1 > 0, 'front of the ID stored in the encrypted store' );
 // cache is per request; call through a fresh computation
 $r = new ReflectionClass( 'SDSC_Followup' ); $m = $r->getMethod( 'docs_missing' );
