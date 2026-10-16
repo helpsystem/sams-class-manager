@@ -202,6 +202,29 @@ class SDSC_Docs {
 		return $ok ? $name : '';
 	}
 
+	/**
+	 * Keep a file in the private, encrypted document store (used by other parts of the site, e.g. the instructor
+	 * onboarding link, so ID cards never land in the public uploads folder). Returns the document id or 0.
+	 */
+	public static function store( $email, $bytes, $type, $label = '', $source = 'staff', $name = '' ) {
+		global $wpdb;
+		$email = strtolower( sanitize_email( (string) $email ) );
+		if ( ! is_email( $email ) || '' === (string) $bytes || strlen( $bytes ) > self::MAX ) { return 0; }
+		$mime = function_exists( 'finfo_open' ) ? (string) finfo_buffer( finfo_open( FILEINFO_MIME_TYPE ), $bytes ) : '';
+		if ( ! isset( self::MIMES[ $mime ] ) ) { return 0; }
+		$file = self::put( $bytes );
+		if ( ! $file ) { return 0; }
+		if ( ! isset( self::types()[ $type ] ) ) { $type = 'other'; }
+		$wpdb->insert( self::t_docs(), array(
+			'email' => $email, 'name' => substr( (string) $name, 0, 190 ), 'type' => $type, 'label' => substr( sanitize_text_field( $label ), 0, 190 ),
+			'file' => $file, 'thumb' => '', 'mime' => $mime, 'size' => strlen( $bytes ), 'source' => 'student' === $source ? 'student' : 'staff',
+			'status' => 'new', 'by_user' => get_current_user_id(), 'created' => current_time( 'mysql' ),
+		) );
+		$id = (int) $wpdb->insert_id;
+		if ( $id ) { self::log( $id, 'upload' ); }
+		return $id;
+	}
+
 	protected static function get( $name ) {
 		if ( ! preg_match( '/^[a-f0-9]{32}\.bin$/', (string) $name ) ) { return ''; }
 		$raw = @file_get_contents( self::dir() . $name ); // phpcs:ignore
