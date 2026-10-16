@@ -72,19 +72,47 @@ class SDSC_Followup {
 		}
 		if ( null !== $r->age && (int) $r->age < 16 ) { $out['age16'] = true; }
 		if ( class_exists( 'SDSC_Pay' ) && SDSC_Pay::amount( (int) $r->class_id ) > 0 && ! self::paid( $r ) ) { $out['pay'] = true; }
+		$docs = self::docs_missing( (string) $r->email );
+		if ( $docs ) { $out['docs'] = $docs; }
 		return $out;
 	}
 
+	/** Required documents (ID card, both sides) not yet in the student's file: type => label. */
+	public static function docs_missing( $email ) {
+		global $wpdb;
+		$email = strtolower( trim( $email ) );
+		if ( ! class_exists( 'SDSC_Docs' ) || ! is_email( $email ) ) { return array(); }
+		static $cache = array();
+		if ( ! isset( $cache[ $email ] ) ) {
+			$have = (array) $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT type FROM ' . SDSC_Docs::t_docs() . ' WHERE email = %s', $email ) );
+			$need = array( 'id_front' => 'ID front', 'id_back' => 'ID back' );
+			$cache[ $email ] = array_diff_key( $need, array_flip( $have ) );
+		}
+		return $cache[ $email ];
+	}
+
+	/** Where each missing piece is fixed: the record (parent / payment) or the student's documents (scan / upload). */
+	public static function fix_url( $rid, $what, $email = '' ) {
+		if ( 'docs' === $what && class_exists( 'SDSC_Docs' ) ) { return SDSC_Docs::url( $email ); }
+		return admin_url( 'admin.php?page=sdsc-registrations&view=' . (int) $rid );
+	}
+
+	/** Missing pieces for a registration id (for other screens). */
+	public static function issues_for( $rid ) { $r = self::row( $rid ); return $r ? self::issues( $r ) : array(); }
+
 	/** Small badges for the Registrations list. */
-	public static function badges( $rid ) {
+	public static function badges( $rid, $docs_only = false ) {
 		$r = self::row( $rid );
 		if ( ! $r ) { return ''; }
 		$i = self::issues( $r );
+		if ( $docs_only ) { $i = array_intersect_key( $i, array( 'docs' => 1 ) ); }
 		if ( ! $i ) { return '<span style="color:#0b6b35;font-weight:700">✓ Complete</span>'; }
 		$b = array();
-		if ( isset( $i['parent'] ) ) { $b[] = '<span style="background:#fff3cd;color:#7a5600;padding:2px 8px;border-radius:99px;font-weight:700">Parent: ' . esc_html( implode( ', ', $i['parent'] ) ) . '</span>'; }
-		if ( isset( $i['pay'] ) ) { $b[] = '<span style="background:#fdecea;color:#912018;padding:2px 8px;border-radius:99px;font-weight:700">Not paid</span>'; }
-		if ( isset( $i['age16'] ) ) { $b[] = '<span style="background:#e8eefc;color:#1d3d8f;padding:2px 8px;border-radius:99px;font-weight:700">Under 16 — call</span>'; }
+		$a = function ( $what, $bg, $fg, $text, $title ) use ( $rid, $r ) { return '<a href="' . esc_url( self::fix_url( $rid, $what, (string) $r->email ) ) . '" title="' . esc_attr( $title ) . '" style="display:inline-block;background:' . $bg . ';color:' . $fg . ';padding:2px 8px;border-radius:99px;font-weight:700;text-decoration:none;white-space:nowrap">' . $text . '</a>'; };
+		if ( isset( $i['parent'] ) ) { $b[] = $a( 'parent', '#fff3cd', '#7a5600', 'Parent: ' . esc_html( implode( ', ', $i['parent'] ) ), 'Open the record: parent link and reminders' ); }
+		if ( isset( $i['pay'] ) ) { $b[] = $a( 'pay', '#fdecea', '#912018', 'Not paid', 'Open the record: payment link and reminders' ); }
+		if ( isset( $i['docs'] ) ) { $b[] = $a( 'docs', '#e6f4ff', '#0b4f8a', '📎 ' . esc_html( implode( ' + ', $i['docs'] ) ), 'Open the student’s documents: scan with the camera, the office scanner, or upload' ); }
+		if ( isset( $i['age16'] ) ) { $b[] = $a( 'age16', '#e8eefc', '#1d3d8f', 'Under 16 — call', 'Open the record' ); }
 		return implode( ' ', $b );
 	}
 
@@ -98,6 +126,7 @@ class SDSC_Followup {
 		$h .= '<ul style="margin:0 0 10px 18px;list-style:disc">';
 		if ( isset( $i['parent'] ) ) { $h .= '<li>Parent / guardian still needs to give: <b>' . esc_html( implode( ', ', $i['parent'] ) ) . '</b></li>'; }
 		if ( isset( $i['pay'] ) ) { $h .= '<li>Payment not received yet</li>'; }
+		if ( isset( $i['docs'] ) ) { $h .= '<li>Documents still to scan: <b>' . esc_html( implode( ', ', $i['docs'] ) ) . '</b> — <a class="button button-small" target="_top" href="' . esc_url( self::fix_url( $rid, 'docs', (string) $r->email ) ) . '">📎 Open documents (scan / upload)</a></li>'; }
 		if ( isset( $i['age16'] ) ) { $h .= '<li>Student is under 16 — call the family to check the start date</li>'; }
 		$h .= '</ul><p style="margin:0 0 8px;color:#5b646d">E-mail reminders sent: ' . (int) $r->follow_n . ' of ' . count( self::DAYS ) . ( $r->follow_at ? ' · last ' . esc_html( mysql2date( 'M j, g:i a', $r->follow_at ) ) : '' ) . '. Texts are on <a href="' . esc_url( admin_url( 'admin.php?page=sdsc-texts' ) ) . '">Texts to send</a>.</p>';
 		if ( isset( $i['parent'] ) ) {

@@ -173,6 +173,7 @@
         '<div class="sdd-person"><span class="sdd-av" aria-hidden="true">' + esc(((p.name || p.email || '?').match(/[A-Za-z]/g) || ['?']).slice(0, 2).join('').toUpperCase()) + '</span>' +
         '<div><h4>' + esc(p.name || p.email) + (isIns() ? ' <span class="sdd-chip">Instructor file</span>' : '') + '</h4><p>' + esc(/@instructors\.samsdrivingschool\.invalid$/.test(p.email) ? 'No e-mail yet (added by the office)' : p.email) + (p.phone ? ' · ' + esc(p.phone) : '') + (p.from && p.from.length && !isIns() ? ' · ' + esc(p.from.join(', ')) : '') + '</p></div></div>' : '') +
       (isIns() ? '<p class="sdd-note">Keep here: driver’s license (both sides), MVA instructor license, signed agreement, W-9, background check and car insurance. Only the office and the instructor can open this file.</p>' : '') +
+      (C.office && S.reg ? (S.reg.missing && S.reg.missing.length ? '<p class="sdd-miss"><b>Still missing:</b> ' + S.reg.missing.map(esc).join(' · ') + ' <a href="' + esc(S.reg.url) + '" target="_top">Open the registration record →</a></p>' : '<p class="sdd-miss sdd-miss--ok">✓ Registration complete <a href="' + esc(S.reg.url) + '" target="_top">Open the record →</a></p>') : '') +
       (C.office && window.SDSC_IDSCAN ? '<section class="sdd-idscan" aria-label="Scan an ID"></section>' : '') +
       addBox() +
       '<section class="sdd-list"><h4>On file <span class="sdd-count">0</span></h4><ul class="sdd-docs"></ul></section>';
@@ -188,7 +189,7 @@
     S.email = email;
     root.innerHTML = '<p class="sdd-loading">Loading…</p>';
     post('list', { email: email }).then(function (d) {
-      S.person = d.person; S.docs = d.docs || []; studentView();
+      S.person = d.person; S.reg = d.reg || null; S.docs = d.docs || []; studentView();
       if (C.office && window.history && history.replaceState) { history.replaceState(null, '', location.pathname + '?student=' + encodeURIComponent(email)); }
     }).catch(function (e) { root.innerHTML = '<p class="sdd-err">' + esc(e.message) + '</p>'; });
   }

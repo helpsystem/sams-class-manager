@@ -362,7 +362,20 @@ class SDSC_Docs {
 		$person = self::is_office() ? self::person( $email ) : null;
 		$ins    = self::instructor( $email );
 		if ( $person && $ins ) { $person['kind'] = 'instructor'; $person['name'] = $ins['name']; $person['phone'] = $person['phone'] ? $person['phone'] : $ins['phone']; $person['from'] = array( 'Instructor' ); $person['self'] = self::me() === $email; }
-		wp_send_json_success( array( 'person' => $person, 'docs' => array_map( array( __CLASS__, 'shape' ), (array) $rows ) ) );
+		$reg = null;
+		if ( $person && ! $ins && self::is_office() && class_exists( 'SDSC_Followup' ) && class_exists( 'SDSC_Registration' ) ) {
+			$rid = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . SDSC_Registration::table() . " WHERE LOWER(email) = %s AND source <> 'demo' ORDER BY id DESC LIMIT 1", $email ) );
+			if ( $rid ) {
+				$iss  = SDSC_Followup::issues_for( $rid );
+				$list = array();
+				if ( isset( $iss['parent'] ) ) { $list[] = 'Parent: ' . implode( ', ', $iss['parent'] ); }
+				if ( isset( $iss['pay'] ) ) { $list[] = 'Not paid'; }
+				if ( isset( $iss['docs'] ) ) { $list[] = 'Scan: ' . implode( ', ', $iss['docs'] ); }
+				if ( isset( $iss['age16'] ) ) { $list[] = 'Under 16 — call'; }
+				$reg = array( 'id' => $rid, 'url' => admin_url( 'admin.php?page=sdsc-registrations&view=' . $rid ), 'missing' => $list );
+			}
+		}
+		wp_send_json_success( array( 'person' => $person, 'reg' => $reg, 'docs' => array_map( array( __CLASS__, 'shape' ), (array) $rows ) ) );
 	}
 
 	public static function ajax_upload() {

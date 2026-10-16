@@ -106,3 +106,6 @@
 .sdd-doc--tiny { flex-direction: row; align-items: center; gap: 12px; padding: 10px; }
 .sdd-doc--tiny .sdd-doc-img { flex: 0 0 56px; width: 56px; aspect-ratio: 4 / 3; border-radius: 6px; }
 .sdd-doc--tiny .sdd-doc-b { padding: 0; }
+.sdd-miss{margin:0 0 12px;padding:9px 12px;border-radius:10px;background:#fff3cd;color:#7a5600;font-size:13.5px;line-height:1.5}
+.sdd-miss a{color:#0b4f8a;font-weight:700;margin-left:6px}
+.sdd-miss--ok{background:#e9f7ee;color:#0b6b35}
