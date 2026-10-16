@@ -174,7 +174,7 @@ class SDSC_Workspace {
 			'registrations' => array( 'Registrations', 'notes' ),
 			'df-instructors' => array( 'Instructors & payouts', 'user-circle' ),
 			'df-reports'  => array( 'Lesson accounting', 'wallet' ),
-			'inbox'       => array( 'School e-mails', 'envelope' ),
+			'inbox'       => array( 'School e-mails', 'notes' ),
 		);
 		foreach ( $pick as $key => $p ) {
 			if ( ! empty( $s[ $key ][3] ) ) { $front[ 'sdsc-w-' . $key ] = array( 'title' => $p[0], 'icon' => $p[1], 'url' => self::url( $key ) ); }

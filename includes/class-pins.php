@@ -18,6 +18,7 @@ class SDSC_Pins {
 
 	public static function init() {
 		add_action( 'wp_ajax_sdsc_pin', array( __CLASS__, 'ajax' ) );
+		add_action( 'wp_footer', array( __CLASS__, 'sidenav' ) );
 	}
 
 	/** Tutor dashboard menu items for this person: key => [icon, label, url, desc]. */
@@ -80,7 +81,7 @@ class SDSC_Pins {
 			}
 		}
 		update_user_meta( get_current_user_id(), self::META, $p );
-		wp_send_json_success( array( 'html' => self::strip(), 'quick' => self::quick(), 'pins' => $p, 'msg' => $msg ) );
+		wp_send_json_success( array( 'html' => self::strip(), 'quick' => self::quick(), 'side' => self::side_pins(), 'pins' => $p, 'msg' => $msg ) );
 	}
 
 	/** Star button for a screen (used next to each tool on the dashboard home). */
@@ -145,7 +146,7 @@ class SDSC_Pins {
 			. 'function send(body,cb){var x=new XMLHttpRequest();x.open("POST",AJ);x.setRequestHeader("Content-Type","application/x-www-form-urlencoded");x.onload=function(){var r=null;try{r=JSON.parse(x.responseText);}catch(e){}cb(r);};x.send("action=sdsc_pin&_n="+encodeURIComponent(N)+"&"+body);}'
 			. 'function apply(r,keepOpen){if(!r||!r.success)return;var s=document.getElementById("sdsc-pins");if(s){var w=document.createElement("div");w.innerHTML=r.data.html;var n=w.firstChild;if(keepOpen){var d=n.querySelector(".spn-add");if(d)d.open=true;}s.parentNode.replaceChild(n,s);bindDrag();var m=n.querySelector(".spn-msg");if(m)m.textContent=r.data.msg||"";}'
 			. '[].forEach.call(document.querySelectorAll(".spn-star"),function(b){var on=r.data.pins.indexOf(b.getAttribute("data-pin"))>-1;b.classList.toggle("is-on",on);b.textContent=on?"★":"☆";b.setAttribute("aria-pressed",on?"true":"false");b.title=on?"Unpin":"Pin to the top";});'
-			. '[].forEach.call(document.querySelectorAll(".sws-pins"),function(q){q.style.display=r.data.pins.length?"":"none";q.innerHTML="<span class=sws-pin-h aria-hidden=true>📌</span>"+r.data.quick;});}'
+			. 'var sp=document.getElementById("snv-pins");if(sp&&r.data.side){sp.outerHTML=r.data.side;}[].forEach.call(document.querySelectorAll(".sws-pins"),function(q){q.style.display=r.data.pins.length?"":"none";q.innerHTML="<span class=sws-pin-h aria-hidden=true>📌</span>"+r.data.quick;});}'
 			. 'document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-pin]");if(!b)return;e.preventDefault();var k=b.getAttribute("data-pin"),on=b.hasAttribute("data-off")?0:(b.classList.contains("is-on")?0:1),open=!!b.closest(".spn-panel");send("k="+k+"&on="+on,function(r){apply(r,open);});});'
 			. 'function bindDrag(){var l=document.querySelector("#sdsc-pins .spn-list");if(!l||l._b)return;l._b=1;var d=null;l.addEventListener("dragstart",function(e){d=e.target.closest(".spn-pin");if(d){d.classList.add("is-drag");e.dataTransfer.effectAllowed="move";}});'
 			. 'l.addEventListener("dragover",function(e){if(!d)return;e.preventDefault();var t=e.target.closest(".spn-pin");if(t&&t!==d){var r=t.getBoundingClientRect();l.insertBefore(d,(e.clientX-r.left)>r.width/2?t.nextSibling:t);}});'
@@ -153,6 +154,86 @@ class SDSC_Pins {
 			. 'if(document.readyState!=="loading")bindDrag();else document.addEventListener("DOMContentLoaded",bindDrag);'
 			. 'document.addEventListener("click",function(e){var o=document.querySelector("#sdsc-pins .spn-add[open]");if(o&&!o.contains(e.target))o.open=false;});})();';
 		return '<style id="sdsc-pins-css">' . $css . '</style><script>' . $js . '</script>';
+	}
+
+	/* ------------------------------------------------------------ side menu */
+
+	/** One colour per group, used for the group heading and the icon tiles. */
+	public static function color( $group ) {
+		$c = array(
+			'Lessons & attendance' => '#0284c7', 'Students & classes' => '#7c3aed', 'Instructors & cars' => '#ea580c', 'Money & accounting' => '#059669',
+			'Messages' => '#db2777', 'Reports' => '#0d9488', 'Website' => '#4f46e5', 'Setup' => '#475569', 'Help' => '#a16207', 'My dashboard' => '#334155',
+		);
+		return $c[ $group ] ?? '#00703c';
+	}
+
+	/** Pinned block at the top of the side menu. */
+	public static function side_pins() {
+		$cat  = self::catalog();
+		$pins = self::mine();
+		$h    = '<div id="snv-pins" class="snv-pins"><p class="snv-h"><span aria-hidden="true">📌</span> Pinned</p>';
+		foreach ( $pins as $k ) {
+			$i  = $cat[ $k ];
+			$h .= '<a class="snv-a" href="' . esc_url( $i[2] ) . '" style="--c:' . esc_attr( self::color( $i[4] ) ) . '"><span class="snv-ic" aria-hidden="true">' . esc_html( $i[0] ) . '</span><span class="snv-t">' . esc_html( $i[1] ) . '</span></a>';
+		}
+		if ( ! $pins ) { $h .= '<p class="snv-hint">Tap ☆ next to any screen below to keep it here.</p>'; }
+		return $h . '</div>';
+	}
+
+	/** School team: the dashboard side menu becomes Pinned + collapsible colour-coded groups with a search box. */
+	public static function sidenav() {
+		if ( ! is_user_logged_in() || ! class_exists( 'SDSC_Workspace' ) || ! SDSC_Workspace::is_staff() || ! function_exists( 'tutor_utils' ) ) { return; }
+		$page = (int) tutor_utils()->get_option( 'tutor_dashboard_page_id' );
+		if ( ! $page || ! is_page( $page ) ) { return; }
+		$cat = self::catalog();
+		if ( ! $cat ) { return; }
+		$pins   = self::mine();
+		$groups = array();
+		foreach ( $cat as $k => $i ) { $groups[ $i[4] ][ $k ] = $i; }
+		$h = '<div id="snv" class="snv" hidden><div class="snv-find"><input type="search" placeholder="Find a screen…" aria-label="Find a screen" autocomplete="off"></div>' . self::side_pins();
+		foreach ( $groups as $g => $items ) {
+			$h .= '<details class="snv-g" data-g="' . esc_attr( sanitize_title( $g ) ) . '" style="--c:' . esc_attr( self::color( $g ) ) . '"><summary><span class="snv-dot" aria-hidden="true"></span><span class="snv-gl">' . esc_html( $g ) . '</span><span class="snv-n">' . count( $items ) . '</span></summary><ul>';
+			foreach ( $items as $k => $i ) {
+				$on = in_array( $k, $pins, true );
+				$h .= '<li class="snv-i"><a class="snv-a" href="' . esc_url( $i[2] ) . '"' . ( $i[3] ? ' title="' . esc_attr( $i[3] ) . '"' : '' ) . '><span class="snv-ic" aria-hidden="true">' . esc_html( $i[0] ) . '</span><span class="snv-t">' . esc_html( $i[1] ) . '</span></a>'
+					. '<button type="button" class="spn-star snv-star' . ( $on ? ' is-on' : '' ) . '" data-pin="' . esc_attr( $k ) . '" aria-pressed="' . ( $on ? 'true' : 'false' ) . '" title="' . ( $on ? 'Unpin' : 'Pin to the top' ) . '">' . ( $on ? '★' : '☆' ) . '</button></li>';
+			}
+			$h .= '</ul></details>';
+		}
+		$h .= '</div>';
+		$css = '.snv{margin:4px 0 10px;font-size:14px}.snv[hidden]{display:none}'
+			. '.snv-find input{width:100%;box-sizing:border-box;padding:8px 10px;margin:4px 0 8px;border:1px solid #dfe3e6;border-radius:10px;font-size:13.5px;background:#fff}'
+			. '.snv-pins{margin:0 0 8px;padding:8px;border-radius:12px;background:#fffaf0;box-shadow:inset 0 0 0 1px #f3e2b3}'
+			. '.snv-h{margin:0 0 4px 4px;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a16207}'
+			. '.snv-hint{margin:2px 4px;font-size:12.5px;color:#6b7280}'
+			. '.snv-g+.snv-g{border-top:1px solid #f0f2f4}'
+			. '.snv-g summary{display:flex;align-items:center;gap:8px;padding:9px 8px;list-style:none;cursor:pointer;font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--c);border-radius:8px}'
+			. '.snv-g summary::-webkit-details-marker{display:none}.snv-g summary:hover{background:#f6f8f9}'
+			. '.snv-g summary::after{content:"";margin-left:6px;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}.snv-g[open] summary::after{transform:rotate(45deg)}'
+			. '.snv-dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}'
+			. '.snv-gl{flex:1;min-width:0}'
+			. '.snv-n{font-size:11px;font-weight:700;color:#6b7280;background:#f1f3f5;border-radius:99px;padding:1px 7px;letter-spacing:0}'
+			. '.snv-g ul{margin:0;padding:0 0 6px 4px;list-style:none}'
+			. '.snv-i{display:flex;align-items:center;margin:0;list-style:none}'
+			. '.snv-a{display:flex;flex:1;min-width:0;align-items:center;gap:10px;padding:5px 8px;border-radius:10px;color:#1f2328!important;text-decoration:none!important;font-size:14px;line-height:1.3}'
+			. '.snv-a:hover{background:#f3f6f7}.snv-a.is-here{background:color-mix(in srgb,var(--c) 10%,#fff);font-weight:700;box-shadow:inset 3px 0 0 var(--c)}'
+			. '.snv-ic{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;font-size:15px;background:color-mix(in srgb,var(--c) 15%,#fff);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 32%,#fff)}'
+			. '.snv-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+			. '.snv .snv-star{position:static;flex:none;min-width:30px;min-height:30px;padding:4px;font-size:15px;color:#9aa3ab;opacity:0}'
+			. '.snv-i:hover .snv-star,.snv .snv-star:focus,.snv .snv-star.is-on{opacity:1}.snv .snv-star.is-on{color:#c99500}'
+			. '@media(hover:none){.snv .snv-star{opacity:.55}}';
+		$js = '(function(){var s=document.getElementById("snv"),nav=document.querySelector(".tutor-dashboard-sidebar-nav");if(!s||!nav)return;'
+			. 'var ul=nav.querySelector("ul");if(ul){var keep=/tutor-dashboard-menu-(index|logout)\b/;[].forEach.call(ul.children,function(li){if(!keep.test(li.className))li.style.display="none";});var out=ul.querySelector(".tutor-dashboard-menu-logout");nav.insertBefore(s,ul.nextSibling);if(out){var u2=document.createElement("ul");u2.className=ul.className;u2.appendChild(out);nav.insertBefore(u2,s.nextSibling);}}else{nav.insertBefore(s,nav.firstChild);}'
+			. 's.hidden=false;var K="snv-open",saved=[];try{saved=JSON.parse(localStorage.getItem(K)||"[]")||[];}catch(e){}'
+			. 'var gs=s.querySelectorAll(".snv-g");[].forEach.call(gs,function(d){if(saved.indexOf(d.getAttribute("data-g"))>-1)d.open=true;});'
+			. 'var q=new URLSearchParams(location.search),here=location.pathname.replace(/\/$/,"");'
+			. 'function mark(){[].forEach.call(s.querySelectorAll("a.snv-a"),function(a){var u;try{u=new URL(a.href,location.href);}catch(e){return;}var m=u.pathname.replace(/\/$/,"")===here&&(u.searchParams.get("screen")||"")===(q.get("screen")||"")&&(u.searchParams.get("page")||"")===(q.get("page")||"");a.classList.toggle("is-here",m);if(m){var d=a.closest("details");if(d)d.open=true;}});}mark();'
+			. 'function save(){if(f.value)return;var o=[];[].forEach.call(gs,function(d){if(d.open)o.push(d.getAttribute("data-g"));});try{localStorage.setItem(K,JSON.stringify(o));}catch(e){}}'
+			. '[].forEach.call(gs,function(d){d.addEventListener("toggle",save);});'
+			. 'var f=s.querySelector(".snv-find input"),before=null;f.addEventListener("input",function(){var v=f.value.trim().toLowerCase();if(v&&!before){before=[].map.call(gs,function(d){return d.open;});}'
+			. '[].forEach.call(gs,function(d,i){var n=0;[].forEach.call(d.querySelectorAll(".snv-i"),function(li){var ok=!v||li.textContent.toLowerCase().indexOf(v)>-1;li.style.display=ok?"":"none";if(ok)n++;});d.style.display=v&&!n?"none":"";if(v){d.open=n>0;}else if(before){d.open=before[i];}});if(!v)before=null;});'
+			. 'new MutationObserver(function(){mark();}).observe(s,{childList:true});})();';
+		echo self::assets() . '<style id="snv-css">' . $css . '</style>' . $h . '<script>' . $js . '</script>'; // phpcs:ignore -- escaped above
 	}
 
 	/** Pinned links for the Workspace bar (school team, every dashboard page). */
