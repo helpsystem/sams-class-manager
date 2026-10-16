@@ -30,6 +30,19 @@ class SDSC_DFCal {
 		foreach ( array( 'events', 'move', 'status', 'block', 'unblock' ) as $a ) {
 			add_action( 'wp_ajax_sdsc_cal_' . $a, array( __CLASS__, 'ajax_' . $a ) );
 		}
+		add_filter( 'user_has_cap', array( __CLASS__, 'calendar_pass' ), 10, 3 );
+	}
+
+	/**
+	 * Front desk (anyone with "BTW lessons & fees") may open the lesson calendar page, which DriveFlow guards with
+	 * driveflow_manage. The pass is given on that one page only, so the rest of DriveFlow (students and credits,
+	 * instructors and payouts, accounting, settings) stays closed to them.
+	 */
+	public static function calendar_pass( $all, $caps, $args ) {
+		if ( ! in_array( 'driveflow_manage', (array) $caps, true ) || ! empty( $all['driveflow_manage'] ) || empty( $all['sdsc_access_lessons'] ) ) { return $all; }
+		if ( ! is_admin() || wp_doing_ajax() || 'admin.php' !== ( $GLOBALS['pagenow'] ?? '' ) || 'driveflow-pro-calendar' !== ( $_GET['page'] ?? '' ) ) { return $all; } // phpcs:ignore
+		$all['driveflow_manage'] = true;
+		return $all;
 	}
 
 	public static function can() { return class_exists( 'SDSC_DFBook' ) && SDSC_DFBook::can(); }

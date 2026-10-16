@@ -61,7 +61,7 @@ class SDSC_Workspace {
 		$s   = array(
 			// DriveFlow — lessons, people, cars, money.
 			'df-hub'         => array( 'Lessons overview', 'lessons', 'admin.php?page=driveflow-pro-hub', $df, '🧭', 'Today’s lessons, live sessions and quick numbers.' ),
-			'df-calendar'    => array( 'Lesson calendar', 'lessons', 'admin.php?page=driveflow-pro-calendar', $df, '📅', 'Book, move and cancel driving lessons; see every instructor and car.' ),
+			'df-calendar'    => array( 'Lesson calendar', 'lessons', 'admin.php?page=driveflow-pro-calendar', $df || ( class_exists( 'DriveFlow_Pro' ) && class_exists( 'SDSC_DFCal' ) && SDSC_DFCal::can() ), '📅', 'Book, move and cancel driving lessons; see every instructor and car.' ),
 			'df-records'     => array( 'Evaluations & records', 'lessons', 'admin.php?page=driveflow-pro-records', $df, '📋', 'Completed lessons, in-car evaluations, signatures and notes.' ),
 			'df-students'    => array( 'Students & lesson credits', 'students', 'admin.php?page=driveflow-pro-students', $df, '🎓', 'Student profiles, packages, remaining lessons and booking links.' ),
 			'df-instructors' => array( 'Instructors & payouts', 'team', 'admin.php?page=driveflow-pro-instructors', $df, '🧑‍🏫', 'Instructor profiles, onboarding links, pay rates and payouts.' ),
