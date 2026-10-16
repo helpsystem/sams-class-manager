@@ -79,6 +79,7 @@ class SDSC_Workspace {
 			'records'        => array( 'Student records (print)', 'students', 'admin.php?page=sdsc-reports', $can( 'reports' ), '🗂️', 'Full student records to print and file.' ),
 			'btw'            => array( 'BTW lessons & fees', 'lessons', 'admin.php?page=sdsc-lessons', $can( 'lessons' ), '🚗', 'Lesson confirmations, late-cancellation and no-show fees, waivers.' ),
 			'attendance'     => array( 'Class attendance (sheet)', 'lessons', 'admin.php?page=sdsc-attendance', $can( 'attendance' ) && in_array( self::kind(), array( 'admin', 'manager', 'frontdesk' ), true ), '🗓️', 'The whole attendance sheet for a class.' ),
+			'inbox'          => array( 'School e-mails' . ( class_exists( 'SDSC_Inbox' ) && SDSC_Inbox::can() && SDSC_Inbox::count_new() ? ' (' . SDSC_Inbox::count_new() . ' to answer)' : '' ), 'talk', 'admin.php?page=sdsc-inbox', class_exists( 'SDSC_Inbox' ) && SDSC_Inbox::can(), '📧', 'E-mails sent to info@: read, answer from the school address, mark handled.' ),
 			'texts'          => array( 'Texts to send', 'talk', 'admin.php?page=sdsc-texts', $can( 'texts' ), '💬', 'Reminders and confirmations to text, one tap each.' ),
 			'sms'            => array( 'Text messages log', 'talk', 'admin.php?page=sdsc-sms', $can( 'sms' ), '📲', 'Texts sent through Twilio and their delivery.' ),
 			'outreach'       => array( 'Celebrations & campaigns', 'talk', 'admin.php?page=sdsc-outreach', $can( 'outreach' ), '🎉', 'Birthday wishes, anniversaries, group e-mails and texts.' ),

@@ -54,7 +54,7 @@ $nid = SDSC_Inbox::take( 105, $mk( "News <news$stu>", 'Big sale', 'buy', "List-U
 $aid = SDSC_Inbox::take( 106, $mk( "Bob <bob$stu>", 'Automatic reply: away', 'away', "Auto-Submitted: auto-replied\r\n" ), $o );
 $t( 'other' === SDSC_Inbox::row( $nid )['status'] && 'other' === SDSC_Inbox::row( $aid )['status'], 'newsletter and auto-reply not forwarded' );
 // 6b. security codes / sign-in links stay in the panel
-$sent = array();
+SDSC_Inbox::flush_outbox(); $sent = array();
 $cid = SDSC_Inbox::take( 109, $mk( "Pay Co <billing$stu>", 'Your Stripe verification code', 'Your code is 123456' ), $o );
 $lid = SDSC_Inbox::take( 110, $mk( "Bank <bank$stu>", 'Hello', "Click to reset your password: https://x" ), $o );
 SDSC_Inbox::flush_outbox();
