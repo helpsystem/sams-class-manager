@@ -151,7 +151,6 @@ if ( 'undo' === $do ) {
 	foreach ( $ids as $id ) {
 		$wpdb->query( $wpdb->prepare( "UPDATE $rt SET class_id = NULL, notes = TRIM(REPLACE(notes, CONCAT('\nCourse ', %s, ' from the office course list'), '')) WHERE class_id = %d AND source <> 'archive'", get_post_meta( $id, '_sdsc_course_code', true ), $id ) );
 		$wpdb->query( $wpdb->prepare( "UPDATE $rt SET notes = TRIM(SUBSTRING_INDEX(notes, '\nCourse C-', 1)) WHERE notes LIKE %s", '%from the office course list%' ) );
-		delete_post_meta_by_key( '_x' );
 		wp_delete_post( $id, true ); $n2++;
 	}
 	echo "undo: archive students removed $n1, classes removed $n2, links cleared\n";
