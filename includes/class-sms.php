@@ -88,6 +88,7 @@ class SDSC_SMS {
 	 * $ctx is a short label for the log, e.g. "lesson:12:confirm".
 	 */
 	public static function send( $to, $body, $ctx = '' ) {
+		if ( class_exists( 'SDSC_Hold' ) && SDSC_Hold::block_sms( $to, $body ) ) { return array( false, 'Held — notifications are on hold.' ); }
 		global $wpdb;
 		$c  = self::creds();
 		$to = self::e164( $to );
@@ -124,6 +125,7 @@ class SDSC_SMS {
 	 * otherwise into "Texts to send" for the staff to send from the school phone (free).
 	 */
 	public static function deliver( $phone, $body, $ctx, $name = '', $label = '', $expires = null ) {
+		if ( class_exists( 'SDSC_Hold' ) && SDSC_Hold::block_sms( $phone, $body ) ) { return 'held — notifications are on hold (not sent)'; }
 		if ( self::ready() ) {
 			$r = self::send( $phone, $body, $ctx );
 			return $r[1];

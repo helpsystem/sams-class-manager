@@ -1103,3 +1103,5 @@ class SDSC_Registration {
 /* Student transfers between schools (transfer in / out, printed record, e-mail with documents). */
 require_once __DIR__ . '/class-transfer.php';
 SDSC_Transfer::init();
+require_once __DIR__ . '/class-hold.php';
+SDSC_Hold::init();
