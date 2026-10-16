@@ -901,7 +901,11 @@ class SDSC_Registration {
 		$per   = 50;
 		$where = '1=1';
 		$args  = array();
-		if ( $s ) {
+		$by_code = $s && preg_match( '/^[A-Z]{1,4}-?\d{1,4}$/i', trim( $s ) ) ? (int) ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => array( 'publish', 'private' ), 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sdsc_course_code', 'meta_value' => strtoupper( trim( $s ) ) ) )[0] ?? 0 ) : 0;
+		if ( $by_code ) { // a course code such as C-35 lists that class's students
+			$where = 'class_id = %d';
+			$args  = array( $by_code );
+		} elseif ( $s ) {
 			$like  = '%' . $wpdb->esc_like( $s ) . '%';
 			$where = '(first_name LIKE %s OR last_name LIKE %s OR email LIKE %s OR phone LIKE %s OR (source <> %s AND id = %d) OR (source = %s AND source_entry_id = %d))';
 			$num   = preg_match( '/^\s*(?:SDS-?)?0*(\d+)\s*$/i', $s, $mm ) ? (int) $mm[1] : -1;
@@ -914,7 +918,7 @@ class SDSC_Registration {
 		echo '<h1>Registrations <span class="count">(' . (int) $total . ')</span></h1>';
 		echo '<p class="sdsc-lead" id="sdsc-reg-lead">Every sign-up from the website, newest first. Click a student’s name to see the whole form, the signed contract and the signatures.</p>';
 		if ( current_user_can( 'manage_options' ) ) { echo '<p class="description">Administrator note: the form is the <code>[sdsc_registration_form]</code> shortcode; add <code>?course=CODE</code> to a link to preselect a class.</p>'; }
-		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email, phone or file no." aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
+		echo '<form method="get" id="sdsc-reg-search"><input type="hidden" name="page" value="sdsc-registrations"/><p class="search-box"><input type="search" name="s" value="' . esc_attr( $s ) . '" placeholder="Name, email, phone, file no. or course code (C-35)" aria-label="Search registrations"/> <button class="button">Search</button></p></form>';
 		echo '<table class="widefat striped" id="sdsc-reg-list"><thead><tr><th>Date</th><th>File no.</th><th>Student</th><th>Age</th><th>Email</th><th>Phone</th><th>Course</th><th>Source</th><th>Follow-up</th></tr></thead><tbody>';
 		if ( ! $rows ) { echo '<tr><td colspan="7">No registrations yet.</td></tr>'; }
 		foreach ( $rows as $r ) {
