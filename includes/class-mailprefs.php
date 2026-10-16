@@ -63,6 +63,8 @@ class SDSC_MailPrefs {
 		self::$skipped = null;
 		$kind = self::kind( wp_strip_all_tags( (string) ( $atts['subject'] ?? '' ) ) );
 		if ( 'account' === $kind ) { return $atts; }
+		// Student e-mails forwarded from the school inbox: the forward list itself is the choice, always deliver.
+		if ( preg_grep( '/^X-SDSC-Inbox:/i', (array) ( $atts['headers'] ?? array() ) ) ) { return $atts; }
 		$cache = array();
 		$off   = function ( $addr ) use ( $kind, &$cache ) {
 			if ( preg_match( '/<([^>]+)>/', $addr, $m ) ) { $addr = $m[1]; }

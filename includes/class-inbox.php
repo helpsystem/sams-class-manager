@@ -427,7 +427,7 @@ class SDSC_Inbox {
 			. '<p style="' . $f . 'margin:18px 0 0;font-size:13px;color:#5b646d"><b>To answer:</b> just reply to this e-mail. Your answer is sent to ' . esc_html( $r['from_email'] ) . ' from info@samsdrivingschool.org within about 5 minutes. Or open it in the panel: <a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&id=' . (int) $id ) ) . '">Inbox</a>.</p>';
 		$subj = '[SDS #' . self::ref( $id ) . '] ' . $r['subject'] . ' — ' . ( trim( $r['from_name'] ) ? $r['from_name'] : $r['from_email'] );
 		$ids  = SDSC_Mailer::identities();
-		$ok   = SDSC_Mailer::send( $to, $subj, $body, 'info', array( 'Content-Type: text/html; charset=UTF-8', 'Reply-To: ' . $ids['info'][1] . ' <' . $ids['info'][0] . '>' ) );
+		$ok   = SDSC_Mailer::send( $to, $subj, $body, 'info', array( 'Content-Type: text/html; charset=UTF-8', 'X-SDSC-Inbox: fwd', 'Reply-To: ' . $ids['info'][1] . ' <' . $ids['info'][0] . '>' ) );
 		$wpdb->update( self::table(), array( 'fwd_at' => $ok ? current_time( 'mysql' ) : null, 'note' => $ok ? 'Forwarded to ' . implode( ', ', $to ) : 'Forward failed' ), array( 'id' => (int) $id ) );
 		return $ok;
 	}
