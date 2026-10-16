@@ -182,6 +182,14 @@ class SDSC_ZoomAuto {
 		return $out;
 	}
 
+	/** Meeting ID the way Zoom prints it: 920 6636 7353 (11 digits) or 123 456 7890 (10). */
+	public static function fmt_id( $id ) {
+		$d = preg_replace( '/\D/', '', (string) $id );
+		if ( 11 === strlen( $d ) ) { return substr( $d, 0, 3 ) . ' ' . substr( $d, 3, 4 ) . ' ' . substr( $d, 7 ); }
+		if ( 10 === strlen( $d ) ) { return substr( $d, 0, 3 ) . ' ' . substr( $d, 3, 3 ) . ' ' . substr( $d, 6 ); }
+		return trim( chunk_split( $d, 4, ' ' ) );
+	}
+
 	public static function send( $cid ) {
 		$link = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
 		if ( ! $link ) { return new WP_Error( 'zoom', 'This class has no Zoom link yet.' ); }
@@ -207,7 +215,7 @@ class SDSC_ZoomAuto {
 		foreach ( $list as $x ) { $units .= '<tr><td style="' . $f . 'padding:3px 14px 3px 0;font-size:14px;white-space:nowrap">' . esc_html( wp_date( 'F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:3px 0;font-size:14px;color:#5b646d">(unit ' . (int) $x['n'] . ')</td></tr>'; }
 		$zoom  = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;border-radius:12px;background:#f7f9fa;width:100%">'
 			. '<tr><td style="' . $f . 'padding:10px 14px;font-size:14px;color:#5b646d;width:120px">Join Zoom</td><td style="' . $f . 'padding:10px 14px;font-size:14px"><a href="' . esc_url( $link ) . '" style="color:#00703c;font-weight:700;word-break:break-all">' . esc_html( $link ) . '</a></td></tr>'
-			. ( $id ? '<tr><td style="' . $f . 'padding:6px 14px;font-size:14px;color:#5b646d">Meeting ID</td><td style="' . $f . 'padding:6px 14px;font-size:14px"><b>' . esc_html( trim( chunk_split( $id, 4, ' ' ) ) ) . '</b></td></tr>' : '' )
+			. ( $id ? '<tr><td style="' . $f . 'padding:6px 14px;font-size:14px;color:#5b646d">Meeting ID</td><td style="' . $f . 'padding:6px 14px;font-size:14px"><b>' . esc_html( self::fmt_id( $id ) ) . '</b></td></tr>' : '' )
 			. ( $pass ? '<tr><td style="' . $f . 'padding:6px 14px 10px;font-size:14px;color:#5b646d">Passcode</td><td style="' . $f . 'padding:6px 14px 10px;font-size:14px"><b>' . esc_html( $pass ) . '</b></td></tr>' : '' )
 			. '</table>';
 		$sent = 0;
@@ -248,7 +256,7 @@ class SDSC_ZoomAuto {
 		echo '<p><label><input type="checkbox" name="sdsc_zoom_auto" value="1"' . checked( 'off' !== get_post_meta( $cid, '_sdsc_zoom_auto', true ), true, false ) . '> Make the Zoom meeting automatically</label></p>';
 		if ( $link ) {
 			echo '<p><b>Link:</b> <a href="' . esc_url( $link ) . '" target="_blank" rel="noopener">' . esc_html( $link ) . '</a></p>';
-			if ( $id ) { echo '<p><b>Meeting ID:</b> ' . esc_html( trim( chunk_split( $id, 4, ' ' ) ) ) . ( $pass ? '<br><b>Passcode:</b> ' . esc_html( $pass ) : '' ) . ( $n ? '<br><b>Account:</b> ' . esc_html( SDSC_Api::zoom_label( $n ) ) : '' ) . '</p>'; }
+			if ( $id ) { echo '<p><b>Meeting ID:</b> ' . esc_html( self::fmt_id( $id ) ) . ( $pass ? '<br><b>Passcode:</b> ' . esc_html( $pass ) : '' ) . ( $n ? '<br><b>Account:</b> ' . esc_html( SDSC_Api::zoom_label( $n ) ) : '' ) . '</p>'; }
 		} else {
 			echo '<p>No Zoom link yet. ' . ( SDSC_Schedule::sessions( $cid ) ? 'It is made when the class is saved.' : 'Fill in the timetable, then save.' ) . '</p>';
 		}
