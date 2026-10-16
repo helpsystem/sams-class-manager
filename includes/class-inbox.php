@@ -347,6 +347,7 @@ class SDSC_Inbox {
 		$status = 'new'; $note = '';
 		if ( in_array( $from, $own, true ) ) { $status = 'other'; $note = 'Sent by the school itself'; }
 		elseif ( $auto ) { $status = 'other'; $note = 'Automatic / newsletter / spam — not forwarded'; }
+		elseif ( self::secret( $subj . ' ' . mb_substr( (string) $text, 0, 3000 ) ) ) { $status = 'other'; $note = 'Security code / sign-in e-mail — kept in the panel only, never forwarded'; }
 		$old = $o['since'] && $date < (int) $o['since'];
 		$wpdb->insert( self::table(), array(
 			'kind' => 'in', 'uid' => (int) $uid, 'msgid' => mb_substr( $msgid, 0, 250 ), 'from_email' => mb_substr( $from, 0, 190 ), 'from_name' => mb_substr( $name, 0, 190 ),
@@ -370,6 +371,11 @@ class SDSC_Inbox {
 		}
 		if ( 'new' === $status && ! $old && ! in_array( $from, $staff, true ) ) { self::queue_forward( $id ); }
 		return $id;
+	}
+
+	/** Verification codes, sign-in links and password resets never leave the school mailbox. */
+	public static function secret( $t ) {
+		return (bool) preg_match( '/verification code|security code|one[- ]time (pass)?code|\bOTP\b|passcode|(log ?in|sign[- ]?in) (code|link|attempt)|magic link|password reset|reset (your )?password|two[- ]factor|\b2fa\b|confirm your (e-?mail|account|identity)|verify your (e-?mail|identity|account|device|login)|new (sign[- ]?in|login|device)/i', (string) $t );
 	}
 
 	/** Keep only what the staff member wrote (cut the quoted forward). */

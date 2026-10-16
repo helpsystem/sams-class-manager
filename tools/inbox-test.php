@@ -53,6 +53,13 @@ $t( 'in' === SDSC_Inbox::row( $sid )['kind'] && ! $wpdb->get_var( $wpdb->prepare
 $nid = SDSC_Inbox::take( 105, $mk( "News <news$stu>", 'Big sale', 'buy', "List-Unsubscribe: <mailto:u@x>\r\n" ), $o );
 $aid = SDSC_Inbox::take( 106, $mk( "Bob <bob$stu>", 'Automatic reply: away', 'away', "Auto-Submitted: auto-replied\r\n" ), $o );
 $t( 'other' === SDSC_Inbox::row( $nid )['status'] && 'other' === SDSC_Inbox::row( $aid )['status'], 'newsletter and auto-reply not forwarded' );
+// 6b. security codes / sign-in links stay in the panel
+$sent = array();
+$cid = SDSC_Inbox::take( 109, $mk( "Pay Co <billing$stu>", 'Your Stripe verification code', 'Your code is 123456' ), $o );
+$lid = SDSC_Inbox::take( 110, $mk( "Bank <bank$stu>", 'Hello', "Click to reset your password: https://x" ), $o );
+SDSC_Inbox::flush_outbox();
+$t( 'other' === SDSC_Inbox::row( $cid )['status'] && 'other' === SDSC_Inbox::row( $lid )['status'] && ! $sent, 'verification code and password reset not forwarded' );
+$t( ! SDSC_Inbox::secret( "Hi, can I move my lesson to Saturday?" ) && ! SDSC_Inbox::secret( "What is included in the 378 dollars? Is that for the online class" ), 'normal student questions are still forwarded' );
 // 7. failed DKIM from staff
 $did = SDSC_Inbox::take( 107, $mk( $su->user_email, 'Re: [SDS #' . SDSC_Inbox::ref( $id ) . '] x', 'fake', "Authentication-Results: mx.hostinger.com; dkim=fail; spf=fail\r\n" ), $o );
 $t( 'new' === SDSC_Inbox::row( $did )['status'] && false !== strpos( SDSC_Inbox::row( $did )['note'], 'confirm' ), 'failed sender check: held for review' );
