@@ -257,7 +257,7 @@ class SDSC_Prices {
 			if ( 'redirect' === $ac['type'] && ! empty( $ac['redirect']['url'] ) ) { $o['after_completion']['redirect'] = array( 'url' => $ac['redirect']['url'] ); }
 			if ( 'hosted_confirmation' === $ac['type'] && ! empty( $ac['hosted_confirmation']['custom_message'] ) ) { $o['after_completion']['hosted_confirmation'] = array( 'custom_message' => $ac['hosted_confirmation']['custom_message'] ); }
 		}
-		foreach ( array( 'allow_promotion_codes', 'billing_address_collection', 'customer_creation', 'submit_type', 'payment_method_collection', 'inactive_message' ) as $k ) {
+		foreach ( array( 'allow_promotion_codes', 'billing_address_collection', 'customer_creation', 'submit_type', 'inactive_message' ) as $k ) {
 			if ( isset( $l[ $k ] ) && null !== $l[ $k ] ) { $o[ $k ] = $l[ $k ]; }
 		}
 		foreach ( array( 'phone_number_collection', 'tax_id_collection', 'consent_collection', 'custom_text', 'shipping_address_collection', 'payment_intent_data', 'automatic_tax', 'name_collection' ) as $k ) {

@@ -26,6 +26,8 @@ list( $c, $hand ) = $A( 'POST', 'payment_links', array(
 ) );
 $t( 200 === $c && ! empty( $hand['url'] ), 'hand-made test link created' );
 $made_links[] = $hand['id'] ?? '';
+if ( 200 !== $c ) { echo 'hand error: ' . ( $hand['error']['message'] ?? '' ) . "\n"; }
+$fl = $r->getMethod( 'find_link' ); $fl->setAccessible( true ); echo 'find hand: ' . ( $fl->invoke( null, $hand['url'] ?? '' ) ? 'found' : 'NOT found' ) . "\n";
 list( $o2, $u2, $n2 ) = SDSC_Prices::make_link( $key . 'h', 'SDSC TEST hand', '$55', $hand['url'] );
 $t( $o2 && $u2 !== $hand['url'], "replacement link: $n2" );
 list( $c, $all ) = $A( 'GET', 'payment_links', array( 'limit' => 20 ) );
