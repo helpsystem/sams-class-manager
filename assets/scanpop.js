@@ -14,7 +14,7 @@
 	function ver(v) { return String(v || '0').split('.').map(Number); }
 	function atLeast(v, need) { var a = ver(v), b = ver(need); for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) { return (a[i] || 0) > (b[i] || 0); } } return true; }
 	function store(k, v) { try { if (v === undefined) { return localStorage.getItem('sdsc_scan_' + k); } localStorage.setItem('sdsc_scan_' + k, String(v)); } catch (e) { return null; } return null; }
-	function timerSecs() { var v = parseInt(store('timer'), 10); return isNaN(v) ? 3 : v; }
+	function timerSecs() { var v = parseInt(store('timer'), 10); if (isNaN(v) || (v && v < 5)) { v = 5; } return v; }
 	function beep() { try { var A = window.AudioContext || window.webkitAudioContext, a = new A(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1200; g.gain.value = 0.08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.09); setTimeout(function () { a.close(); }, 300); } catch (e) {} }
 	function toImg(blob) { return new Promise(function (ok, no) { var u = URL.createObjectURL(blob), im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); URL.revokeObjectURL(u); ok(c); }; im.onerror = function () { URL.revokeObjectURL(u); no(new Error('The scanner sent a picture that could not be opened.')); }; im.src = u; }); }
 
@@ -40,7 +40,7 @@
 	function stopCount() { if (CT) { clearInterval(CT); CT = null; } }
 	/**
 	 * A step with a picture of what to do, a big countdown and buttons. o: { art, title, text, go(), cancel(), extra, done:[canvas,label] }
-	 * The countdown length (3 s by default; 5, 10 or off) is remembered on this computer.
+	 * The countdown never starts by itself: the office presses Start (or Scan now). Its length (5 s by default; 7, 10 or off) is remembered on this computer.
 	 */
 	function step(o) {
 		stopCount();
@@ -54,24 +54,24 @@
 				'<div class="spop-cd" aria-live="polite"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="spop-cd-bg"/><circle cx="60" cy="60" r="52" class="spop-cd-fg"/></svg><b class="spop-cd-n"></b><small class="spop-cd-l"></small></div>' +
 			'</div>' +
 			'<div class="spop-acts"><button type="button" class="sdd-b spop-go">🖨 Scan now</button><button type="button" class="sdd-b sdd-b--ghost spop-pause">⏸ Wait</button>' + (o.extra || '') + '<button type="button" class="sdd-b sdd-b--ghost spop-cancel">Cancel</button>' +
-			'<label class="spop-tm">Timer <select><option value="3">3 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="0">Off — I press Scan</option></select></label></div>'
+			'<label class="spop-tm">Timer <select><option value="5">5 s</option><option value="7">7 s</option><option value="10">10 s</option><option value="0">Off — I press Scan</option></select></label></div>'
 		);
 		if (!b) { return; }
 		if (o.done) { o.done.forEach(function (d, i) { var f = b.querySelectorAll('.spop-done figure')[i]; var im = new Image(); im.alt = d[1]; im.src = d[0].toDataURL('image/jpeg', 0.7); f.querySelector('span').appendChild(im); f.querySelector('figcaption').textContent = '✓ ' + d[1]; }); }
 		var sel = b.querySelector('.spop-tm select'); sel.value = String(n);
-		var num = b.querySelector('.spop-cd-n'), lab = b.querySelector('.spop-cd-l'), fg = b.querySelector('.spop-cd-fg'), L = 2 * Math.PI * 52, left = n, paused = !n || !!o.paused;
+		var num = b.querySelector('.spop-cd-n'), lab = b.querySelector('.spop-cd-l'), fg = b.querySelector('.spop-cd-fg'), L = 2 * Math.PI * 52, left = n, paused = true; // manual start
 		fg.style.strokeDasharray = L;
 		function paint() {
-			if (paused) { num.textContent = '⏸'; lab.textContent = n ? 'paused' : 'press Scan'; fg.style.strokeDashoffset = L; return; }
+			if (paused) { num.textContent = n ? n : '—'; lab.textContent = n ? 'press Start' : 'press Scan'; fg.style.strokeDashoffset = L; return; }
 			num.textContent = left; lab.textContent = 'seconds'; fg.style.strokeDashoffset = L * (1 - left / n);
 		}
 		function fire() { stopCount(); o.go(); }
 		function run() { stopCount(); if (paused || !n) { paint(); return; } paint(); CT = setInterval(function () { left--; if (left <= 0) { fire(); return; } paint(); }, 1000); }
 		var root = b;
 		root.querySelector('.spop-go').addEventListener('click', fire);
-		root.querySelector('.spop-pause').addEventListener('click', function (e) { paused = !paused; e.currentTarget.textContent = paused ? '▶ Start the timer' : '⏸ Wait'; if (!paused) { left = n || 3; if (!n) { n = 3; } } run(); });
+		root.querySelector('.spop-pause').addEventListener('click', function (e) { paused = !paused; e.currentTarget.textContent = paused ? '▶ Start the timer' : '⏸ Wait'; if (!paused) { left = n || 5; if (!n) { n = 5; } } run(); });
 		root.querySelector('.spop-cancel').addEventListener('click', function () { close(); if (o.cancel) { o.cancel(); } });
-		sel.addEventListener('change', function () { n = parseInt(sel.value, 10) || 0; store('timer', n); left = n; paused = !n; root.querySelector('.spop-pause').textContent = paused ? '▶ Start the timer' : '⏸ Wait'; run(); });
+		sel.addEventListener('change', function () { n = parseInt(sel.value, 10) || 0; store('timer', n); left = n; paused = true; root.querySelector('.spop-pause').textContent = '▶ Start the timer'; run(); });
 		if (paused) { root.querySelector('.spop-pause').textContent = '▶ Start the timer'; }
 		run();
 		return root;

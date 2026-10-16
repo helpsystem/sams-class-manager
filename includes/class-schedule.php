@@ -765,7 +765,10 @@ class SDSC_Schedule {
 		if ( ! self::can() ) { wp_die( 'Not allowed.' ); }
 		wp_enqueue_style( 'sdsc-outreach', SDSC_URL . 'assets/outreach.css', array(), SDSC_VERSION );
 		wp_enqueue_style( 'sdsc-lessons', SDSC_URL . 'assets/lessons.css', array( 'sdsc-outreach' ), SDSC_VERSION );
-		$classes = get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'any', 'numberposts' => 60, 'orderby' => 'meta_value', 'meta_key' => '_sdsc_start', 'order' => 'DESC' ) ); // phpcs:ignore
+		$classes = get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => array( 'publish', 'private', 'draft', 'pending' ), 'numberposts' => 60, 'orderby' => 'meta_value', 'meta_key' => '_sdsc_start', 'order' => 'DESC' ) ); // phpcs:ignore
+		// Test and demo classes stay out of the sheet (the demo class is only for the "View as" preview accounts).
+		$pv      = class_exists( 'SDSC_Preview' ) && SDSC_Preview::is_preview();
+		$classes = array_values( array_filter( $classes, function ( $p ) use ( $pv ) { return ( $pv || ! get_post_meta( $p->ID, '_sdsc_demo_class', true ) ) && ! preg_match( '/^(TEST-|ZZ)/i', (string) get_post_meta( $p->ID, '_sdsc_course_code', true ) ) && ! preg_match( '/payment test|\bTEST-\d/i', $p->post_title ); } ) );
 		$cid     = isset( $_GET['class'] ) ? (int) $_GET['class'] : ( $classes ? $classes[0]->ID : 0 ); // phpcs:ignore
 		?>
 		<div class="wrap sdo sdl">
