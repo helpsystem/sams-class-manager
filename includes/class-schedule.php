@@ -75,9 +75,32 @@ class SDSC_Schedule {
 
 	/* ================================================================ timetable */
 
+	/** The school's usual timetable: 10 sessions, Monday to Friday. Morning 9:00–12:00; evening classes keep the same days. */
+	public static function preset( $which = 'am' ) {
+		return 'pm' === $which
+			? array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '18:00', 'to' => '21:00', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() )
+			: array( 'days' => array( 1, 2, 3, 4, 5 ), 'from' => '09:00', 'to' => '12:00', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() );
+	}
+
 	public static function sched( $class_id ) {
 		$s = get_post_meta( $class_id, self::META, true );
-		return wp_parse_args( is_array( $s ) ? $s : array(), array( 'days' => array(), 'from' => '', 'to' => '', 'count' => 10, 'remind' => 1 ) );
+		if ( ! is_array( $s ) ) { // a new class starts from the usual timetable (evening when the title says PM / evening)
+			$t = strtolower( (string) get_post_field( 'post_title', $class_id ) );
+			return self::preset( preg_match( '/\b(pm|evening|night)\b/', $t ) ? 'pm' : 'am' );
+		}
+		return wp_parse_args( $s, array( 'days' => array(), 'from' => '', 'to' => '', 'count' => 10, 'remind' => 1, 'skip' => array(), 'extra' => array() ) );
+	}
+
+	/** Dates the school is closed (holiday calendar) from a start date on: Y-m-d => 1. */
+	public static function closed_from( $start ) {
+		$closed = array();
+		if ( class_exists( 'SDSC_Holidays' ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start ) ) {
+			$a = new DateTimeImmutable( $start, wp_timezone() );
+			foreach ( SDSC_Holidays::between( $a->modify( '-1 month' ), $a->modify( '+8 months' ) ) as $h ) {
+				if ( ! empty( $h['cfg']['closed'] ) ) { $closed[ $h['observed']->format( 'Y-m-d' ) ] = 1; }
+			}
+		}
+		return $closed;
 	}
 
 	/** Session list: [ n, date (Y-m-d), start, end (local "Y-m-d H:i:s") ]. Empty until the timetable is filled in. */
@@ -87,23 +110,34 @@ class SDSC_Schedule {
 		$start = substr( (string) get_post_meta( $class_id, '_sdsc_start', true ), 0, 10 );
 		$end   = substr( (string) get_post_meta( $class_id, '_sdsc_end', true ), 0, 10 );
 		if ( ! $s['days'] || ! $s['from'] || ! $s['to'] || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start ) ) { return array(); }
-		$closed = array();
-		if ( class_exists( 'SDSC_Holidays' ) ) {
-			$a = new DateTimeImmutable( $start, wp_timezone() );
-			foreach ( SDSC_Holidays::between( $a, $a->modify( '+8 months' ) ) as $h ) {
-				if ( ! empty( $h['cfg']['closed'] ) ) { $closed[ $h['observed']->format( 'Y-m-d' ) ] = 1; }
-			}
-		}
-		$out = array();
-		$d   = new DateTimeImmutable( $start, wp_timezone() );
-		$lim = preg_match( '/^\d{4}-\d{2}-\d{2}/', $end ) ? substr( $end, 0, 10 ) : $d->modify( '+8 months' )->format( 'Y-m-d' );
-		for ( $i = 0; $i < 400 && count( $out ) < (int) $s['count']; $i++, $d = $d->modify( '+1 day' ) ) {
+		$dates = self::dates( $s, $start, $end );
+		$out   = array();
+		foreach ( $dates as $ymd ) { $out[] = array( 'n' => count( $out ) + 1, 'date' => $ymd, 'start' => $ymd . ' ' . $s['from'] . ':00', 'end' => $ymd . ' ' . $s['to'] . ':00' ); }
+		return $out;
+	}
+
+	/**
+	 * Session dates: the class days from the start date, skipping school-closed days and days the office took out
+	 * ("skip"), plus days the office added by clicking the calendar ("extra"); the first `count` of them.
+	 */
+	public static function dates( $s, $start, $end = '' ) {
+		$closed = self::closed_from( $start );
+		$skip   = array_flip( array_map( 'strval', (array) ( $s['skip'] ?? array() ) ) );
+		$extra  = array_filter( array_map( 'strval', (array) ( $s['extra'] ?? array() ) ), function ( $x ) use ( $start ) { return preg_match( '/^\d{4}-\d{2}-\d{2}$/', $x ) && $x >= $start; } );
+		$want   = max( 1, (int) $s['count'] );
+		$days   = array_map( 'intval', (array) $s['days'] );
+		$d      = new DateTimeImmutable( $start, wp_timezone() );
+		$lim    = preg_match( '/^\d{4}-\d{2}-\d{2}/', (string) $end ) ? substr( $end, 0, 10 ) : $d->modify( '+8 months' )->format( 'Y-m-d' );
+		$auto   = array();
+		for ( $i = 0; $i < 400 && count( $auto ) + count( $extra ) < $want + count( $skip ) + 5; $i++, $d = $d->modify( '+1 day' ) ) {
 			$ymd = $d->format( 'Y-m-d' );
 			if ( $ymd > $lim ) { break; }
-			if ( ! in_array( (int) $d->format( 'w' ), array_map( 'intval', $s['days'] ), true ) || isset( $closed[ $ymd ] ) ) { continue; }
-			$out[] = array( 'n' => count( $out ) + 1, 'date' => $ymd, 'start' => $ymd . ' ' . $s['from'] . ':00', 'end' => $ymd . ' ' . $s['to'] . ':00' );
+			if ( ! in_array( (int) $d->format( 'w' ), $days, true ) || isset( $closed[ $ymd ] ) || isset( $skip[ $ymd ] ) ) { continue; }
+			$auto[] = $ymd;
 		}
-		return $out;
+		$all = array_values( array_unique( array_merge( $auto, $extra ) ) );
+		sort( $all );
+		return array_slice( $all, 0, $want );
 	}
 
 	public static function metabox() {
@@ -127,6 +161,82 @@ class SDSC_Schedule {
 			<label style="margin-left:12px">Number of sessions <input type="number" min="1" max="60" name="sdsc_sched[count]" value="<?php echo (int) $s['count']; ?>" style="width:70px"></label>
 		</p>
 		<p><label><input type="checkbox" name="sdsc_sched[remind]" value="1"<?php checked( $s['remind'] ); ?>> Send each student a reminder the day before every session (and one hour before if they have not answered)</label></p>
+		<p><b>Usual timetable:</b> <button type="button" class="button button-small" data-sdsc-preset="am">Morning · Mon–Fri · 9:00 AM–12:00 PM · 10 sessions</button> <button type="button" class="button button-small" data-sdsc-preset="pm">Evening · Mon–Fri · 6:00–9:00 PM · 10 sessions</button> <span class="description">— sets the days, times and count above; adjust the evening times if yours differ.</span></p>
+		<input type="hidden" name="sdsc_sched[skip]" id="sdsc-sched-skip" value="<?php echo esc_attr( implode( ',', (array) $s['skip'] ) ); ?>">
+		<input type="hidden" name="sdsc_sched[extra]" id="sdsc-sched-extra" value="<?php echo esc_attr( implode( ',', (array) $s['extra'] ) ); ?>">
+		<?php
+		$start0 = substr( (string) get_post_meta( $post->ID, '_sdsc_start', true ), 0, 10 );
+		$closed = self::closed_from( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start0 ) ? $start0 : wp_date( 'Y-m-d' ) );
+		$hol    = array();
+		if ( class_exists( 'SDSC_Holidays' ) ) {
+			$a0 = new DateTimeImmutable( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start0 ) ? $start0 : wp_date( 'Y-m-d' ), wp_timezone() );
+			foreach ( SDSC_Holidays::between( $a0->modify( '-1 month' ), $a0->modify( '+8 months' ) ) as $h ) { $hol[ $h['observed']->format( 'Y-m-d' ) ] = (string) ( $h['def']['name'] ?? $h['def']['label'] ?? $h['key'] ); }
+		}
+		?>
+		<div id="sdsc-cal" data-closed="<?php echo esc_attr( wp_json_encode( array_keys( $closed ) ) ); ?>" data-hol="<?php echo esc_attr( wp_json_encode( $hol ) ); ?>" style="margin:10px 0 6px"></div>
+		<p class="description" style="margin:0 0 10px"><b>Calendar:</b> green days are the sessions (numbered). Click a session day to take it out (the schedule shifts to the next class day); click any other day to add it as a session. Days marked <i>closed</i> are skipped automatically. Save the class to apply.</p>
+		<style>
+		.sdc-months{display:flex;flex-wrap:wrap;gap:14px}.sdc-m{width:238px}.sdc-m h4{margin:0 0 4px;font-size:13px;text-align:center}
+		.sdc-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.sdc-g span{font-size:10px;color:#787c82;text-align:center}
+		.sdc-d{position:relative;height:30px;border:1px solid #dcdcde;border-radius:6px;background:#fff;font-size:11.5px;text-align:left;padding:2px 4px;cursor:pointer;color:#1d2327}
+		.sdc-d.is-out{visibility:hidden}.sdc-d.is-we{background:#f6f7f7;color:#8c8f94}.sdc-d.is-closed{background:#fff3f3;color:#b32d2e;cursor:not-allowed}
+		.sdc-d.is-s{background:#d7f2e1;border-color:#00703c;font-weight:700}.sdc-d.is-s.is-x{background:#fff8e1;border-color:#dba617}
+		.sdc-d.is-skip{background:#f0f0f1;text-decoration:line-through;color:#8c8f94}
+		.sdc-d .n{position:absolute;right:3px;bottom:1px;font-size:10px;color:#00703c}.sdc-d.is-x .n{color:#8a6100}
+		.sdc-d.is-before{opacity:.45;cursor:not-allowed}
+		.sdc-leg{font-size:11.5px;color:#646970;margin:6px 0 0}.sdc-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 3px 0 8px;border:1px solid #ccc}
+		</style>
+		<script>
+		(function(){
+			var box=document.getElementById('sdsc-cal'); if(!box) return;
+			var closed=JSON.parse(box.getAttribute('data-closed')||'[]'), hol=JSON.parse(box.getAttribute('data-hol')||'{}');
+			var skipI=document.getElementById('sdsc-sched-skip'), extraI=document.getElementById('sdsc-sched-extra');
+			var q=function(n){return document.querySelector('[name="sdsc_sched['+n+']"]');};
+			var list=function(i){return i.value?i.value.split(',').filter(Boolean):[];};
+			var pad=function(n){return (n<10?'0':'')+n;};
+			var ymd=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+			var startOf=function(){var v=(document.getElementById('sdsc_start')||{}).value||'';return /^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):'';};
+			var endOf=function(){var v=(document.getElementById('sdsc_end')||{}).value||'';return /^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):'';};
+			function compute(){
+				var start=startOf(); if(!start) return {};
+				var days=[].map.call(document.querySelectorAll('[name="sdsc_sched[days][]"]:checked'),function(c){return +c.value;});
+				var want=Math.max(1,+(q('count')||{}).value||10), skip=list(skipI), extra=list(extraI).filter(function(x){return x>=start;});
+				var lim=endOf(); var d=new Date(start+'T12:00:00'); var auto=[];
+				for(var i=0;i<400&&auto.length+extra.length<want+skip.length+5;i++,d.setDate(d.getDate()+1)){var y=ymd(d);if(lim&&y>lim)break;if(days.indexOf(d.getDay())<0||closed.indexOf(y)>-1||skip.indexOf(y)>-1)continue;auto.push(y);}
+				var all=auto.concat(extra).filter(function(v,i,a){return a.indexOf(v)===i;}).sort().slice(0,want), m={};
+				all.forEach(function(y,i){m[y]=i+1;}); return m;
+			}
+			function render(){
+				var start=startOf(); if(!start){box.innerHTML='<p class="description">Set the class start date first; the calendar appears here.</p>';return;}
+				var sess=compute(), skip=list(skipI), extra=list(extraI);
+				var last=start; for(var k in sess){if(k>last)last=k;}
+				var first=new Date(start+'T12:00:00'); first.setDate(1); var end=new Date(last+'T12:00:00'); end.setMonth(end.getMonth()+1,1);
+				var h='<div class="sdc-months">';
+				for(var m=new Date(first);m<end;m.setMonth(m.getMonth()+1)){
+					h+='<div class="sdc-m"><h4>'+m.toLocaleString('en-US',{month:'long',year:'numeric'})+'</h4><div class="sdc-g">';
+					['S','M','T','W','T','F','S'].forEach(function(x){h+='<span>'+x+'</span>';});
+					var dim=new Date(m.getFullYear(),m.getMonth()+1,0).getDate(), off=new Date(m.getFullYear(),m.getMonth(),1).getDay();
+					for(var i=0;i<off;i++)h+='<div class="sdc-d is-out"></div>';
+					for(var dd=1;dd<=dim;dd++){var y=m.getFullYear()+'-'+pad(m.getMonth()+1)+'-'+pad(dd), dow=new Date(y+'T12:00:00').getDay(), cls='sdc-d';
+						if(dow===0||dow===6)cls+=' is-we'; if(closed.indexOf(y)>-1)cls+=' is-closed'; if(y<start)cls+=' is-before';
+						if(sess[y])cls+=' is-s'; if(extra.indexOf(y)>-1&&sess[y])cls+=' is-x'; if(skip.indexOf(y)>-1)cls+=' is-skip';
+						h+='<div class="'+cls+'" data-d="'+y+'" title="'+(hol[y]?hol[y].replace(/"/g,'&quot;')+(closed.indexOf(y)>-1?' — closed':''):'')+'">'+dd+(sess[y]?'<span class="n">'+sess[y]+'</span>':'')+'</div>';}
+					h+='</div></div>';
+				}
+				h+='</div><p class="sdc-leg"><i style="background:#d7f2e1;border-color:#00703c"></i> session <i style="background:#fff8e1;border-color:#dba617"></i> added by hand <i style="background:#f0f0f1"></i> taken out <i style="background:#fff3f3"></i> school closed</p>';
+				box.innerHTML=h;
+			}
+			box.addEventListener('click',function(e){var c=e.target.closest('.sdc-d'); if(!c||c.classList.contains('is-out')||c.classList.contains('is-closed')||c.classList.contains('is-before'))return;
+				var y=c.getAttribute('data-d'), skip=list(skipI), extra=list(extraI), sess=compute();
+				if(skip.indexOf(y)>-1){skip.splice(skip.indexOf(y),1);} else if(extra.indexOf(y)>-1){extra.splice(extra.indexOf(y),1);} else if(sess[y]){skip.push(y);} else {extra.push(y);}
+				skipI.value=skip.sort().join(','); extraI.value=extra.sort().join(','); render();});
+			document.querySelectorAll('[data-sdsc-preset]').forEach(function(b){b.addEventListener('click',function(){var pm=b.getAttribute('data-sdsc-preset')==='pm';
+				document.querySelectorAll('[name="sdsc_sched[days][]"]').forEach(function(c){c.checked=+c.value>=1&&+c.value<=5;});
+				q('from').value=pm?'18:00':'09:00'; q('to').value=pm?'21:00':'12:00'; q('count').value=10; skipI.value=''; extraI.value=''; render();});});
+			['change','input'].forEach(function(ev){document.addEventListener(ev,function(e){if(e.target&&(e.target.id==='sdsc_start'||e.target.id==='sdsc_end'||/sdsc_sched\[(days|count)/.test(e.target.name||'')))render();});});
+			render();
+		})();
+		</script>
 		<?php
 		$list = self::sessions( $post->ID );
 		if ( $list ) {
@@ -145,13 +255,16 @@ class SDSC_Schedule {
 		if ( ! isset( $_POST['sdsc_sched_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['sdsc_sched_nonce'] ), 'sdsc_sched' ) ) { return; }
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE || ! current_user_can( 'edit_post', $post_id ) ) { return; }
 		$in   = (array) wp_unslash( $_POST['sdsc_sched'] ?? array() ); // phpcs:ignore -- sanitised below
-		$time = function ( $v ) { return preg_match( '/^\d{2}:\d{2}$/', (string) $v ) ? $v : ''; };
+		$time  = function ( $v ) { return preg_match( '/^\d{2}:\d{2}$/', (string) $v ) ? $v : ''; };
+		$dates = function ( $v ) { return array_values( array_unique( array_filter( array_map( 'trim', explode( ',', (string) $v ) ), function ( $x ) { return (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', $x ); } ) ) ); };
 		update_post_meta( $post_id, self::META, array(
 			'days'   => array_values( array_intersect( array_map( 'intval', (array) ( $in['days'] ?? array() ) ), range( 0, 6 ) ) ),
 			'from'   => $time( $in['from'] ?? '' ),
 			'to'     => $time( $in['to'] ?? '' ),
 			'count'  => min( 60, max( 1, (int) ( $in['count'] ?? 10 ) ) ),
 			'remind' => empty( $in['remind'] ) ? 0 : 1,
+			'skip'   => $dates( $in['skip'] ?? '' ),
+			'extra'  => $dates( $in['extra'] ?? '' ),
 		) );
 	}
 
