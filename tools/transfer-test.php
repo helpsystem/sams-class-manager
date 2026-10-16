@@ -4,7 +4,8 @@ if ( ! class_exists( 'SDSC_Transfer' ) ) { echo "SDSC_Transfer missing\n"; retur
 global $wpdb;
 $n = 0; $f = 0;
 $ok = function ( $c, $m ) use ( &$n, &$f ) { $n++; if ( ! $c ) { $f++; } echo ( $c ? 'ok   ' : 'FAIL ' ) . $m . "\n"; };
-wp_set_current_user( 1 );
+$adm = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+wp_set_current_user( (int) ( $adm[0] ?? 0 ) );
 SDSC_Transfer::install();
 foreach ( (array) $wpdb->get_col( "SELECT id FROM " . SDSC_Registration::table() . " WHERE email = 'trtest@example.test'" ) as $old ) { $wpdb->delete( SDSC_Transfer::table(), array( 'reg_id' => $old ) ); $wpdb->delete( SDSC_Registration::table(), array( 'id' => $old ) ); }
 $ok( $wpdb->get_var( "SHOW TABLES LIKE '" . SDSC_Transfer::table() . "'" ) === SDSC_Transfer::table(), 'table exists' );
