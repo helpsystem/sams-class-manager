@@ -8,9 +8,16 @@ foreach ( array( 'sdsc_front_desk', 'tutor_instructor', 'subscriber' ) as $r ) {
 $pages = array();
 foreach ( $roles as $role => $uid ) {
 	wp_set_current_user( $uid );
-	$menu = array(); $submenu = array(); $_registered_pages = array();
-	do_action( 'admin_menu', '' );
-	$can = array();
+	$menu = array(); $submenu = array(); $_registered_pages = array(); $can = array();
+	// only our own menu builders (WooCommerce's admin_menu handler cannot run twice in one process)
+	global $wp_filter;
+	foreach ( (array) ( $wp_filter['admin_menu']->callbacks ?? array() ) as $prio => $cbs ) {
+		foreach ( $cbs as $cb ) {
+			$fn = $cb['function']; $cls = is_array( $fn ) ? ( is_object( $fn[0] ) ? get_class( $fn[0] ) : (string) $fn[0] ) : ( $fn instanceof Closure ? ( new ReflectionFunction( $fn ) )->getClosureScopeClass()?->name ?? '' : '' );
+			if ( preg_match( '/^(SDSC_|DriveFlow|DF_)/', (string) $cls ) ) { call_user_func( $fn, '' ); }
+		}
+	}
+	if ( class_exists( 'SDSC_Access' ) && SDSC_Access::may_edit_classes() ) { $pages['edit.php?post_type=sdsc_class'] = 'Classes'; $can['edit.php?post_type=sdsc_class'] = 1; }
 	foreach ( (array) $submenu as $parent => $items ) { foreach ( $items as $it ) { $slug = $it[2]; if ( ! preg_match( '/^(sdsc-|driveflow|edit\.php\?post_type=sdsc_class)/', $slug ) ) { continue; } $pages[ $slug ] = $it[0]; $can[ $slug ] = current_user_can( $it[1] ) ? 1 : 0; } }
 	foreach ( (array) $menu as $it ) { $slug = $it[2]; if ( preg_match( '/^(sdsc-|driveflow|edit\.php\?post_type=sdsc_class)/', $slug ) ) { $pages[ $slug ] = $it[0]; $can[ $slug ] = current_user_can( $it[1] ) ? 1 : 0; } }
 	$ws = array();
