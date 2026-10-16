@@ -20,7 +20,7 @@ class SDSC_Notices {
 	const OPT     = 'sdsc_notices';
 	const ALERTS  = 'sdsc_alerts';
 	const AMETA   = 'sdsc_alerts_meta';
-	const ZONES   = 'MDZ503,MDZ504';
+	const ZONES   = 'MDZ503,MDZ504,MDC031'; // both forecast zones + the county itself (watches are issued by county)
 	const CRON    = 'sdsc_alerts_fetch';
 
 	/* ------------------------------------------------------------------ */
@@ -39,8 +39,9 @@ class SDSC_Notices {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ), 9 );
 		add_filter( 'cron_schedules', array( __CLASS__, 'schedules' ) );
 		add_action( self::CRON, array( __CLASS__, 'fetch' ) );
-		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 60, 'sdsc_15min', self::CRON );
+		if ( ! wp_next_scheduled( self::CRON ) || 'sdsc_5min' !== wp_get_schedule( self::CRON ) ) {
+			wp_clear_scheduled_hook( self::CRON );
+			wp_schedule_event( time() + 30, 'sdsc_5min', self::CRON );
 		}
 	}
 
@@ -57,6 +58,7 @@ class SDSC_Notices {
 
 	public static function schedules( $s ) {
 		$s['sdsc_15min'] = array( 'interval' => 900, 'display' => 'Every 15 minutes' );
+		$s['sdsc_5min']  = array( 'interval' => 300, 'display' => 'Every 5 minutes' );
 		return $s;
 	}
 
@@ -225,7 +227,7 @@ class SDSC_Notices {
 		foreach ( (array) ( $j['features'] ?? array() ) as $f ) {
 			$p  = $f['properties'] ?? array();
 			$id = (string) ( $p['id'] ?? '' );
-			if ( ! $id || 'Actual' !== ( $p['status'] ?? '' ) ) { continue; }
+			if ( ! $id || 'Actual' !== ( $p['status'] ?? '' ) || preg_match( '/^test/i', (string) ( $p['event'] ?? '' ) ) || 'Cancel' === ( $p['messageType'] ?? '' ) ) { continue; }
 			$key = 'a' . substr( md5( $id ), 0, 12 );
 			$new[ $key ] = array(
 				'key'         => $key,
@@ -341,6 +343,47 @@ class SDSC_Notices {
 				return $r;
 			},
 		) );
+		register_rest_route( 'sdsc/v1', '/alerts', array(
+			'methods'             => 'GET',
+			'permission_callback' => '__return_true',
+			'callback'            => function () {
+				$r = rest_ensure_response( self::footer_items() );
+				$r->header( 'Cache-Control', 'public, max-age=120' );
+				return $r;
+			},
+		) );
+	}
+
+	/** Small footer strip: every live official alert, shown automatically (the top bar still needs "Show on website"). */
+	public static function footer_items() {
+		$now  = self::now();
+		$out  = array();
+		$fmt  = function ( $iso ) use ( $now ) {
+			if ( ! $iso ) { return ''; }
+			try { $d = ( new DateTimeImmutable( $iso ) )->setTimezone( self::tz() ); } catch ( Exception $e ) { return ''; }
+			return $d->format( 'Y-m-d' ) === $now->format( 'Y-m-d' ) ? $d->format( 'g:i A' ) : $d->format( 'D M j, g:i A' );
+		};
+		foreach ( self::alerts() as $a ) {
+			if ( ! self::alert_live( $a, $now ) ) { continue; }
+			$ev   = (string) $a['event'];
+			$sev  = strtolower( (string) $a['severity'] );
+			$what = preg_match( '/warning/i', $ev ) ? 'Take action now and follow official instructions.' : ( preg_match( '/watch/i', $ev ) ? 'Residents should remain aware of threatening weather.' : ( preg_match( '/advisory/i', $ev ) ? 'Use caution, especially on the road.' : 'Stay informed.' ) );
+			$from = $fmt( $a['onset'] );
+			$to   = $fmt( $a['ends'] );
+			$when = $from && $to ? 'from ' . $from . ' until ' . $to : ( $to ? 'until ' . $to : '' );
+			$text = $ev . ' in effect for Montgomery County' . ( $when ? ' ' . $when : '' ) . '. ' . $what;
+			$out[] = array(
+				'level' => preg_match( '/warning/i', $ev ) || in_array( $sev, array( 'extreme', 'severe' ), true ) ? 'high' : ( preg_match( '/watch/i', $ev ) || 'moderate' === $sev ? 'mid' : 'low' ),
+				'event' => $ev,
+				'text'  => $text,
+				'more'  => 'https://forecast.weather.gov/showsigwx.php?warnzone=MDZ504&warncounty=MDC031&local_place1=Rockville%20MD',
+				'tr'    => 'https://translate.google.com/?sl=en&tl=es&op=translate&text=' . rawurlencode( $text ),
+				'ord'   => preg_match( '/warning/i', $ev ) ? 0 : ( preg_match( '/watch/i', $ev ) ? 1 : 2 ),
+			);
+		}
+		usort( $out, function ( $x, $y ) { return $x['ord'] <=> $y['ord']; } );
+		$m = get_option( self::AMETA, array() );
+		return array( 'items' => $out, 'checked' => ! empty( $m['checked'] ) ? wp_date( 'g:i A', (int) $m['checked'] ) : '', 'ok' => empty( $m['error'] ) && ! empty( $m['checked'] ) && time() - (int) $m['checked'] < 3600 );
 	}
 
 	public static function placeholder() {
