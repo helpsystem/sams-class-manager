@@ -1105,3 +1105,5 @@ require_once __DIR__ . '/class-transfer.php';
 SDSC_Transfer::init();
 require_once __DIR__ . '/class-hold.php';
 SDSC_Hold::init();
+require_once __DIR__ . '/class-helper.php';
+SDSC_Helper::init();
