@@ -225,6 +225,15 @@ class SDSC_Docs {
 		return $id;
 	}
 
+	/** Decrypted file of one document, for other office tools (e.g. the transfer e-mail); '' when not allowed. */
+	public static function bytes( $id ) {
+		$r = self::row( $id );
+		return ( $r && self::may( $r ) ) ? self::get( $r['file'] ) : '';
+	}
+
+	/** Log that a document was sent to the student / parent (transfer record). */
+	public static function note_sent( $id ) { if ( self::row( $id ) ) { self::log( (int) $id, 'sent' ); } }
+
 	protected static function get( $name ) {
 		if ( ! preg_match( '/^[a-f0-9]{32}\.bin$/', (string) $name ) ) { return ''; }
 		$raw = @file_get_contents( self::dir() . $name ); // phpcs:ignore

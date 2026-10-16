@@ -507,6 +507,7 @@ table.t tr { break-inside: avoid; }
 	/** The forms that can be printed, in print order: key => exact name. */
 	public static function parts() {
 		return array(
+			'transfer'   => 'Driver Education Transfer Record',
 			'form'       => 'Student Registration Form',
 			'sheet'      => 'Driver Education Test Answer Sheet',
 			'attendance' => 'Class Attendance Record',
@@ -539,7 +540,7 @@ table.t tr { break-inside: avoid; }
 			$ans = self::answers( $ids );
 		}
 		// Print order: registration form, answer sheet with the ID copy on its back, attendance.
-		$html_parts = array_values( array_intersect( array( 'form', 'sheet', 'idcopy', 'attendance' ), $parts ) );
+		$html_parts = array_values( array_intersect( array( 'transfer', 'form', 'sheet', 'idcopy', 'attendance' ), $parts ) );
 		$de3        = in_array( 'de003', $parts, true ) && class_exists( 'SDSC_DE003' );
 		$names      = self::parts();
 		nocache_headers();
@@ -572,6 +573,7 @@ table.t tr { break-inside: avoid; }
 			foreach ( $people as $si => $p ) {
 				foreach ( $html_parts as $k ) {
 					$x = '';
+					if ( 'transfer' === $k ) { $x = class_exists( 'SDSC_Transfer' ) ? SDSC_Transfer::record_html( $p ) : ''; }
 					if ( 'form' === $k ) { $x = self::form_html( $p ); }
 					if ( 'sheet' === $k ) { $x = self::sheet_html( $p, $course, $quizzes, $res, $ans ); }
 					if ( 'attendance' === $k ) { $x = self::attendance_html( $p ); }

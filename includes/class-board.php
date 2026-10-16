@@ -391,6 +391,10 @@ class SDSC_Board {
 		) );
 		$rid = (int) $wpdb->insert_id;
 		if ( ! $rid ) { wp_send_json_error( array( 'msg' => 'Could not save. Please try again.' ) ); }
+		if ( ! empty( $_POST['transfer_in'] ) && class_exists( 'SDSC_Transfer' ) ) { // phpcs:ignore
+			SDSC_Transfer::save( $rid, 'in', array( 'school' => $f( 't_school', 200 ), 'hours' => (float) ( $_POST['t_hours'] ?? 0 ), 'on_date' => current_time( 'Y-m-d' ) ) ); // phpcs:ignore
+			$wpdb->query( $wpdb->prepare( 'UPDATE ' . self::rt() . " SET notes = CONCAT(notes, %s) WHERE id = %d", "\nTransfer in from " . ( $f( 't_school', 200 ) ?: 'another school' ) . ' — ' . SDSC_Transfer::h( (float) ( $_POST['t_hours'] ?? 0 ) ) . ' classroom hours completed there.', $rid ) ); // phpcs:ignore
+		}
 		if ( $cid ) {
 			$pid = self::place( 0, $cid, $first . ' ' . $last, $email, $phone, false );
 			$wpdb->update( self::rt(), array( 'registrant_id' => $pid ), array( 'id' => $rid ) );
@@ -447,6 +451,7 @@ class SDSC_Board {
 		$src = array( 'native' => 'Website form', 'forminator' => 'Old form', 'office' => 'Added by office' );
 		$h .= '<span class="sdb-tag sdb-tag--src">' . esc_html( $src[ $d['src'] ] ?? ucfirst( $d['src'] ) ) . '</span>';
 		if ( ! empty( $d['dup'] ) ) { $h .= '<span class="sdb-tag sdb-tag--dup" title="The same e-mail is on another card">Twice</span>'; }
+		if ( class_exists( 'SDSC_Transfer' ) && 'r' === substr( (string) $d['key'], 0, 1 ) ) { $tt = SDSC_Transfer::tag( (int) substr( $d['key'], 1 ) ); if ( $tt ) { $h .= '<span class="sdb-tag sdb-tag--tr">' . esc_html( $tt ) . '</span>'; } }
 		$h .= '</p><footer>';
 		$h .= '<button type="button" class="button button-small sdb-pay">+ Cash / check</button>';
 		if ( $d['reg'] ) { $h .= ' <a class="button button-small" href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations&view=' . $d['reg'] ) ) . '">Open</a>'; }
@@ -523,6 +528,12 @@ class SDSC_Board {
 				<label>Parent name <input name="parent_name" maxlength="200" /></label>
 				<label>Parent e-mail <input type="email" name="parent_email" maxlength="190" /></label>
 				<label>Parent phone <input name="parent_phone" maxlength="40" /></label>
+				<label class="sdb-tin"><input type="checkbox" name="transfer_in" value="1" /> Transferring from another driving school</label>
+				<div class="sdb-tin-f" hidden>
+					<label>School they came from <input name="t_school" maxlength="200" /></label>
+					<label>Classroom hours completed there <input name="t_hours" type="number" min="0" max="30" step="0.5" inputmode="decimal" placeholder="0–30" /></label>
+					<p class="description">The student’s record will show the hours still needed here. The other school’s paperwork can be scanned into Documents.</p>
+				</div>
 				<p class="description">The student still has to fill in and sign the registration form.</p>
 				<p class="sdb-err" role="alert"></p>
 				<p><button class="button button-primary" value="ok">Add</button> <button class="button" value="cancel" formnovalidate>Cancel</button></p>
@@ -554,7 +565,8 @@ class SDSC_Board {
 			.sdb-tags{margin:4px 0;display:flex;flex-wrap:wrap;gap:4px}
 			.sdb-tag{font-size:11px;border-radius:999px;padding:1px 8px;background:#f0f0f1}
 			.sdb-tag--online,.sdb-tag--offline,.sdb-tag--marked,.sdb-tag--opened{background:#e6f4ea;color:#00561f}
-			.sdb-tag--due{background:#fcf0f1;color:#8a2424}.sdb-tag--dup{background:#fff8e5;color:#6b4e00}
+			.sdb-tag--due{background:#fcf0f1;color:#8a2424}.sdb-tag--dup{background:#fff8e5;color:#6b4e00}.sdb-tag--tr{background:#e8f0fe;color:#1a4480}
+			.sdb-tin{display:block;margin:8px 0 4px}.sdb-tin-f{padding:6px 10px;background:#f6f8f7;border-radius:8px;margin-bottom:6px}
 			.sdb-rcpt{text-decoration:none;margin-left:2px}.sdb-void{border:0;background:none;color:#8a2424;cursor:pointer;padding:0 2px;font-weight:700}
 			.sdb-card footer{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}
 			.sdb-moveto{max-width:140px;font-size:12px}
@@ -608,8 +620,10 @@ class SDSC_Board {
 			pf.addEventListener('submit',function(e){if(e.submitter&&e.submitter.value==='cancel')return;e.preventDefault();var d={key:pcard.dataset.key};['method','amount','ref','paid_on','note'].forEach(function(k){d[k]=pf[k].value;});
 				post('pay',d).then(function(r){if(r.success){pd.close();swap(pcard,r.data.card);seats(r.data.seats);say('Payment saved. The course is open for this student. Tap 🧾 on the card for the receipt.');}else pf.querySelector('.sdb-err').textContent=r.data.msg;});});
 			var ad=document.getElementById('sdb-adddlg'),af=ad.querySelector('form'),acol=null;
-			function openAdd(col){acol=col;af.reset();af.querySelector('.sdb-err').textContent='';ad.querySelector('.sdb-who').textContent=col.querySelector('h2').textContent;ad.showModal();af.first_name.focus();}
-			function add(grow){var d={cid:acol.dataset.cid,grow:grow?1:0};['first_name','last_name','email','phone','parent_name','parent_email','parent_phone'].forEach(function(k){d[k]=af[k].value;});
+			function tinShow(){af.querySelector('.sdb-tin-f').hidden=!af.transfer_in.checked;}
+			af.transfer_in.addEventListener('change',tinShow);
+			function openAdd(col){acol=col;af.reset();tinShow();af.querySelector('.sdb-err').textContent='';ad.querySelector('.sdb-who').textContent=col.querySelector('h2').textContent;ad.showModal();af.first_name.focus();}
+			function add(grow){var d={cid:acol.dataset.cid,grow:grow?1:0};['first_name','last_name','email','phone','parent_name','parent_email','parent_phone','t_school','t_hours'].forEach(function(k){d[k]=af[k].value;});d.transfer_in=af.transfer_in.checked?1:0;
 				post('add',d).then(function(r){if(r.success){ad.close();var t=document.createElement('div');t.innerHTML=r.data.card;acol.querySelector('.sdb-list').prepend(t.firstElementChild);seats(r.data.seats);say('Student added.');return;}
 					if(r.data.full&&confirm(r.data.msg+'\n\nAdd one more seat and add the student?')){add(true);return;}af.querySelector('.sdb-err').textContent=r.data.msg;});}
 			af.addEventListener('submit',function(e){if(e.submitter&&e.submitter.value==='cancel')return;e.preventDefault();add(false);});

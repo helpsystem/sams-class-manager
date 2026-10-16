@@ -872,10 +872,11 @@ class SDSC_Registration {
 			if ( class_exists( 'SDSC_Followup' ) && 'native' === $r->source ) { echo SDSC_Followup::panel( $r->id ); } // phpcs:ignore -- escaped inside
 			if ( isset( $_GET['sdsc_access'] ) ) { echo '<div class="notice notice-success"><p>' . ( 'opened' === $_GET['sdsc_access'] ? 'Online course access opened.' : 'Manual course access removed.' ) . '</p></div>'; } // phpcs:ignore
 			if ( class_exists( 'SDSC_Gate' ) ) { echo SDSC_Gate::panel( $r->email ); } // phpcs:ignore -- escaped inside
+			if ( class_exists( 'SDSC_Transfer' ) && 'demo' !== $r->source ) { echo '<div id="sdsc-transfer"></div>' . SDSC_Transfer::panel( $r ); } // phpcs:ignore -- escaped inside
 			echo '<table class="widefat striped" style="max-width:800px">';
 			$rows = array(
 				'Submitted'       => $r->created_at . ( 'forminator' === $r->source ? ' (imported from Forminator #' . $r->source_entry_id . ')' : '' ),
-				'Course'          => $r->class_id ? self::class_label( $r->class_id, true ) : '—',
+				'Course'          => ( $r->class_id ? self::class_label( $r->class_id, true ) : '—' ) . ( class_exists( 'SDSC_Transfer' ) && SDSC_Transfer::tag( $r->id ) ? ' · ' . SDSC_Transfer::tag( $r->id ) : '' ),
 				'Date of birth'   => $r->dob . ( $r->age ? " (age $r->age)" : '' ),
 				'Gender'          => $r->gender,
 				'Email'           => $r->email,
@@ -1069,3 +1070,7 @@ class SDSC_Registration {
 		WP_CLI::success( $dry ? 'Dry run complete (nothing written).' : 'Import complete.' );
 	}
 }
+
+/* Student transfers between schools (transfer in / out, printed record, e-mail with documents). */
+require_once __DIR__ . '/class-transfer.php';
+SDSC_Transfer::init();
