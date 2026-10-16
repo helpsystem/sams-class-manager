@@ -173,6 +173,21 @@ class SDSC_Registration {
 		return ( null === $h ? 'C' : ( $h < 12 ? 'AM' : 'PM' ) ) . '-' . $m[1] . $m[2];
 	}
 
+	/* ============================= Office link (cash / check / Zelle) ============================= */
+
+	/** Key that marks a registration made through the office link (the student pays at the office, not online). */
+	public static function office_key() { return substr( hash_hmac( 'sha256', 'office-registration-link', wp_salt( 'nonce' ) ), 0, 12 ); }
+
+	public static function is_office_key( $k ) { return is_string( $k ) && hash_equals( self::office_key(), $k ); }
+
+	/** The registration page with the office key (and a course when given), as a short link for QR codes and texts. */
+	public static function office_link( $class_id = 0, $short = true ) {
+		$page = get_page_by_path( 'register-course' );
+		$base = $page ? get_permalink( $page ) : home_url( '/register-course/' );
+		$u    = add_query_arg( array_filter( array( 'course' => $class_id ? self::course_param( $class_id ) : '', 'office' => self::office_key() ) ), $base );
+		return ( $short && class_exists( 'SDSC_Short' ) ) ? SDSC_Short::make( $u ) : $u;
+	}
+
 	/** Link value for ?course= — the public code, or id-N for a class without a start date. */
 	public static function course_param( $class_id ) {
 		$pc = self::public_code( $class_id );
@@ -233,6 +248,7 @@ class SDSC_Registration {
 		wp_enqueue_script( 'sdsc-registration' );
 
 		$result = isset( $_GET['sdsc_reg'] ) ? sanitize_key( $_GET['sdsc_reg'] ) : '';
+		$office = isset( $_GET['office'] ) && self::is_office_key( sanitize_text_field( wp_unslash( $_GET['office'] ) ) ); // phpcs:ignore -- the office's own link
 		if ( 'done' === $result ) {
 			$class_id = isset( $_GET['sdsc_class'] ) ? absint( $_GET['sdsc_class'] ) : 0;
 			return self::render_success( $class_id );
@@ -285,6 +301,7 @@ class SDSC_Registration {
 					<input type="hidden" name="action" value="sdsc_register" />
 					<input type="hidden" name="sdsc_return" value="<?php echo esc_url( get_permalink() ); ?>" />
 					<input type="hidden" name="sdsc_js" value="" class="sdsc-js-check" />
+					<?php if ( $office ) : ?><input type="hidden" name="sdsc_office" value="<?php echo esc_attr( self::office_key() ); ?>" /><?php endif; ?>
 					<div class="sdsc-hp" aria-hidden="true"><label>Leave this empty <input type="text" name="sdsc_website" tabindex="-1" autocomplete="off" /></label></div>
 
 					<section class="sdsc-step is-active" data-step="0">
@@ -472,6 +489,8 @@ class SDSC_Registration {
 			$online = SDSC_Pay::url( $rid, $class_id );
 			if ( $online ) { $pay = $online; }
 		}
+		$office = isset( $_GET['office'] ) && self::is_office_key( sanitize_text_field( wp_unslash( $_GET['office'] ) ) ); // phpcs:ignore
+		if ( $office ) { $pay = ''; } // paid at the office: no online payment step
 		ob_start();
 		?>
 		<div class="sdsc-reg" id="sdsc">
@@ -490,6 +509,9 @@ class SDSC_Registration {
 				<?php endif; ?>
 				<h2 class="sdsc-reg-title"><?php echo $pay ? 'Forms done — last step: payment' : 'You\'re registered!'; ?></h2>
 				<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
+				<?php if ( $office ) : ?>
+					<p>Thank you — your forms are done. Please pay at the office (cash, check or Zelle); your seat is confirmed as soon as the office records the payment. Your class details and the Zoom link are e-mailed before the first session — please check your Spam / Junk folder too.</p>
+				<?php endif; ?>
 				<?php if ( $pay ) : ?>
 					<p>Your seat is confirmed as soon as the payment goes through.</p>
 					<?php
@@ -706,9 +728,11 @@ class SDSC_Registration {
 		// SDSC_Followup chases what is missing (parent link, e-mail reminders, texts for the office).
 
 		global $wpdb;
+		$office = self::is_office_key( sanitize_text_field( wp_unslash( $_POST['sdsc_office'] ?? '' ) ) ); // phpcs:ignore
 		$row = array_merge( $d, array(
 			'created_at'  => current_time( 'mysql' ),
 			'source'      => 'native',
+			'notes'       => $office ? 'Registered through the office link — pays at the office (cash / check / Zelle). Record the payment on the Class board.' : '',
 			'class_id'    => $class_id,
 			'age'         => $age,
 			'consent'     => 1,
@@ -736,6 +760,7 @@ class SDSC_Registration {
 
 		$q = array( 'sdsc_reg' => 'done', 'sdsc_class' => $class_id );
 		if ( class_exists( 'SDSC_Pay' ) ) { $q['sdsc_r'] = $reg_id; $q['sdsc_t'] = SDSC_Pay::token( $reg_id ); }
+		if ( $office ) { $q['office'] = self::office_key(); }
 		wp_safe_redirect( add_query_arg( $q, $return ) . '#sdsc' );
 		exit;
 	}

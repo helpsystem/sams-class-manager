@@ -79,3 +79,18 @@ a.sov-tile:hover { box-shadow: 0 0 0 2px var(--g); transform: translateY(-1px); 
 .sov-pw-t td span { font-weight: 700; }
 .sov-pw-h { margin: 12px 0 2px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--g); }
 @media (max-width: 600px) { .sov-pw-kpis { grid-template-columns: 1fr 1fr 1fr; gap: 6px; } .sov-pw-kpis b { font-size: 16px; } }
+
+/* office registration link card */
+.sov-ol-lead{margin:0 0 10px;color:#5b646d;font-size:13px}
+.sov-ol-row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.sov-ol-qr{flex:0 0 auto;background:#fff;border:1px solid #e3e7ea;border-radius:12px;padding:6px;min-width:150px;min-height:150px}
+.sov-ol-qr img{display:block;width:150px;height:150px;image-rendering:pixelated}
+.sov-ol-side{flex:1;min-width:220px}
+.sov-ol-l{display:block;margin:0 0 8px;font-size:13px;color:#5b646d}
+.sov-ol-l select,.sov-ol-l input[type=text],.sov-ol-l input[type=tel]{font-size:13px;padding:6px 8px;border:1px solid #c9cfd4;border-radius:8px;max-width:100%}
+.sov-ol-link{display:flex;gap:6px;align-items:center}.sov-ol-link input{flex:1;min-width:0}
+.sov-ol-copy,.sov-ol-send{padding:6px 12px;border:0;border-radius:999px;background:#00703c;color:#fff;font-weight:700;cursor:pointer;font-size:13px}
+.sov-ol-small{margin:0;font-size:12px}
+.sov-ol-text{margin-top:12px;padding-top:10px;border-top:1px solid #e3e7ea;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.sov-ol-text .sov-ol-l{margin:0}.sov-ol-text input[type=text]{font-size:13px;padding:6px 8px;border:1px solid #c9cfd4;border-radius:8px}
+.sov-ol-msg{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:#e7f5ec;color:#0b6b35;font-size:13px}

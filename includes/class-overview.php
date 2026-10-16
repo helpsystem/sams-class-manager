@@ -20,6 +20,7 @@ class SDSC_Overview {
 		add_filter( 'should_tutor_load_template', array( __CLASS__, 'inject' ), 10, 2 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_shortcode( 'sdsc_overview', array( __CLASS__, 'render' ) );
+		add_action( 'admin_post_sdsc_office_link_text', array( __CLASS__, 'h_office_link_text' ) );
 	}
 
 	public static function assets() {
@@ -269,11 +270,61 @@ class SDSC_Overview {
 			}
 		}
 		$h .= self::card( 'Open classes', $o ? '<ul class="sov-list">' . $o . '</ul>' : self::empty_note( 'No classes are open for registration.' ), SDSC_Access::may_edit_classes() ? 'Edit classes' : '', SDSC_Access::may_edit_classes() ? admin_url( 'edit.php?post_type=sdsc_class' ) : '' );
+		if ( class_exists( 'SDSC_Registration' ) && method_exists( 'SDSC_Registration', 'office_link' ) ) { $h .= self::office_link_card(); }
 		$h .= '</div>';
 
 		$h .= self::tools_html();
 		if ( class_exists( 'SDSC_PriceWatch' ) && SDSC_PriceWatch::can() ) { $h .= SDSC_PriceWatch::dash_card(); }
 		return $h;
+	}
+
+	/**
+	 * Office registration link (cash / check / Zelle): the student scans the QR code or gets a text, fills in the
+	 * registration form on their own phone, and the office records the payment on the Class board.
+	 */
+	protected static function office_link_card() {
+		$links = array( '' => SDSC_Registration::office_link( 0 ) );
+		foreach ( array_slice( SDSC_Registration::open_classes(), 0, 8 ) as $c ) { $links[ (string) $c->ID ] = SDSC_Registration::office_link( $c->ID ); }
+		$sel = '<select id="sov-ol-c" class="sov-ol-sel"><option value="">Any open class (the student picks)</option>';
+		foreach ( SDSC_Registration::open_classes() as $c ) { if ( isset( $links[ (string) $c->ID ] ) ) { $sel .= '<option value="' . (int) $c->ID . '">' . esc_html( SDSC_Schedule::class_name( $c->ID, true ) ) . '</option>'; } }
+		$sel .= '</select>';
+		$msg  = isset( $_GET['sov_ol'] ) ? sanitize_text_field( wp_unslash( $_GET['sov_ol'] ) ) : ''; // phpcs:ignore
+		$b    = '<div class="sov-ol"><p class="sov-ol-lead">For students who pay <b>cash, check or Zelle</b>: they scan the code or open the link, fill in and sign the registration form on their own phone, and skip online payment. Then record the payment on the Class board.</p>'
+			. '<div class="sov-ol-row"><div class="sov-ol-qr" id="sov-ol-qr" aria-label="QR code of the registration link"></div><div class="sov-ol-side">'
+			. '<label class="sov-ol-l">Class ' . $sel . '</label>'
+			. '<label class="sov-ol-l">Link <span class="sov-ol-link"><input type="text" id="sov-ol-url" readonly value="' . esc_attr( $links[''] ) . '"> <button type="button" class="sov-ol-copy" id="sov-ol-copy">Copy</button></span></label>'
+			. '<p class="sov-ol-small"><a id="sov-ol-open" href="' . esc_url( $links[''] ) . '" target="_blank" rel="noopener">Open the form</a> · <a id="sov-ol-print" href="#" >Print the QR code</a></p>'
+			. '</div></div>'
+			. ( $msg ? '<p class="sov-ol-msg" role="status">' . esc_html( $msg ) . '</p>' : '' )
+			. '<form class="sov-ol-text" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">' . wp_nonce_field( 'sdsc_office_link_text', '_wpnonce', true, false ) . '<input type="hidden" name="action" value="sdsc_office_link_text"><input type="hidden" name="c" id="sov-ol-cid" value="">'
+			. '<label class="sov-ol-l">Text the link to <input type="tel" name="phone" placeholder="Student or parent mobile" required inputmode="tel"></label> <input type="text" name="who" maxlength="60" placeholder="Student’s first name (optional)"> <button class="sov-ol-send">💬 Send text</button></form>'
+			. '</div>'
+			. '<script src="' . esc_url( SDSC_URL . 'assets/vendor/qrcode.min.js?ver=1.4.4' ) . '"></script>'
+			. '<script>(function(){var L=' . wp_json_encode( $links ) . ',s=document.getElementById("sov-ol-c"),u=document.getElementById("sov-ol-url"),o=document.getElementById("sov-ol-open"),q=document.getElementById("sov-ol-qr"),cid=document.getElementById("sov-ol-cid");'
+			. 'function draw(){var v=L[s.value]||L[""];u.value=v;o.href=v;cid.value=s.value;try{var c=qrcode(0,"M");c.addData(v);c.make();q.innerHTML=c.createImgTag(5,8);}catch(e){q.textContent=v;}}'
+			. 's.addEventListener("change",draw);draw();'
+			. 'document.getElementById("sov-ol-copy").addEventListener("click",function(){u.select();try{navigator.clipboard.writeText(u.value);}catch(e){document.execCommand("copy");}this.textContent="Copied";var b=this;setTimeout(function(){b.textContent="Copy";},1500);});'
+			. 'document.getElementById("sov-ol-print").addEventListener("click",function(e){e.preventDefault();var w=window.open("","_blank");if(!w)return;w.document.write("<!doctype html><title>Registration — Sam\u2019s Driving School</title><body style=\"font-family:Arial,sans-serif;text-align:center;padding:40px\"><h1 style=\"color:#00703c\">Register for Driver Education</h1><p style=\"font-size:18px\">Scan with your phone camera, fill in the form and sign.<br>Pay at the office — cash, check or Zelle.</p><div style=\"margin:24px auto;transform:scale(1.8);transform-origin:top center;height:260px\">"+q.innerHTML+"</div><p style=\"font-size:16px;word-break:break-all\">"+u.value+"</p><p style=\"color:#5b646d\">"+(s.options[s.selectedIndex].text)+"</p></body>");w.document.close();setTimeout(function(){w.print();},300);});'
+			. '})();</script>';
+		return self::card( 'Register at the office (cash / check)', $b );
+	}
+
+	/** Text the office registration link to a student or parent (button on the dashboard card). */
+	public static function h_office_link_text() {
+		if ( ! in_array( self::kind(), array( 'admin', 'manager', 'frontdesk' ), true ) ) { wp_die( 'Not allowed.', '', array( 'response' => 403 ) ); }
+		check_admin_referer( 'sdsc_office_link_text' );
+		$cid   = absint( $_POST['c'] ?? 0 ); // phpcs:ignore
+		$phone = sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ); // phpcs:ignore
+		$who   = sanitize_text_field( wp_unslash( $_POST['who'] ?? '' ) ); // phpcs:ignore
+		$back  = wp_get_referer() ? wp_get_referer() : home_url( '/' );
+		$back  = remove_query_arg( 'sov_ol', $back );
+		if ( strlen( preg_replace( '/\D/', '', $phone ) ) < 10 ) { wp_safe_redirect( add_query_arg( 'sov_ol', rawurlencode( 'Please type a valid mobile number.' ), $back ) ); exit; }
+		$link = SDSC_Registration::office_link( $cid );
+		$cls  = $cid ? SDSC_Schedule::class_name( $cid ) : 'Driver Education';
+		$body = "Sam's Driving School: " . ( $who ? $who . ', ' : '' ) . 'here is the registration form for ' . $cls . ': ' . $link . ' — fill it in and sign on your phone; payment is at the office (cash, check or Zelle). Questions? Call or text (301) 726-3030.';
+		$res  = class_exists( 'SDSC_SMS' ) ? SDSC_SMS::deliver( $phone, $body, 'office-link' . ( $cid ? ':' . $cid : '' ), $who, 'Registration link' ) : 'Texts are not set up.';
+		wp_safe_redirect( add_query_arg( 'sov_ol', rawurlencode( 'Text: ' . $res ), $back ) );
+		exit;
 	}
 
 	/* ------------------------------------------------------------ instructor */
