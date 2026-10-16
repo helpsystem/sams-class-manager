@@ -72,7 +72,11 @@ class SDSC_Followup {
 		}
 		if ( null !== $r->age && (int) $r->age < 16 ) { $out['age16'] = true; }
 		if ( class_exists( 'SDSC_Pay' ) && SDSC_Pay::amount( (int) $r->class_id ) > 0 && ! self::paid( $r ) ) { $out['pay'] = true; }
-		$docs = self::docs_missing( (string) $r->email );
+		// ID scans are chased for current students only (open / upcoming class, or a recent sign-up without a class).
+		static $open = null;
+		if ( null === $open ) { $open = array_map( 'intval', wp_list_pluck( SDSC_Registration::open_classes( true ), 'ID' ) ); }
+		$current = $r->class_id ? in_array( (int) $r->class_id, $open, true ) : strtotime( (string) $r->created_at ) > time() - 90 * DAY_IN_SECONDS;
+		$docs = $current ? self::docs_missing( (string) $r->email ) : array();
 		if ( $docs ) { $out['docs'] = $docs; }
 		return $out;
 	}
