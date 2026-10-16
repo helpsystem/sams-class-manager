@@ -32,6 +32,7 @@ class SDSC_Notices {
 		add_action( 'admin_post_sdsc_notice_remove', array( __CLASS__, 'remove' ) );
 		add_action( 'admin_post_sdsc_alert_toggle', array( __CLASS__, 'alert_toggle' ) );
 		add_action( 'admin_post_sdsc_alert_refresh', array( __CLASS__, 'alert_refresh' ) );
+		add_action( 'admin_post_sdsc_alert_footer', array( __CLASS__, 'alert_footer' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'admin_notice' ) );
 		add_action( 'wp_dashboard_setup', array( __CLASS__, 'dashboard_widget' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'rest' ) );
@@ -253,6 +254,16 @@ class SDSC_Notices {
 		update_option( self::AMETA, $meta, false );
 	}
 
+	/** Footer strip on/off (administrators only). */
+	public static function footer_on() { return '0' !== (string) get_option( 'sdsc_footer_alerts', '1' ); }
+	public static function alert_footer() {
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Not allowed.' ); }
+		check_admin_referer( 'sdsc_alert_footer' );
+		update_option( 'sdsc_footer_alerts', empty( $_POST['footer_on'] ) ? '0' : '1', false );
+		wp_safe_redirect( admin_url( 'admin.php?page=sdsc-notices&tab=alerts&footer=1' ) );
+		exit;
+	}
+
 	public static function alert_refresh() {
 		if ( ! self::can() ) { wp_die( 'Not allowed.' ); }
 		check_admin_referer( 'sdsc_alert_refresh' );
@@ -363,7 +374,7 @@ class SDSC_Notices {
 			try { $d = ( new DateTimeImmutable( $iso ) )->setTimezone( self::tz() ); } catch ( Exception $e ) { return ''; }
 			return $d->format( 'Y-m-d' ) === $now->format( 'Y-m-d' ) ? $d->format( 'g:i A' ) : $d->format( 'D M j, g:i A' );
 		};
-		foreach ( self::alerts() as $a ) {
+		foreach ( self::footer_on() ? self::alerts() : array() as $a ) {
 			if ( ! self::alert_live( $a, $now ) ) { continue; }
 			$ev   = (string) $a['event'];
 			$sev  = strtolower( (string) $a['severity'] );
@@ -383,7 +394,7 @@ class SDSC_Notices {
 		}
 		usort( $out, function ( $x, $y ) { return $x['ord'] <=> $y['ord']; } );
 		$m = get_option( self::AMETA, array() );
-		return array( 'items' => $out, 'checked' => ! empty( $m['checked'] ) ? wp_date( 'g:i A', (int) $m['checked'] ) : '', 'ok' => empty( $m['error'] ) && ! empty( $m['checked'] ) && time() - (int) $m['checked'] < 3600 );
+		return array( 'on' => self::footer_on() ? 1 : 0, 'items' => $out, 'checked' => ! empty( $m['checked'] ) ? wp_date( 'g:i A', (int) $m['checked'] ) : '', 'ok' => empty( $m['error'] ) && ! empty( $m['checked'] ) && time() - (int) $m['checked'] < 3600 );
 	}
 
 	public static function placeholder() {
@@ -563,6 +574,14 @@ class SDSC_Notices {
 			<?php if ( ! empty( $meta['error'] ) ) : ?><span style="color:#b32d2e"> — last check failed (<?php echo esc_html( $meta['error'] ); ?>)</span><?php endif; ?>
 			<a class="button" style="margin-left:8px" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_alert_refresh' ), 'sdsc_alert_refresh' ) ); ?>">Check now</a>
 		</p>
+		<?php if ( current_user_can( 'manage_options' ) ) : ?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0 0 14px;padding:10px 14px;border:1px solid #dcdcde;border-radius:8px;background:#fff;max-width:860px">
+			<?php wp_nonce_field( 'sdsc_alert_footer' ); ?><input type="hidden" name="action" value="sdsc_alert_footer">
+			<label><input type="checkbox" name="footer_on" value="1" <?php checked( self::footer_on() ); ?>> <strong>Footer alert strip</strong> — every live official alert is shown automatically in a small strip in the website footer (no approval needed; the top bar still needs “Show on website”).</label>
+			<button class="button" style="margin-left:10px">Save</button>
+			<?php if ( ! empty( $_GET['footer'] ) ) : // phpcs:ignore ?><span style="color:#00703c;margin-left:8px">Saved.</span><?php endif; ?>
+		</form>
+		<?php endif; ?>
 		<?php if ( ! $a ) : ?>
 			<div class="sdnb-empty"><b>No active alerts for Montgomery County right now.</b><br>When the Weather Service issues one (snow, ice, storms, flooding, heat…), it appears here in full and a reminder shows at the top of the admin.</div>
 			<p class="description">For a closure, use the <a href="<?php echo esc_url( admin_url( 'admin.php?page=sdsc-notices' ) ); ?>">Banners</a> tab → “Closed — weather”. Montgomery County's own Alert Montgomery text/email service has no public feed, so it can't be connected; you can still subscribe to it yourself at alert.montgomerycountymd.gov.</p>

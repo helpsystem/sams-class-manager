@@ -604,15 +604,14 @@
 /* keep the reCAPTCHA tab from sitting on top of the open mobile menu */
 body:has(.sdh.is-open) .grecaptcha-badge { visibility: hidden !important; }
 
-/* Footer weather alerts (National Weather Service, Montgomery County) */
-.bwf-wx{position:relative;z-index:2;max-width:1200px;margin:6px auto 0;padding:0 clamp(16px,4vw,48px);display:grid;gap:8px}
+/* Footer weather alerts (National Weather Service, Montgomery County) — small strip */
+.bwf-wx{position:relative;z-index:2;max-width:1200px;margin:4px auto 0;padding:0 clamp(16px,4vw,48px);display:grid;gap:6px}
 .bwf-wx[hidden]{display:none}
-.bwf-wx-a{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:12px;background:rgba(250,204,21,.08);box-shadow:inset 0 0 0 1px rgba(250,204,21,.35);font-size:13px;line-height:1.5;color:var(--bwf-ink)}
-.bwf-wx-mid{background:rgba(249,115,22,.10);box-shadow:inset 0 0 0 1px rgba(249,115,22,.45)}
-.bwf-wx-high{background:rgba(239,68,68,.12);box-shadow:inset 0 0 0 1px rgba(239,68,68,.55)}
-.bwf-wx-i{flex:none;font-size:16px;line-height:1.3;color:#facc15}.bwf-wx-mid .bwf-wx-i{color:#fb923c}.bwf-wx-high .bwf-wx-i{color:#f87171}
-.bwf-wx-a p{margin:0}.bwf-wx-a b{display:block;font-weight:700}
-.bwf-wx-l{display:inline-flex;flex-wrap:wrap;gap:14px;margin-left:8px}
-.bwf-wx-l a{color:var(--bwf-ink);text-decoration:underline;text-underline-offset:3px;font-weight:600}
-.bwf-wx-ok{margin:0;font-size:12px;color:var(--bwf-muted)}.bwf-wx-ok span{color:rgb(var(--bwf-lit))}
-@media (max-width:600px){.bwf-wx-l{display:flex;margin:4px 0 0}}
+.bwf-wx-a{display:flex;gap:8px;align-items:flex-start;padding:6px 10px;border-radius:8px;background:rgba(250,204,21,.07);box-shadow:inset 0 0 0 1px rgba(250,204,21,.3);font-size:11.5px;line-height:1.45;color:var(--bwf-muted)}
+.bwf-wx-mid{background:rgba(249,115,22,.08);box-shadow:inset 0 0 0 1px rgba(249,115,22,.4)}
+.bwf-wx-high{background:rgba(239,68,68,.10);box-shadow:inset 0 0 0 1px rgba(239,68,68,.5)}
+.bwf-wx-i{flex:none;font-size:13px;line-height:1.3;color:#facc15}.bwf-wx-mid .bwf-wx-i{color:#fb923c}.bwf-wx-high .bwf-wx-i{color:#f87171}
+.bwf-wx-a p{margin:0}.bwf-wx-a b{font-weight:700;color:var(--bwf-ink)}
+.bwf-wx-l{display:inline-flex;flex-wrap:wrap;gap:12px;margin-left:4px}
+.bwf-wx-l a{color:var(--bwf-ink);text-decoration:underline;text-underline-offset:2px;font-weight:600;opacity:.85}
+.bwf-wx-ok{margin:0;font-size:11px;color:var(--bwf-muted);opacity:.8}.bwf-wx-ok span{color:rgb(var(--bwf-lit))}

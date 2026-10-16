@@ -201,7 +201,8 @@ class SDSC_Pins {
 			$h .= '</ul></details>';
 		}
 		$h .= '</div>';
-		$css = '.snv{margin:4px 0 10px;font-size:15px;font-family:Inter,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}.snv[hidden]{display:none}'
+		$css = '.tutor-dashboard-sidebar-nav:has(#snv){max-height:calc(100vh - 130px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:4px}'
+			. '.snv{margin:4px 0 10px;font-size:15px;font-family:Inter,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}.snv[hidden]{display:none}'
 			. '.snv-find input{width:100%;box-sizing:border-box;padding:9px 11px;margin:4px 0 8px;border:1px solid #dfe3e6;border-radius:10px;font-size:14.5px;background:#fff}'
 			. '.snv-pins{margin:0 0 8px;padding:8px;border-radius:12px;background:#fffaf0;box-shadow:inset 0 0 0 1px #f3e2b3}'
 			. '.snv-h{margin:0 0 6px 4px;font-size:13px;font-weight:700;letter-spacing:0;color:#a16207}'
