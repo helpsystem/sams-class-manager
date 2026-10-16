@@ -29,7 +29,7 @@ $made_links[] = $hand['id'] ?? '';
 if ( 200 !== $c ) { echo 'hand error: ' . ( $hand['error']['message'] ?? '' ) . "\n"; }
 $fl = $r->getMethod( 'find_link' ); $fl->setAccessible( true ); echo 'find hand: ' . ( $fl->invoke( null, $hand['url'] ?? '' ) ? 'found' : 'NOT found' ) . "\n";
 list( $o2, $u2, $n2 ) = SDSC_Prices::make_link( $key . 'h', 'SDSC TEST hand', '$55', $hand['url'] );
-$t( $o2 && $u2 !== $hand['url'], "replacement link: $n2" );
+$t( $o2 && $u2 !== $hand['url'] && false === strpos( $n2, 'could not be copied' ), "replacement link, all settings copied: $n2" );
 list( $c, $all ) = $A( 'GET', 'payment_links', array( 'limit' => 20 ) );
 $new = null; foreach ( (array) ( $all['data'] ?? array() ) as $l ) { if ( $l['url'] === $u2 ) { $new = $l; } if ( in_array( $l['url'], array( $u1, $u2 ), true ) ) { $made_links[] = $l['id']; } }
 $t( $new && ! empty( $new['allow_promotion_codes'] ) && ! empty( $new['phone_number_collection']['enabled'] ) && 'required' === $new['billing_address_collection'], 'copied: promo codes, phone, billing address' );
@@ -44,7 +44,7 @@ $t( ! empty( $h2['active'] ) && false !== strpos( $n2, 'made by hand' ), 'hand-m
 
 // 3. replace the site's own link -> the old one is switched off
 list( $o3, $u3, $n3 ) = SDSC_Prices::make_link( $key, 'SDSC TEST - delete me', '$15', $u1 );
-$t( $o3 && false !== strpos( $n3, 'switched off' ), "site link replaced: $n3" );
+$t( $o3 && false !== strpos( $n3, 'switched off' ) && false === strpos( $n3, 'could not be copied' ), "site link replaced, all settings copied: $n3" );
 list( $c, $all ) = $A( 'GET', 'payment_links', array( 'limit' => 20 ) );
 foreach ( (array) ( $all['data'] ?? array() ) as $l ) { if ( $l['url'] === $u1 ) { $t( empty( $l['active'] ), 'previous site link is off' ); } if ( $l['url'] === $u3 ) { $made_links[] = $l['id']; } }
 // 4. text price -> no link

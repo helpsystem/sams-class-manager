@@ -264,6 +264,8 @@ class SDSC_Prices {
 			if ( ! empty( $l[ $k ] ) && is_array( $l[ $k ] ) ) { $o[ $k ] = self::clean( $l[ $k ] ); }
 		}
 		if ( isset( $o['automatic_tax'] ) && empty( $o['automatic_tax']['enabled'] ) ) { unset( $o['automatic_tax'] ); }
+		if ( isset( $o['tax_id_collection'] ) && empty( $o['tax_id_collection']['enabled'] ) ) { unset( $o['tax_id_collection'] ); }
+		if ( isset( $o['name_collection'] ) ) { foreach ( $o['name_collection'] as $nk => $nv ) { if ( empty( $nv['enabled'] ) ) { unset( $o['name_collection'][ $nk ] ); } } if ( ! $o['name_collection'] ) { unset( $o['name_collection'] ); } }
 		if ( ! empty( $l['custom_fields'] ) ) {
 			foreach ( $l['custom_fields'] as $f ) {
 				$c = array( 'key' => $f['key'], 'type' => $f['type'], 'optional' => ! empty( $f['optional'] ), 'label' => self::clean( $f['label'] ) );
