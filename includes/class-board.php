@@ -566,6 +566,7 @@ class SDSC_Board {
 			.sdb-tag{font-size:11px;border-radius:999px;padding:1px 8px;background:#f0f0f1}
 			.sdb-tag--online,.sdb-tag--offline,.sdb-tag--marked,.sdb-tag--opened{background:#e6f4ea;color:#00561f}
 			.sdb-tag--due{background:#fcf0f1;color:#8a2424}.sdb-tag--dup{background:#fff8e5;color:#6b4e00}.sdb-tag--tr{background:#e8f0fe;color:#1a4480}
+			.sdb-who{font-size:12px;margin:0 0 6px}.sdb-who summary{cursor:pointer;color:#00703c;font-weight:600}.sdb-who-in{margin-top:6px;max-height:300px;overflow:auto;background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:6px}.sdb-who-in table{font-size:11px}
 			.sdb-tin{display:block;margin:8px 0 4px}.sdb-tin-f{padding:6px 10px;background:#f6f8f7;border-radius:8px;margin-bottom:6px}
 			.sdb-rcpt{text-decoration:none;margin-left:2px}.sdb-void{border:0;background:none;color:#8a2424;cursor:pointer;padding:0 2px;font-weight:700}
 			.sdb-card footer{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}

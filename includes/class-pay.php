@@ -260,7 +260,6 @@ class SDSC_Pay {
 		$days    = (string) get_post_meta( $cid, '_sdsc_days_time', true );
 		$start   = (string) get_post_meta( $cid, '_sdsc_start', true );
 		$end     = (string) get_post_meta( $cid, '_sdsc_end', true );
-		$zoom    = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
 		$list    = class_exists( 'SDSC_Schedule' ) ? SDSC_Schedule::sessions( $cid ) : array();
 		$listed  = (float) get_post_meta( $cid, '_sdsc_price', true ) * 100;
 		$pr        = class_exists( 'SDSC_Promo' ) ? SDSC_Promo::for_reg( (int) $row['reg_id'] ) : null;
@@ -310,7 +309,7 @@ class SDSC_Pay {
 			. $tr( 'Course', esc_html( $title ) )
 			. ( $start ? $tr( 'Dates', esc_html( date_i18n( 'M j', strtotime( $start ) ) . ( $end ? ' – ' . date_i18n( 'M j, Y', strtotime( $end ) ) : '' ) ) ) : '' )
 			. ( $days ? $tr( 'Days & time', esc_html( $days ) ) : '' )
-			. $tr( 'Where', $zoom ? '<a href="' . esc_url( $zoom ) . '" style="color:#00703c;font-weight:700">Online on Zoom</a>' : 'Online on Zoom — link sent before the first class' )
+			. $tr( 'Where', 'Online on Zoom' )
 			. '</table>';
 		if ( $list ) {
 			$h .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px">';
@@ -319,12 +318,12 @@ class SDSC_Pay {
 			}
 			$h .= '</table>';
 		}
+		$h .= '<p style="' . $f . 'margin:0 0 12px;padding:12px 14px;border-radius:10px;background:#e7f5ec;font-size:14px;line-height:1.6;color:#15191d"><b>What happens next:</b> a separate e-mail with your Zoom link, meeting ID and passcode, the class schedule and the forms to complete will be sent to this address before the first session. If you do not see it, please check your Spam / Junk folder and add <b>info@samsdrivingschool.org</b> to your contacts. Questions? Call or text (301) 726-3030.</p>';
 		$h .= '<p style="' . $f . 'margin:0 0 6px;font-size:14px;line-height:1.6;color:#15191d"><b>Before the first class:</b> join from a computer with camera and microphone on, sitting at a desk, for the whole class. Session 1 is mandatory under MVA rules.</p>';
 
 		// Buttons.
 		$bt = array();
 		if ( $list && class_exists( 'SDSC_Schedule' ) ) { $bt[] = $btn( 'Add to my calendar', SDSC_Schedule::cal_page( $reg['email'] ) ); }
-		if ( $zoom ) { $bt[] = $btn( 'Zoom link', $zoom, ! $bt ); }
 		if ( $row['receipt_url'] ) { $bt[] = $btn( 'Stripe receipt', $row['receipt_url'], false ); }
 		if ( $bt ) { $h .= '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 6px"><tr>' . implode( '', $bt ) . '</tr></table>'; }
 

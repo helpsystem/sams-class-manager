@@ -28,6 +28,167 @@ class SDSC_ZoomAuto {
 		add_action( 'admin_post_sdsc_zoom_start', array( __CLASS__, 'h_start' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notice' ) );
 		add_filter( 'wp_mail', array( __CLASS__, 'upgrade_auto_mail' ), 5 );
+		add_filter( 'pre_wp_mail', array( __CLASS__, 'gate_auto_mail' ), 5, 2 );
+		add_action( 'wp_mail_failed', array( __CLASS__, 'auto_mail_failed' ) );
+		add_action( 'admin_post_sdsc_zoom_one', array( __CLASS__, 'h_one' ) );
+		add_action( 'admin_post_sdsc_zoom_text', array( __CLASS__, 'h_text' ) );
+		add_action( 'template_redirect', array( __CLASS__, 'front' ), 0 );
+	}
+
+	/* ------------------------------------------------------------ who got the Zoom details (per address) */
+
+	const MAILLOG = '_sdsc_zoom_mail'; // address or "sms:+1…" => [ at, ok, how (manual|auto|text), by ]
+
+	public static function mail_log( $cid ) { $l = get_post_meta( $cid, self::MAILLOG, true ); return is_array( $l ) ? $l : array(); }
+
+	public static function log_mail( $cid, $key, $ok, $how ) {
+		$l = self::mail_log( $cid );
+		$l[ strtolower( trim( (string) $key ) ) ] = array( 'at' => current_time( 'mysql' ), 'ok' => $ok ? 1 : 0, 'how' => $how, 'by' => is_user_logged_in() ? wp_get_current_user()->display_name : 'automatic' );
+		update_post_meta( $cid, self::MAILLOG, $l );
+	}
+
+	/** A bounce ("undeliverable", "delivery failed") for this address that arrived in the school inbox after $since. */
+	public static function bounced( $email, $since ) {
+		global $wpdb;
+		if ( ! class_exists( 'SDSC_Inbox' ) || ! is_email( $email ) ) { return ''; }
+		$t = SDSC_Inbox::table();
+		if ( $t !== $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) ) { return ''; }
+		$r = $wpdb->get_row( $wpdb->prepare( "SELECT sent_at FROM $t WHERE kind = 'in' AND sent_at >= %s AND subject REGEXP %s AND (body_text LIKE %s OR body_html LIKE %s) ORDER BY id DESC LIMIT 1", $since, 'undeliver|delivery (status|failure)|mail delivery failed|returned mail|could not be delivered|delivery has failed', '%' . $wpdb->esc_like( $email ) . '%', '%' . $wpdb->esc_like( $email ) . '%' ), ARRAY_A ); // phpcs:ignore
+		return $r ? $r['sent_at'] : '';
+	}
+
+	/** Per-class switch for the automatic send 24 h before the first session (default on; the office can turn it off). */
+	public static function auto_mail_on( $cid ) { return 'off' !== (string) get_post_meta( $cid, '_sdsc_zoom_auto_mail', true ); }
+
+	/** The old automatic e-mail (class-email.php) is skipped for classes where the office turned it off. */
+	public static function gate_auto_mail( $pre, $a ) {
+		if ( null !== $pre || ! is_array( $a ) || 0 !== strpos( (string) ( $a['subject'] ?? '' ), 'Your Zoom class link — ' ) ) { return $pre; }
+		if ( ! preg_match( '/\(class ([^)]+)\):/', (string) ( $a['message'] ?? '' ), $m ) ) { return $pre; }
+		$cid = (int) get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sdsc_course_code', 'meta_value' => trim( $m[1] ) ) )[0] ?? 0;
+		return ( $cid && ! self::auto_mail_on( $cid ) ) ? false : $pre;
+	}
+
+	public static function auto_mail_failed( $e ) {
+		$d = is_wp_error( $e ) ? (array) $e->get_error_data() : array();
+		if ( 0 !== strpos( (string) ( $d['subject'] ?? '' ), 'Welcome to your Driver Education class — ' ) ) { return; }
+		$cid = (int) ( $GLOBALS['sdsc_zoom_mail_cid'] ?? 0 );
+		if ( ! $cid ) { return; }
+		foreach ( (array) ( $d['to'] ?? array() ) as $to ) { self::log_mail( $cid, $to, false, 'auto' ); }
+	}
+
+	/* ------------------------------------------------------------ the student's own page with the Zoom details (short link, for texts) */
+
+	protected static function b64( $s ) { return rtrim( strtr( base64_encode( $s ), '+/', '-_' ), '=' ); }
+	protected static function sig( $s ) { return substr( hash_hmac( 'sha256', $s, wp_salt( 'nonce' ) . 'sdsc-zoom' ), 0, 16 ); }
+
+	public static function page_url( $cid, $email ) {
+		$email = strtolower( trim( (string) $email ) );
+		$u = add_query_arg( 'sdsc_zoom', self::b64( (int) $cid . '|' . $email ) . '.' . self::sig( 'zoom|' . (int) $cid . '|' . $email ), home_url( '/' ) );
+		return class_exists( 'SDSC_Short' ) ? SDSC_Short::make( $u ) : $u;
+	}
+
+	public static function front( $return = false ) {
+		if ( ! isset( $_GET['sdsc_zoom'] ) ) { return ''; } // phpcs:ignore
+		$tok = sanitize_text_field( wp_unslash( $_GET['sdsc_zoom'] ) ); // phpcs:ignore
+		$cid = 0; $email = '';
+		if ( preg_match( '/^([A-Za-z0-9_-]+)\.([a-f0-9]{16})$/', $tok, $m ) ) {
+			$raw = (string) base64_decode( strtr( $m[1], '-_', '+/' ) );
+			if ( preg_match( '/^(\d+)\|(.+)$/', $raw, $mm ) && hash_equals( self::sig( 'zoom|' . (int) $mm[1] . '|' . strtolower( $mm[2] ) ), $m[2] ) ) { $cid = (int) $mm[1]; $email = strtolower( $mm[2] ); }
+		}
+		if ( ! $return ) { nocache_headers(); header( 'X-Robots-Tag: noindex, nofollow' ); }
+		$ok   = $cid && 'sdsc_class' === get_post_type( $cid ) && isset( self::recipients( $cid )[ $email ] );
+		$name = $ok ? self::recipients( $cid )[ $email ] : '';
+		$body = $ok ? self::welcome_html( $cid, $name ) : '<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px">This link is not valid any more. Please use the link from your latest text or e-mail, or call (301) 726-3030.</p>';
+		$html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . esc_html( $ok ? 'Your class details — Sam’s Driving School' : 'Link not valid' ) . '</title>'
+			. '<style>body{margin:0;padding:20px 14px;background:#f6f4ee;color:#15191d}.c{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}.c img{max-width:100%}.c table{max-width:100%}h2{font-family:Arial,Helvetica,sans-serif;font-size:17px;margin:0 0 14px;color:#00703c}</style></head><body><div class="c"><h2>Sam’s Driving School — your class details</h2>' . $body . '</div></body></html>';
+		if ( $return ) { return $html; }
+		echo $html; // phpcs:ignore -- built from escaped pieces
+		exit;
+	}
+
+	/** Registrations of the class with both addresses and phones, for the "who got it" list. */
+	public static function people( $cid ) {
+		global $wpdb;
+		return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, first_name, last_name, email, parent_email, phone, parent_phone, parent_name FROM ' . SDSC_Registration::table() . " WHERE class_id = %d AND source <> 'demo' ORDER BY last_name, first_name", $cid ), ARRAY_A ); // phpcs:ignore
+	}
+
+	/** The list: every address and phone of the class, what was sent when, bounces, and buttons to e-mail or text one person. */
+	public static function who_html( $cid ) {
+		if ( ! self::can() ) { return ''; }
+		$rows = self::people( $cid );
+		if ( ! $rows ) { return '<p class="description">No students in this class yet.</p>'; }
+		$log  = self::mail_log( $cid );
+		$sms  = class_exists( 'SDSC_SMS' );
+		$st   = function ( $key, $email = '' ) use ( $log ) {
+			$e = $log[ strtolower( $key ) ] ?? null;
+			if ( ! $e ) { return '<span style="color:#8c8f94">not sent</span>'; }
+			$b = $email ? self::bounced( $email, $e['at'] ) : '';
+			if ( $b ) { return '<span style="color:#b32d2e;font-weight:700">bounced</span> <small>' . esc_html( mysql2date( 'M j g:i a', $b ) ) . '</small>'; }
+			return ( $e['ok'] ? '<span style="color:#00703c;font-weight:700">✓ sent</span>' : '<span style="color:#b32d2e;font-weight:700">failed</span>' ) . ' <small>' . esc_html( mysql2date( 'M j g:i a', $e['at'] ) . ( 'auto' === $e['how'] ? ' (automatic)' : ( 'text' === $e['how'] ? ' (text)' : ' by ' . $e['by'] ) ) ) . '</small>';
+		};
+		$act  = function ( $a, $args, $label, $title ) use ( $cid ) { return '<a class="button button-small" title="' . esc_attr( $title ) . '" href="' . esc_url( wp_nonce_url( add_query_arg( $args + array( 'action' => $a, 'c' => $cid ), admin_url( 'admin-post.php' ) ), $a . '_' . $cid ) ) . '">' . $label . '</a>'; };
+		$h = '<table class="widefat striped" style="font-size:12px"><thead><tr><th>Student</th><th>Address / phone</th><th>Zoom details</th><th></th></tr></thead><tbody>';
+		foreach ( $rows as $r ) {
+			$cells = array();
+			foreach ( array( array( $r['email'], 'student' ), array( $r['parent_email'], 'parent' ) ) as $x ) {
+				$e = strtolower( trim( (string) $x[0] ) );
+				if ( ! is_email( $e ) ) { continue; }
+				$cells[] = array( '<span style="color:#50575e">' . $x[1] . '</span> ' . esc_html( $e ), $st( $e, $e ), $act( 'sdsc_zoom_one', array( 'e' => $e ), '✉ E-mail', 'E-mail the Zoom details to this address now' ) );
+			}
+			foreach ( array( array( $r['phone'], 'student' ), array( $r['parent_phone'], 'parent' ) ) as $x ) {
+				$ph = preg_replace( '/\D/', '', (string) $x[0] );
+				if ( strlen( $ph ) < 10 ) { continue; }
+				$cells[] = array( '<span style="color:#50575e">' . $x[1] . '</span> ' . esc_html( $x[0] ), $st( 'sms:' . $ph ), $sms ? $act( 'sdsc_zoom_text', array( 'p' => $ph, 'r' => (int) $r['id'] ), '💬 Text link', 'Text this phone a short link to a page with the class and Zoom details' ) : '' );
+			}
+			if ( ! $cells ) { $cells[] = array( '<span style="color:#b32d2e">no e-mail or phone on the record</span>', '', '' ); }
+			$first = true;
+			foreach ( $cells as $c ) {
+				$h .= '<tr>' . ( $first ? '<td rowspan="' . count( $cells ) . '"><b>' . esc_html( $r['first_name'] . ' ' . $r['last_name'] ) . '</b><br><a href="' . esc_url( admin_url( 'admin.php?page=sdsc-registrations&view=' . (int) $r['id'] ) ) . '">record</a></td>' : '' ) . '<td>' . $c[0] . '</td><td>' . $c[1] . '</td><td>' . $c[2] . '</td></tr>';
+				$first = false;
+			}
+		}
+		$h .= '</tbody></table><p class="description" style="margin:6px 0 0">“Sent” means our mail server accepted the message; “bounced” means the other side returned it (seen in School e-mails). A student who sees nothing should check Spam / Junk. The text link opens a page with the same details.</p>';
+		return $h;
+	}
+
+	/** E-mail the Zoom details to one address (button in the list). */
+	public static function send_one( $cid, $email ) {
+		$email = strtolower( trim( (string) $email ) );
+		$to    = self::recipients( $cid );
+		if ( ! get_post_meta( $cid, '_sdsc_zoom_link', true ) ) { return new WP_Error( 'zoom', 'This class has no Zoom link yet.' ); }
+		if ( ! isset( $to[ $email ] ) ) { return new WP_Error( 'zoom', 'That address is not on a registration of this class.' ); }
+		$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $to[ $email ] ), 'info' );
+		self::log_mail( $cid, $email, $ok, 'manual' );
+		return $ok ? true : new WP_Error( 'zoom', 'The mail server did not accept the message. See Sam’s School → Email → log.' );
+	}
+
+	public static function h_one() {
+		$cid = absint( $_GET['c'] ?? 0 ); // phpcs:ignore
+		if ( ! self::can() ) { wp_die( 'Only the administrator and the school manager can do this.', '', array( 'response' => 403 ) ); }
+		check_admin_referer( 'sdsc_zoom_one_' . $cid );
+		$e = sanitize_email( wp_unslash( $_GET['e'] ?? '' ) ); // phpcs:ignore
+		$r = self::send_one( $cid, $e );
+		self::back( $cid, is_wp_error( $r ) ? $r->get_error_message() : 'Zoom details e-mailed to ' . $e . '.', ! is_wp_error( $r ) );
+	}
+
+	public static function h_text() {
+		$cid = absint( $_GET['c'] ?? 0 ); // phpcs:ignore
+		if ( ! self::can() ) { wp_die( 'Only the administrator and the school manager can do this.', '', array( 'response' => 403 ) ); }
+		check_admin_referer( 'sdsc_zoom_text_' . $cid );
+		if ( ! class_exists( 'SDSC_SMS' ) ) { self::back( $cid, 'Texts are not set up.', false ); }
+		$ph  = preg_replace( '/\D/', '', (string) ( $_GET['p'] ?? '' ) ); // phpcs:ignore
+		$rid = absint( $_GET['r'] ?? 0 ); // phpcs:ignore
+		$reg = null;
+		foreach ( self::people( $cid ) as $x ) { if ( (int) $x['id'] === $rid ) { $reg = $x; } }
+		if ( ! $reg || ! in_array( $ph, array( preg_replace( '/\D/', '', (string) $reg['phone'] ), preg_replace( '/\D/', '', (string) $reg['parent_phone'] ) ), true ) ) { self::back( $cid, 'That phone is not on a registration of this class.', false ); }
+		$email = is_email( (string) $reg['email'] ) ? strtolower( trim( $reg['email'] ) ) : strtolower( trim( (string) $reg['parent_email'] ) );
+		if ( ! is_email( $email ) ) { self::back( $cid, 'This registration has no e-mail address, so there is no personal page to link to. Add an e-mail to the record first.', false ); }
+		$url  = self::page_url( $cid, $email );
+		$body = "Sam's Driving School: " . $reg['first_name'] . ", your Driver Education class details (dates, Zoom link, forms) are here: " . $url . " — also e-mailed to " . $email . " (check Spam/Junk). Questions? Call or text (301) 726-3030.";
+		$res  = SDSC_SMS::deliver( $ph, $body, 'zoom:' . $cid, $reg['first_name'] . ' ' . $reg['last_name'], 'Zoom details' );
+		$sent = false !== stripos( (string) $res, 'sent' ) || false !== stripos( (string) $res, 'added' );
+		self::log_mail( $cid, 'sms:' . $ph, $sent, 'text' );
+		self::back( $cid, 'Text: ' . $res, $sent );
 	}
 
 	public static function schedule() {
@@ -155,6 +316,7 @@ class SDSC_ZoomAuto {
 		if ( wp_is_post_revision( $cid ) || 'publish' !== $post->post_status ) { return; }
 		if ( isset( $_POST['sdsc_zoom_auto_box'] ) ) { // phpcs:ignore -- saved with the class form (its own nonce is checked by the class screen)
 			update_post_meta( $cid, '_sdsc_zoom_auto', empty( $_POST['sdsc_zoom_auto'] ) ? 'off' : '' ); // phpcs:ignore
+			update_post_meta( $cid, '_sdsc_zoom_auto_mail', empty( $_POST['sdsc_zoom_auto_mail'] ) ? 'off' : '' ); // phpcs:ignore
 		}
 		if ( self::wanted( $cid ) ) {
 			$r = self::create( $cid );
@@ -244,6 +406,8 @@ class SDSC_ZoomAuto {
 		$first = preg_match( '/^Hi ([^,\n]*),/', (string) $a['message'], $n ) ? trim( preg_replace( '/\s.*$/', '', trim( $n[1] ) ) ) : '';
 		$a['subject'] = self::subject( $cid );
 		$a['message'] = self::welcome_html( $cid, $first );
+		$GLOBALS['sdsc_zoom_mail_cid'] = $cid;
+		foreach ( (array) $a['to'] as $to ) { self::log_mail( $cid, $to, true, 'auto' ); }
 		$h = is_array( $a['headers'] ?? null ) ? $a['headers'] : array_filter( explode( "\n", (string) ( $a['headers'] ?? '' ) ) );
 		$h[] = 'Content-Type: text/html; charset=UTF-8';
 		$h[] = 'X-SDSC-From: info';
@@ -258,7 +422,9 @@ class SDSC_ZoomAuto {
 		if ( ! $to ) { return new WP_Error( 'zoom', 'No students are registered in this class yet.' ); }
 		$sent = 0;
 		foreach ( $to as $email => $firstn ) {
-			if ( SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $firstn ), 'info' ) ) { $sent++; }
+			$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $firstn ), 'info' );
+			self::log_mail( $cid, $email, $ok, 'manual' );
+			if ( $ok ) { $sent++; }
 		}
 		update_post_meta( $cid, '_sdsc_zoom_sent', array( 'at' => current_time( 'mysql' ), 'by' => wp_get_current_user()->display_name, 'n' => $sent ) );
 		if ( class_exists( 'SDSC_Board' ) ) { SDSC_Board::note( 'Zoom details e-mailed to ' . $sent . ' address(es) — ' . $name ); }
@@ -280,6 +446,7 @@ class SDSC_ZoomAuto {
 		$sent = get_post_meta( $cid, '_sdsc_zoom_sent', true );
 		echo '<input type="hidden" name="sdsc_zoom_auto_box" value="1">';
 		echo '<p><label><input type="checkbox" name="sdsc_zoom_auto" value="1"' . checked( 'off' !== get_post_meta( $cid, '_sdsc_zoom_auto', true ), true, false ) . '> Make the Zoom meeting automatically</label></p>';
+		echo '<p><label><input type="checkbox" name="sdsc_zoom_auto_mail" value="1"' . checked( self::auto_mail_on( $cid ), true, false ) . '> E-mail the details automatically 24 h before the first session (paid students)</label><br><span class="description">Untick to send only by hand with the button below. Payment receipts never contain the Zoom link.</span></p>';
 		if ( $link ) {
 			echo '<p><b>Link:</b> <a href="' . esc_url( $link ) . '" target="_blank" rel="noopener">' . esc_html( $link ) . '</a></p>';
 			if ( $id ) { echo '<p><b>Meeting ID:</b> ' . esc_html( self::fmt_id( $id ) ) . ( $pass ? '<br><b>Passcode:</b> ' . esc_html( $pass ) : '' ) . ( $n ? '<br><b>Account:</b> ' . esc_html( SDSC_Api::zoom_label( $n ) ) : '' ) . '</p>'; }
@@ -293,6 +460,7 @@ class SDSC_ZoomAuto {
 			$c = count( self::recipients( $cid ) );
 			echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_zoom_send&c=' . $cid ), 'sdsc_zoom_send_' . $cid ) ) . '" onclick="return confirm(\'E-mail the Zoom link and details to ' . (int) $c . ' student and parent address(es)?\')">E-mail Zoom details to students (' . (int) $c . ')</a></p>';
 			if ( is_array( $sent ) ) { echo '<p class="description">Last sent ' . esc_html( mysql2date( 'M j, g:i a', $sent['at'] ) . ' by ' . $sent['by'] . ' to ' . (int) $sent['n'] ) . '.</p>'; }
+			echo '<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:600">Who got the details</summary><div style="margin-top:6px;overflow:auto">' . self::who_html( $cid ) . '</div></details>'; // phpcs:ignore -- escaped inside
 		}
 	}
 
@@ -399,6 +567,7 @@ class SDSC_ZoomAuto {
 		$s = get_post_meta( $cid, '_sdsc_zoom_sent', true );
 		return '<p class="sdb-zoom"><a class="button button-small" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sdsc_zoom_send&c=' . $cid ), 'sdsc_zoom_send_' . $cid ) ) . '" onclick="return confirm(\'E-mail the Zoom link and details to ' . (int) $c . ' address(es)?\')">✉ E-mail Zoom details</a>'
 			. ' <a href="' . esc_url( $link ) . '" target="_blank" rel="noopener" class="sdb-zlink">Zoom link</a>'
-			. ( is_array( $s ) ? '<br><small>Sent ' . esc_html( mysql2date( 'M j', $s['at'] ) ) . ' to ' . (int) $s['n'] . '</small>' : '' ) . '</p>';
+			. ( is_array( $s ) ? '<br><small>Sent ' . esc_html( mysql2date( 'M j', $s['at'] ) ) . ' to ' . (int) $s['n'] . '</small>' : '' ) . '</p>'
+			. '<details class="sdb-who"><summary>Who got the Zoom details</summary><div class="sdb-who-in">' . self::who_html( $cid ) . '</div></details>';
 	}
 }

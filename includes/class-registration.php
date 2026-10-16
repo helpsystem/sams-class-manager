@@ -450,7 +450,7 @@ class SDSC_Registration {
 				<?php if ( $row ) : ?>
 					<h2 class="sdsc-reg-title">Payment received — you're in!</h2>
 					<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
-					<p>We received <?php echo esc_html( '$' . number_format( $row['amount'] / 100, 2 ) ); ?>. A confirmation with your class dates and Zoom link is on its way to <?php echo esc_html( $row['email'] ); ?>.</p>
+					<p>We received <?php echo esc_html( '$' . number_format( $row['amount'] / 100, 2 ) ); ?>. Your receipt with the class dates is on its way to <?php echo esc_html( $row['email'] ); ?>. The Zoom link and class details come in a separate e-mail before the first session — please check your Spam / Junk folder too.</p>
 					<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_payment_complete',value:<?php echo (float) ( $row['amount'] / 100 ); ?>,currency:'USD'});</script>
 				<?php else : ?>
 					<h2 class="sdsc-reg-title">We're confirming your payment</h2>

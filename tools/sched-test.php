@@ -48,6 +48,26 @@ $t( $m && 0 === strpos( $m['subject'], 'Welcome to your Driver Education class' 
 $up = SDSC_ZoomAuto::upgrade_auto_mail( array( 'to' => 'x@example.test', 'subject' => 'Your Zoom class link — ZZTEST', 'message' => "Hi Zed,\n\nHere is everything for your class “ZZTEST” (class ZZ-1):\n\nZoom link: x\n\nSee you", 'headers' => '' ) );
 $t( 0 === strpos( $up['subject'], 'Welcome to your Driver Education class' ) && false !== strpos( $up['message'], 'Dear Zed,' ) && false !== strpos( $up['message'], '(unit 10)' ) && in_array( 'X-SDSC-From: info', (array) $up['headers'], true ), 'automatic 24h e-mail uses the same welcome text' );
 $t( 'Other' === SDSC_ZoomAuto::upgrade_auto_mail( array( 'subject' => 'Other', 'message' => 'x', 'headers' => '' ) )['subject'], 'other e-mails untouched' );
+// per-address log, per-class automatic switch, the student's own page
+$log = SDSC_ZoomAuto::mail_log( $cid );
+$t( isset( $log['zztest-sched@example.test'] ) && 'manual' === $log['zztest-sched@example.test']['how'] && isset( $log['x@example.test'] ) && 'auto' === $log['x@example.test']['how'], 'who-got-it log: manual send and automatic send recorded per address' );
+$who = SDSC_ZoomAuto::who_html( $cid );
+$t( false !== strpos( $who, 'zztest-sched@example.test' ) && false !== strpos( $who, '✓ sent' ) && false !== strpos( $who, 'sdsc_zoom_one' ) && false !== strpos( $who, '3015550000' ), 'who-got-it list: address, status, e-mail button, phone' );
+$auto = array( 'to' => 'x@example.test', 'subject' => 'Your Zoom class link — ZZTEST', 'message' => "Hi Zed,\n\nHere is everything for your class “ZZTEST” (class ZZ-1):\n\nZoom link: x\n\nSee you", 'headers' => '' );
+$t( null === SDSC_ZoomAuto::gate_auto_mail( null, $auto ), 'automatic send allowed by default' );
+update_post_meta( $cid, '_sdsc_zoom_auto_mail', 'off' );
+$t( false === SDSC_ZoomAuto::gate_auto_mail( null, $auto ), 'automatic send skipped when the class switch is off' );
+$url = SDSC_ZoomAuto::page_url( $cid, 'zztest-sched@example.test' );
+$t( 0 === strpos( $url, home_url( '/' ) ), 'student page link made: ' . $url );
+$long = class_exists( 'SDSC_Short' ) ? $wpdb->get_var( $wpdb->prepare( 'SELECT url FROM ' . SDSC_Short::table() . ' WHERE code = %s', basename( $url ) ) ) : $url;
+$tok  = $long ? ( parse_url( $long, PHP_URL_QUERY ) ? ( function () use ( $long ) { parse_str( parse_url( $long, PHP_URL_QUERY ), $q ); return $q['sdsc_zoom'] ?? ''; } )() : '' ) : '';
+$_GET['sdsc_zoom'] = $tok;
+$page = SDSC_ZoomAuto::front( true );
+$t( $tok && false !== strpos( $page, '920 6636 7353' ) && false !== strpos( $page, 'Dear Zed,' ), 'student page shows the Zoom details for a valid token' );
+$_GET['sdsc_zoom'] = substr( $tok, 0, -1 ) . 'x';
+$page = SDSC_ZoomAuto::front( true );
+$t( false === strpos( $page, '920 6636 7353' ) && false !== strpos( $page, 'not valid' ), 'student page refuses a tampered token' );
+unset( $_GET['sdsc_zoom'] );
 // cleanup
 $wpdb->delete( SDSC_Registration::table(), array( 'email' => 'zztest-sched@example.test' ) );
 foreach ( get_posts( array( 'post_type' => 'sdsc_registrant', 'post_status' => 'any', 'numberposts' => -1, 'meta_key' => '_sdsc_class_id', 'meta_value' => $cid, 'fields' => 'ids' ) ) as $p ) { wp_delete_post( $p, true ); }
