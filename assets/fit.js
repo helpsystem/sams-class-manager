@@ -39,7 +39,8 @@
 	var css = document.createElement('style');
 	css.textContent = '@media (max-width:1024px){#wpbody-content .df-btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center}' +
 		'#wpbody-content input[type=text],#wpbody-content input[type=email],#wpbody-content input[type=tel],#wpbody-content input[type=number],#wpbody-content input[type=date],#wpbody-content input[type=time],#wpbody-content input[type=datetime-local],#wpbody-content input[type=search],#wpbody-content input[type=url],#wpbody-content input[type=password],#wpbody-content input:not([type]),#wpbody-content select{min-height:40px}' +
-		'#wpbody-content button[data-set]{min-height:34px;min-width:40px}}';
+		'#wpbody-content button[data-set]{min-height:34px;min-width:40px}' +
+		'#wpbody-content .button.button-small{min-height:36px;line-height:34px;padding:0 12px}}';
 	(document.head || document.documentElement).appendChild(css);
 	var t;
 	function later() { clearTimeout(t); t = setTimeout(fit, 120); }
