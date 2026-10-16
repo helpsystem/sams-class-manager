@@ -59,7 +59,7 @@
 		if (!b) { return; }
 		if (o.done) { o.done.forEach(function (d, i) { var f = b.querySelectorAll('.spop-done figure')[i]; var im = new Image(); im.alt = d[1]; im.src = d[0].toDataURL('image/jpeg', 0.7); f.querySelector('span').appendChild(im); f.querySelector('figcaption').textContent = '✓ ' + d[1]; }); }
 		var sel = b.querySelector('.spop-tm select'); sel.value = String(n);
-		var num = b.querySelector('.spop-cd-n'), lab = b.querySelector('.spop-cd-l'), fg = b.querySelector('.spop-cd-fg'), L = 2 * Math.PI * 52, left = n, paused = !n;
+		var num = b.querySelector('.spop-cd-n'), lab = b.querySelector('.spop-cd-l'), fg = b.querySelector('.spop-cd-fg'), L = 2 * Math.PI * 52, left = n, paused = !n || !!o.paused;
 		fg.style.strokeDasharray = L;
 		function paint() {
 			if (paused) { num.textContent = '⏸'; lab.textContent = n ? 'paused' : 'press Scan'; fg.style.strokeDashoffset = L; return; }
@@ -210,12 +210,13 @@
 		function done() { return D.pages.slice(-2).map(function (p, i, a) { return [p.c, 'Page ' + (D.pages.length - a.length + i + 1)]; }); }
 
 		/* Glass: one page (or side) at a time, with the countdown before each. */
-		function glass(back) {
+		function glass(back, empty) {
 			var nr = D.pages.length + 1, two = opt.sides === 'two';
 			step({
+				paused: !!empty,
 				art: back ? ART.pageTurn : ART.page,
-				title: back ? 'Turn the page over — the back now' : (D.pages.length ? 'Next page on the glass' : 'Put the first page face down on the glass'),
-				text: (back ? 'Same place on the glass, then close the lid.' : 'Top edge towards the back of the scanner, then close the lid.') + ' Scanning starts by itself when the timer runs out.',
+				title: empty ? 'The glass looked empty' : (back ? 'Turn the page over — the back now' : (D.pages.length ? 'Next page on the glass' : 'Put the first page face down on the glass')),
+				text: empty ? 'Put the next page on the glass and press Scan — or press Finished if that was the last page.' : (back ? 'Same place on the glass, then close the lid.' : 'Top edge towards the back of the scanner, then close the lid.') + ' Scanning starts by itself when the timer runs out.',
 				done: D.pages.length ? done() : null,
 				extra: D.pages.length ? '<button type="button" class="sdd-b sdd-b--ghost spop-fin">✓ Finished — ' + D.pages.length + ' page' + (D.pages.length > 1 ? 's' : '') + '</button>' : '',
 				go: function () {
@@ -225,7 +226,12 @@
 						return r.blob();
 					}).then(toImg).then(function (c) {
 						beep();
-						if (back && opt.blank && blank(c)) { /* nothing printed on the back */ } else { addPage(c); }
+						if (blank(c)) {
+							// Nothing on the glass (or an empty back): do not keep scanning by itself.
+							if (back && opt.blank) { glass(false); return; }
+							if (!back) { glass(false, true); return; }
+						}
+						addPage(c);
 						glass(two && !back);
 					}).catch(function (e) { problem(e.message || 'Scan failed.', function () { glass(back); }, null); });
 				},
