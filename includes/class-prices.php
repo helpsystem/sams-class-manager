@@ -324,11 +324,12 @@ class SDSC_Prices {
 		list( $code, $nl ) = self::api( 'POST', 'payment_links', array_merge( $set, $base, array( 'metadata' => $meta ) ), $tag . '-link' );
 		$note = '';
 		if ( 200 !== $code && $old ) {
+			$why = (string) ( $nl['error']['message'] ?? '' );
 			// a setting Stripe will not copy: make the link with the main ones and say so
 			$min = array_intersect_key( $set, array_flip( array( 'after_completion', 'allow_promotion_codes', 'billing_address_collection', 'phone_number_collection', 'custom_fields' ) ) );
 			list( $code, $nl ) = self::api( 'POST', 'payment_links', array_merge( $min, $base, array( 'metadata' => $meta ) ), $tag . '-link2' );
 			if ( 200 !== $code ) { list( $code, $nl ) = self::api( 'POST', 'payment_links', array_merge( $base, array( 'metadata' => $meta ) ), $tag . '-link3' ); }
-			$note = ' (some settings of the old link could not be copied — check it in Stripe)';
+			$note = ' (some settings of the old link could not be copied — check it in Stripe' . ( $why ? '. Stripe said: ' . mb_substr( $why, 0, 160 ) : '' ) . ')';
 		}
 		if ( 200 !== $code || empty( $nl['url'] ) ) { return array( false, '', 'Stripe did not make the link: ' . ( $nl['error']['message'] ?? 'error ' . $code ) ); }
 		if ( $old && '1' === (string) ( $old['metadata']['sdsc_auto'] ?? '' ) ) {
@@ -337,7 +338,7 @@ class SDSC_Prices {
 		} elseif ( $old ) {
 			$note .= '; the old link still works in Stripe (it was made by hand)';
 		}
-		self::$links[ $nl['url'] ] = $nl;
+		if ( null !== self::$links ) { self::$links[ $nl['url'] ] = $nl; }
 		return array( true, (string) $nl['url'], 'new Stripe payment link made' . ( 'test' === $mode ? ' (test mode)' : '' ) . $note );
 	}
 
