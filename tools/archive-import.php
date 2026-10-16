@@ -87,7 +87,7 @@ foreach ( $rows as $i => $r ) {
 	$ids = array_values( array_unique( wp_list_pluck( $cands, 'id' ) ) );
 	if ( count( $ids ) > 1 ) {
 		// the same person registered twice on the site: pick the one whose old-form course date (notes) matches, else leave it
-		$pick = array_values( array_filter( $cands, function ( $g ) use ( $r ) { return $g['notes'] && false !== strpos( (string) $g['notes'], 'Course date' ) && preg_match( $dre( $r['start'] ), (string) $g['notes'] ); } ) );
+		$pick = array_values( array_filter( $cands, function ( $g ) use ( $r, $dre ) { return $g['notes'] && false !== strpos( (string) $g['notes'], 'Course date' ) && preg_match( $dre( $r['start'] ), (string) $g['notes'] ); } ) );
 		if ( 1 === count( $pick ) ) { $cands = $pick; $ids = array( $pick[0]['id'] ); } else { $amb[] = array( $r, $ids ); continue; }
 	}
 	$g = $cands[0];
