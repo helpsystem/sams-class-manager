@@ -102,7 +102,7 @@ class SDSC_CarApp {
 		$where = $wpdb->prepare( 's.scheduled_start BETWEEN %s AND %s', $from, $to );
 		if ( '' !== $name ) { $where .= $wpdb->prepare( ' AND s.instructor_name = %s', $name ); }
 		if ( ! get_user_meta( get_current_user_id(), 'sdsc_preview', true ) ) { $where .= " AND s.lesson_topic NOT LIKE '%(demo)'"; } // preview demo lessons only in previews
-		$rows = $wpdb->get_results( 'SELECT s.id, s.student_id, s.student_name, s.instructor_name, s.session_number, s.lesson_topic, s.scheduled_start, s.scheduled_end, s.status, (s.status = \'completed\' AND (s.form_data IS NULL OR s.form_data NOT LIKE \'%in_car_eval_record%\')) AS no_eval, s.plate_number, d.phone, d.email, d.license_number, d.total_sessions, v.model, v.color FROM ' . self::t( 'sessions' ) . ' s LEFT JOIN ' . self::t( 'students' ) . ' d ON d.id = s.student_id LEFT JOIN ' . self::t( 'vehicles' ) . " v ON v.plate_number = s.plate_number WHERE $where ORDER BY s.scheduled_start ASC", ARRAY_A ); // phpcs:ignore
+		$rows = $wpdb->get_results( 'SELECT s.id, s.student_id, s.student_name, s.instructor_name, s.session_number, s.lesson_topic, s.scheduled_start, s.scheduled_end, s.status, (s.status = \'completed\' AND s.updated_at >= \'2026-10-16\' AND (s.form_data IS NULL OR s.form_data NOT LIKE \'%in_car_eval_record%\')) AS no_eval, s.plate_number, d.phone, d.email, d.license_number, d.total_sessions, v.model, v.color FROM ' . self::t( 'sessions' ) . ' s LEFT JOIN ' . self::t( 'students' ) . ' d ON d.id = s.student_id LEFT JOIN ' . self::t( 'vehicles' ) . " v ON v.plate_number = s.plate_number WHERE $where ORDER BY s.scheduled_start ASC", ARRAY_A ); // phpcs:ignore
 
 		$due = $day = $next = array();
 		$prev_cache = array();

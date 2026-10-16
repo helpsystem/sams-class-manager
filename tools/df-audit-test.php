@@ -170,6 +170,35 @@ if ( class_exists( 'DriveFlow_Magic_Links' ) ) {
 	if ( ! empty( $ml['token'] ) ) { $wpdb->delete( "{$P}driveflow_magic_tokens", array( 'token' => $ml['token'] ) ); }
 }
 
+echo "10. Review follow-ups\n";
+$s0 = $mk( date( 'Y-m-d 13:00:00', current_time( 'timestamp' ) - DAY_IN_SECONDS ) );
+$wpdb->update( "{$P}driveflow_sessions", array( 'student_id' => 0 ), array( 'id' => $s0 ) );
+$c0 = $completed();
+$call( 'driveflow_quick_status', array( 'nonce' => $n_admin, 'session_id' => $s0, 'status' => 'completed' ) );
+$T( 'name-matched lesson remembers its student', $sa === (int) $wpdb->get_var( $wpdb->prepare( "SELECT student_id FROM {$P}driveflow_sessions WHERE id = %d", $s0 ) ) && $c0 + 1 === $completed() );
+$call( 'driveflow_quick_status', array( 'nonce' => $n_admin, 'session_id' => $s0, 'status' => 'upcoming' ) );
+$T( '…and undo refunds that student', $c0 === $completed() );
+$lk = 'sdsc_lock_zztest';
+$g1 = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no')", $lk, time() ) );
+$g2 = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no')", $lk, time() + 1 ) );
+$wpdb->delete( $wpdb->options, array( 'option_name' => $lk ) );
+$T( 'booking lock: second request in a later second is refused', 1 === (int) $g1 && 0 === (int) $g2 );
+if ( ! empty( $iu ) && ( empty( $linked ) || 'active' === $linked['status'] ) ) {
+	if ( empty( $linked ) ) { $wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => $iu ), array( 'id' => $ia ) ); }
+	wp_set_current_user( $iu );
+	$rq = new WP_REST_Request( 'POST', '/driveflow/v1/sessions' );
+	$rq->set_header( 'content-type', 'application/json' );
+	$rq->set_body( wp_json_encode( array( 'student_name' => 'ZZTEST Student A', 'scheduled_start' => date( 'Y-m-d 09:00:00', current_time( 'timestamp' ) - 5 * DAY_IN_SECONDS ), 'scheduled_end' => date( 'Y-m-d 11:00:00', current_time( 'timestamp' ) - 5 * DAY_IN_SECONDS ), 'status' => 'completed' ) ) );
+	$res = $df->create_session( $rq );
+	$T( 'instructor cannot add a back-dated lesson', is_wp_error( $res ) );
+	wp_set_current_user( $admin );
+	if ( empty( $linked ) ) { $wpdb->update( "{$P}driveflow_instructors", array( 'user_id' => 0 ), array( 'id' => $ia ) ); }
+}
+$fh = fopen( 'php://memory', 'w+' );
+DriveFlow_Pro::fputcsv_safe( $fh, array( '+1 301 555 0100', '-20.00' ) );
+rewind( $fh ); $line = trim( stream_get_contents( $fh ) );
+$T( 'CSV keeps phones and negative amounts as typed', false === strpos( $line, "'" ), $line );
+
 // ---------- clean up everything this test made
 foreach ( array_unique( $made['sessions'] ) as $id ) { $wpdb->delete( "{$P}driveflow_sessions", array( 'id' => $id ) ); }
 $wpdb->query( "DELETE FROM {$P}driveflow_sessions WHERE lesson_topic = 'ZZTEST' OR student_name LIKE 'ZZTEST%'" );

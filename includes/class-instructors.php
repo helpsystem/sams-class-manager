@@ -116,9 +116,13 @@ class SDSC_Instructors {
 		if ( ! $r ) { self::back( 'Instructor not found.', true ); }
 		$d   = self::posted();
 		$up  = array( 'name' => trim( $d['first'] . ' ' . $d['last'] ) ?: $r['name'], 'email' => $d['email'], 'phone' => $d['phone'], 'license_number' => $d['lic'], 'default_vehicle_id' => $d['car'], 'updated_at' => current_time( 'mysql' ) );
+		if ( $up['name'] !== $r['name'] && $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . self::t() . ' WHERE LOWER(name) = LOWER(%s) AND id <> %d LIMIT 1', $up['name'], $id ) ) ) { // phpcs:ignore
+			self::back( 'Another instructor already has the name ' . $up['name'] . '. Add a middle initial to tell them apart.', true );
+		}
 		if ( ! empty( $_POST['login'] ) && ! (int) $r['user_id'] ) { $up['user_id'] = self::login_for( $d['email'], $d['first'], $d['last'] ); } // phpcs:ignore
 		$wpdb->update( self::t(), $up, array( 'id' => $id ) );
 		if ( $up['name'] !== $r['name'] && '' !== (string) $r['name'] ) {
+			$wpdb->update( $wpdb->prefix . 'driveflow_instructor_payouts', array( 'instructor_name' => $up['name'] ), array( 'instructor_id' => $id ) );
 			// Lessons, pay and blocked time are matched on the instructor's name: carry the new name over.
 			$wpdb->update( $wpdb->prefix . 'driveflow_sessions', array( 'instructor_name' => $up['name'] ), array( 'instructor_name' => $r['name'] ) );
 			$wpdb->update( $wpdb->prefix . 'driveflow_blocked_slots', array( 'target_identifier' => $up['name'] ), array( 'target_type' => 'instructor', 'target_identifier' => $r['name'] ) );

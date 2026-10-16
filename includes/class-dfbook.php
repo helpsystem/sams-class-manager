@@ -352,14 +352,14 @@ class SDSC_DFBook {
 		if ( ! $d['place'] ) { $d['place'] = self::places()[0] ?? ''; }
 		// Double click / two tabs: one booking at a time for the same student and start (an option row is an atomic lock).
 		$lock = 'sdsc_lock_' . md5( strtolower( $d['email'] . '|' . preg_replace( '/\D/', '', $d['phone'] ) . '|' . $d['start'] ) );
-		$held = get_option( $lock );
-		if ( $held && (int) $held < time() - 60 ) { delete_option( $lock ); }
-		if ( ! add_option( $lock, time(), '', 'no' ) ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( 'This lesson is already being booked (double click). Check the calendar.' ), $back ) ); exit; }
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value < %d", $lock, time() - 60 ) );
+		$got = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no')", $lock, time() ) );
+		if ( 1 !== (int) $got ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( 'This lesson is already being booked (double click). Check the calendar.' ), $back ) ); exit; }
 		list( $err ) = self::check( $d );
-		if ( $err ) { delete_option( $lock ); wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( implode( ' ', $err ) ), $back ) ); exit; }
+		if ( $err ) { $wpdb->delete( $wpdb->options, array( 'option_name' => $lock ) ); wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( implode( ' ', $err ) ), $back ) ); exit; }
 
 		$r = self::book( $d );
-		delete_option( $lock );
+		$wpdb->delete( $wpdb->options, array( 'option_name' => $lock ) );
 		if ( is_wp_error( $r ) ) { wp_safe_redirect( add_query_arg( 'sdsc_berr', rawurlencode( $r->get_error_message() ), $back ) ); exit; }
 		$ins = array( 'name' => $r['ins'] );
 		$car = array( 'plate_number' => $r['plate'] );

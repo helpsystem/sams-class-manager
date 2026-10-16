@@ -597,7 +597,7 @@
 				'<button class="scal-btn">Save change</button></form>' : '') +
 			'<div class="scal-acts">' +
 				(up && !started ? '<button type="button" class="scal-btn scal-btn--danger" data-st="cancel">Cancel lesson</button>' : '') +
-				(started && e.status !== 'completed' && !e.out ? '<button type="button" class="scal-btn" data-st="done">Completed</button><button type="button" class="scal-btn scal-btn--warn" data-st="no_show">No-show</button><button type="button" class="scal-btn scal-btn--warn" data-st="no_permit">No permit</button>' : '') +
+				(started && e.status !== 'completed' && e.status !== 'cancelled' && !e.out ? '<button type="button" class="scal-btn" data-st="done">Completed</button><button type="button" class="scal-btn scal-btn--warn" data-st="no_show">No-show</button><button type="button" class="scal-btn scal-btn--warn" data-st="no_permit">No permit</button>' : '') +
 				'<a class="scal-btn scal-btn--ghost" href="' + esc(C.records) + '">Evaluations &amp; records</a>' +
 				(e.lid ? '<a class="scal-btn scal-btn--ghost" href="' + esc(C.lesson + e.lid) + '">BTW lesson &amp; fees</a>' : '') +
 			'</div>';
