@@ -119,7 +119,9 @@ class SDSC_Helper {
 			array( 'cancel', 'reschedule', 'change', 'move', 'postpone' ),
 			array( 'lesson', 'drive', 'driving', 'btw', 'wheel' ),
 			array( 'permit', 'learner', 'learners' ),
-			array( 'pay', 'payment', 'paid', 'cash', 'check', 'zelle', 'fee', 'price', 'cost' ),
+			array( 'pay', 'payment', 'paid' ),
+			array( 'cash', 'check', 'cheque', 'zelle' ),
+			array( 'fee', 'price', 'cost' ),
 			array( 'absent', 'absence', 'miss', 'missed' ),
 			array( 'phone', 'call', 'text', 'contact', 'number' ),
 		);
@@ -158,7 +160,7 @@ class SDSC_Helper {
 		$N   = max( 1, count( $es ) );
 		$idf = function ( $w ) use ( $df, $N ) { return log( 1 + $N / ( 1 + ( $df[ $w ] ?? 0 ) ) ); };
 		$tot = 0;
-		foreach ( $qt as $w ) { $tot += $idf( $w ); }
+		foreach ( $qt as $w ) { if ( isset( $df[ $w ] ) ) { $tot += $idf( $w ); } } // words the assistant has never seen do not count against a match
 		$res = array();
 		foreach ( $es as $i => $e ) {
 			$sc = 0; $kh = 0;

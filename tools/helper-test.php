@@ -9,7 +9,7 @@ $cases=array(
  array('I forgot my password',0,'Lost your password'),
  array('how do I cancel a lesson',1,'free until the deadline'),
  array('can I pay with a check',0,'cash, check or Zelle'),
- array('the quiz is locked',1,'opens after your payment'),
+ array('the quiz is locked',1,'open after your payment'),
  array('how many classes can I miss',1,'4 absences'),
  array('I am sick and cannot drive today',2,'Call the office'),
 );
