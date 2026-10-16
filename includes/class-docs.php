@@ -518,7 +518,9 @@ class SDSC_Docs {
 	public static function assets() {
 		if ( ! is_user_logged_in() || self::TAB !== get_query_var( 'tutor_dashboard_page' ) ) { return; }
 		wp_enqueue_style( 'sdsc-docs', SDSC_URL . 'assets/docs.css', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/docs.css' ) );
-		wp_enqueue_script( 'sdsc-docs', SDSC_URL . 'assets/docs.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/docs.js' ), true );
+		wp_enqueue_style( 'sdsc-camscan', SDSC_URL . 'assets/camscan.css', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/camscan.css' ) );
+		wp_enqueue_script( 'sdsc-camscan', SDSC_URL . 'assets/camscan.js', array(), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/camscan.js' ), true );
+		wp_enqueue_script( 'sdsc-docs', SDSC_URL . 'assets/docs.js', array( 'sdsc-camscan' ), SDSC_VERSION . '.' . filemtime( SDSC_DIR . 'assets/docs.js' ), true );
 		$want = isset( $_GET['student'] ) ? strtolower( sanitize_email( wp_unslash( $_GET['student'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 		wp_localize_script( 'sdsc-docs', 'SDSC_DOCS', array(
 			'ajax'   => admin_url( 'admin-ajax.php' ),

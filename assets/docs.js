@@ -137,7 +137,7 @@
     var d = S.docs.filter(function (x) { return x.type === type; })[0];
     return '<div class="sdd-slot" data-slot="' + type + '"><div class="sdd-slot-img">' + (d && d.thumb ? '<img src="' + esc(d.thumb) + '" alt="">' : (d ? '<span class="sdd-ico">' + (d.pdf ? 'PDF' : 'FILE') + '</span>' : '<span class="sdd-slot-ph" aria-hidden="true">🪪</span>')) + '</div>' +
       '<b>' + esc(title) + '</b><small>' + (d ? 'On file · ' + esc(d.when) : 'Not on file yet') + '</small>' +
-      '<div class="sdd-slot-acts"><button type="button" class="sdd-b" data-cam="' + type + '">📷 Take photo</button><button type="button" class="sdd-b sdd-b--ghost" data-file="' + type + '">⬆ Upload scan</button></div></div>';
+      '<div class="sdd-slot-acts"><button type="button" class="sdd-b" data-cam="' + type + '">📷 Scan with camera</button><button type="button" class="sdd-b sdd-b--ghost" data-file="' + type + '">⬆ Upload scan</button></div></div>';
   }
   function isIns() { return S.person && S.person.kind === 'instructor'; }
   function paintSlots() {
@@ -161,7 +161,7 @@
       '<div class="sdd-slots"></div>' +
       '<div class="sdd-other"><label>Other document <select class="sdd-type">' + opts + '</select></label>' +
       '<label>Note (optional) <input type="text" class="sdd-label" maxlength="120" placeholder="' + (isIns() ? 'e.g. expires 2028' : 'e.g. practice log page 2') + '"></label>' +
-      '<div class="sdd-other-acts"><button type="button" class="sdd-b" data-cam="other">📷 Take photo</button>' + (C.office && window.SDSC_SCANPOP ? '<button type="button" class="sdd-b" data-scan="other">🖨 Office scanner (glass or feeder)</button>' : '') + '<button type="button" class="sdd-b sdd-b--ghost" data-file="other">⬆ Upload files</button></div></div>' +
+      '<div class="sdd-other-acts"><button type="button" class="sdd-b" data-cam="other">📷 Scan with camera</button>' + (C.office && window.SDSC_SCANPOP ? '<button type="button" class="sdd-b" data-scan="other">🖨 Office scanner (glass or feeder)</button>' : '') + '<button type="button" class="sdd-b sdd-b--ghost" data-file="other">⬆ Upload files</button></div></div>' +
       '<div class="sdd-drop" tabindex="0"><b>Drop scanned files here</b><span>PDF or photos · up to 20 MB each · several at once</span></div>' +
       '<ul class="sdd-queue" aria-live="polite"></ul></section>';
   }
@@ -265,6 +265,15 @@
     var otherLabel = function () { var s = root.querySelector('.sdd-label'); return s ? s.value : ''; };
     if (t.hasAttribute('data-cam') || t.hasAttribute('data-file')) {
       var k = t.getAttribute('data-cam') || t.getAttribute('data-file'), slotType = k !== 'other';
+      var CS = window.SDSC_CAMSCAN;
+      if (t.hasAttribute('data-cam') && CS && CS.supported()) {
+        // Camera scanner: finds the edges, straightens and cleans the page; several pages become one PDF.
+        if (C.office && !S.email) { toast('Choose the student first.', true); return; }
+        var ty = slotType ? k : otherType(), card = /^(id_front|id_back|permit|license|parent_id|ins_dl_front|ins_dl_back)$/.test(ty), lb = slotType ? '' : otherLabel();
+        CS.open({ kind: card ? 'card' : 'doc', multi: !card, title: (C.all && C.all[ty]) || 'Scan',
+          onDone: function (file) { return upload([file], ty, lb); } });
+        return;
+      }
       picker(function () { return slotType ? k : otherType(); }, { camera: t.hasAttribute('data-cam'), multiple: !slotType && t.hasAttribute('data-file'), label: slotType ? null : otherLabel });
       return;
     }
