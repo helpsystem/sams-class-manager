@@ -88,8 +88,20 @@ foreach ( $rows as $i => $r ) {
 		$cands = array_values( array_filter( $cands, function ( $g ) use ( $norm, $t ) { $gn = explode( ' ', $norm( $g['first_name'] . ' ' . $g['last_name'] ) ); return $t && $gn && ( $gn[0] === $t[0] || end( $gn ) === end( $t ) ); } ) );
 		if ( ! $cands ) { $none[] = $i; continue; }
 	}
+	// a site registration belongs to a course only when it was made around that course's start (45 days before … 14 days after);
+	// a 2026 registration never belongs to a 2024/2025 course — that earlier course becomes an archive row of its own
+	$near = array_values( array_filter( $cands, function ( $g ) use ( $r ) { $d = ( strtotime( $r['start'] ) - strtotime( $g['d'] ) ) / 86400; return $d >= -14 && $d <= 45; } ) );
+	if ( ! $near ) { $none[] = $i; continue; }
+	$cands = $near;
 	$ids = array_values( array_unique( wp_list_pluck( $cands, 'id' ) ) );
 	if ( count( $ids ) > 1 ) {
+		// the same person sent the form twice for the same course (same name, neither has a class): both rows are theirs — link both
+		$names = array_unique( array_map( function ( $g ) use ( $norm ) { return $norm( $g['first_name'] . ' ' . $g['last_name'] ); }, $cands ) );
+		$free  = ! array_filter( $cands, function ( $g ) use ( $seen_reg ) { return (int) $g['class_id'] > 0 || isset( $seen_reg[ $g['id'] ] ); } );
+		if ( 1 === count( $names ) && $free ) {
+			foreach ( $cands as $g ) { $seen_reg[ $g['id'] ] = $r['n']; $link[] = array( 'reg' => $g, 'row' => $r, 'how' => 'dup' ); }
+			continue;
+		}
 		// the same person registered twice on the site: pick the one whose old-form course date (notes) matches, else leave it
 		$pick = array_values( array_filter( $cands, function ( $g ) use ( $r, $dre ) { return $g['notes'] && false !== strpos( (string) $g['notes'], 'Course date' ) && preg_match( $dre( $r['start'] ), (string) $g['notes'] ); } ) );
 		if ( 1 === count( $pick ) ) { $cands = $pick; $ids = array( $pick[0]['id'] ); } else { $amb[] = array( $r, $ids ); continue; }
@@ -101,7 +113,7 @@ foreach ( $rows as $i => $r ) {
 }
 $ws = count( array_filter( $rows, function ( $r ) { return ! empty( $r['stripe'] ); } ) );
 echo "roster rows with a Stripe course payment: $ws of " . count( $rows ) . " (" . count( array_filter( $rows, function ( $r ) { return $r['start'] >= '2024-04-25'; } ) ) . " rows fall in the Stripe period)\n";
-echo "roster rows matched to one site registration: " . count( $link ) . " (" . count( array_filter( $link, function ( $x ) { return 'phone' === $x['how']; } ) ) . " by phone); doubtful (listed, not applied): " . count( $amb ) . "; not on the site: " . count( $none ) . "\n";
+echo "roster rows matched to one site registration: " . count( $link ) . " (" . count( array_filter( $link, function ( $x ) { return 'phone' === $x['how']; } ) ) . " by phone, " . count( array_filter( $link, function ( $x ) { return 'dup' === $x['how']; } ) ) . " duplicate form rows of one person); doubtful (listed, not applied): " . count( $amb ) . "; not on the site: " . count( $none ) . "\n";
 $has_class = array_filter( $link, function ( $x ) { return (int) $x['reg']['class_id'] > 0; } );
 echo "  of the matched registrations, " . count( $has_class ) . " already have a class and are left as they are\n";
 // old-form course date in notes vs roster course: a cross-check
@@ -120,7 +132,7 @@ if ( 'doubtful' === $do ) {
 	$i = 0;
 	foreach ( $amb as $a ) {
 		$i++;
-		echo "\n$i. Course list: C-" . str_pad( $a[0]['n'], 2, '0', STR_PAD_LEFT ) . ' (' . $a[0]['start'] . ') ' . $a[0]['name'] . ( ! empty( $a[0]['stripe'] ) ? '  [Stripe ' . $a[0]['stripe']['paid_date'] . ']' : '' ) . "\n";
+		echo "\n$i. Course list: C-" . str_pad( $a[0]['n'], 2, '0', STR_PAD_LEFT ) . ' (' . $a[0]['start'] . ') ' . $a[0]['name'] . ( ! empty( $a[0]['stripe'] ) ? '  [Stripe ' . $a[0]['stripe']['date'] . ']' : '' ) . "\n";
 		foreach ( (array) $a[1] as $id ) {
 			if ( ! is_numeric( $id ) ) { echo "     - $id\n"; continue; }
 			$g = $byId[ $id ] ?? null; if ( ! $g ) { continue; }
