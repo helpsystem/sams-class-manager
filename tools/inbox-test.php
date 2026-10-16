@@ -11,7 +11,7 @@ $staff = SDSC_Inbox::staff(); $su = reset( $staff );
 $keep = get_option( SDSC_Inbox::OPT );
 update_option( SDSC_Inbox::OPT, array( 'on' => 1, 'fwd' => array( $su->ID ), 'since' => time() - 60, 'last' => 0, 'valid' => 0 ), false );
 $o = SDSC_Inbox::opts();
-$tag = 'ibt' . wp_generate_password( 6, false, false );
+$tag = 'ibt' . strtolower( wp_generate_password( 6, false, false ) );
 $stu = $tag . '@example.test';
 $mk = function ( $from, $subj, $body, $extra = '', $date = null ) use ( $tag ) {
 	static $n = 0; $n++;
@@ -24,12 +24,14 @@ $t( $r && 'new' === $r['status'] && $stu === $r['from_email'], 'student e-mail s
 SDSC_Inbox::flush_outbox();
 $r = SDSC_Inbox::row( $id );
 $fw = end( $sent );
+echo '   (fwd_at=' . $r['fwd_at'] . ' to=' . wp_json_encode( $fw ? $fw['to'] : null ) . ")\n";
 $t( $r['fwd_at'] && $fw && in_array( strtolower( $su->user_email ), array_map( 'strtolower', (array) $fw['to'] ), true ), 'forwarded to ' . $su->display_name );
 $t( $fw && false !== strpos( $fw['subject'], '[SDS #' . SDSC_Inbox::ref( $id ) . ']' ), 'forward subject has the reference: ' . ( $fw ? $fw['subject'] : '' ) );
 $t( $fw && preg_grep( '/^Reply-To:.*info@/i', (array) $fw['headers'] ), 'forward Reply-To is info@' );
 $t( $fw && false !== strpos( $fw['message'], 'move my lesson' ), 'forward contains the student text' );
 // 2. duplicate is ignored
-$t( 0 === SDSC_Inbox::take( 101, $mk( "Test Student <$stu>", 'x', 'y' ) . '', $o ) || true, 'second copy handled' );
+$dup = "Message-ID: <$tag-1@example.test>\r\nFrom: Test Student <$stu>\r\nSubject: Question about my lesson\r\n\r\nHi again\r\n";
+$t( 0 === SDSC_Inbox::take( 101, $dup, $o ), 'the same message twice is stored once' );
 // 3. staff replies by e-mail → sent on to the student
 $sent = array();
 $rid = SDSC_Inbox::take( 102, $mk( $su->display_name . ' <' . $su->user_email . '>', 'Re: [SDS #' . SDSC_Inbox::ref( $id ) . '] Question about my lesson — Test Student', "Yes, Saturday 9am works. See you!\n\nOn Fri, Oct 16, 2026 at 1:10 PM Sam's Driving School LLC <info@samsdrivingschool.org> wrote:\n> —— Reply above this line to answer ——\n> Hi, can I move my lesson" ), $o );
@@ -55,7 +57,7 @@ $t( 'other' === SDSC_Inbox::row( $nid )['status'] && 'other' === SDSC_Inbox::row
 $did = SDSC_Inbox::take( 107, $mk( $su->user_email, 'Re: [SDS #' . SDSC_Inbox::ref( $id ) . '] x', 'fake', "Authentication-Results: mx.hostinger.com; dkim=fail; spf=fail\r\n" ), $o );
 $t( 'new' === SDSC_Inbox::row( $did )['status'] && false !== strpos( SDSC_Inbox::row( $did )['note'], 'confirm' ), 'failed sender check: held for review' );
 // 8. old message (before switch-on) is not forwarded
-$sent = array();
+SDSC_Inbox::flush_outbox(); $sent = array();
 $old = SDSC_Inbox::take( 108, $mk( "Old <old$stu>", 'old one', 'old', '', time() - 3 * DAY_IN_SECONDS ), $o );
 SDSC_Inbox::flush_outbox();
 $t( ! $sent && ! SDSC_Inbox::row( $old )['fwd_at'], 'messages from before switch-on are not forwarded' );
