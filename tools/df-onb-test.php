@@ -15,12 +15,11 @@ $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $T WHERE id=%d",$id), ARRAY_
 $t($row && $row['status']==='new' && $row['type']==='ins_dl_front' && $row['source']==='student' && $row['mime']==='image/png', 'row: new / ins_dl_front / student / png');
 $t($row && is_file($D.$row['file']) && file_get_contents($D.$row['file']) !== $png, 'file on disk is encrypted');
 $t($row && $get->invoke(null,$row['file']) === $png, 'decrypts back to the same picture');
-$t(strpos($D, '/uploads/') === false || !is_readable($D.'../index.php') || true, 'store dir: '.$D);
+$t(strpos(realpath($D), realpath(ABSPATH)) !== 0, 'store dir is outside the web folder: '.$D);
 $t(0 === SDSC_Docs::store($em, '<html><script>alert(1)</script></html>', 'ins_cert'), 'HTML rejected');
 $t(0 === SDSC_Docs::store($em, '', 'ins_cert'), 'empty rejected');
 $t(0 === SDSC_Docs::store('not-an-email', $png, 'ins_cert'), 'bad email rejected');
 $u = SDSC_Docs::url($em); $t($u && strpos($u, '.bin')===false, 'url() is not a file link: '.$u);
-$t(200 !== wp_remote_retrieve_response_code(wp_remote_get(content_url('/'.ltrim(str_replace(WP_CONTENT_DIR,'',$D),'/')).($row?$row['file']:''), array('sslverify'=>false))), 'encrypted file not served over the web');
 // clean up
 $rows = $wpdb->get_results($wpdb->prepare("SELECT id,file FROM $T WHERE email=%s",$em), ARRAY_A);
 foreach($rows as $x){ @unlink($D.$x['file']); $wpdb->delete($L,array('doc_id'=>$x['id'])); $wpdb->delete($T,array('id'=>$x['id'])); }
