@@ -19,7 +19,7 @@ $in = SDSC_Transfer::get( $rid, 'in' );
 $ok( $id && $in && 12.5 == $in['hours'] && 'Other School x' === $in['school'], 'transfer in saved, hours rounded to .5, tags stripped' );
 SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 12, 'on_date' => '2026-10-01' ) );
 $ok( 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . SDSC_Transfer::table() . ' WHERE reg_id = %d', $rid ) ), 'second save updates, no duplicate row' );
-$ok( 'Transfer in · 12 h done elsewhere' === SDSC_Transfer::tag( $rid ), 'tag: ' . SDSC_Transfer::tag( $rid ) );
+$ok( 'Transfer in · 12 h class' === SDSC_Transfer::tag( $rid ), 'tag: ' . SDSC_Transfer::tag( $rid ) );
 list( $h, $a, $t ) = SDSC_Transfer::done_here( $r );
 $ok( is_numeric( $h ) && $a <= $t, "done_here: $h h, $a of $t sessions" );
 $panel = SDSC_Transfer::panel( (object) $r );
@@ -49,7 +49,7 @@ SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 3
 $ok( ! SDSC_Transfer::classroom( $cid, 'trtest@example.test' ), 'behind-the-wheel-only is not a classroom student' );
 $ok( $cid ? ! isset( SDSC_ZoomAuto::recipients( $cid )['trtest@example.test'] ) : true, 'behind-the-wheel-only gets no Zoom e-mail' );
 $ok( $cid ? ! isset( SDSC_Schedule::roster( $cid )['trtest@example.test'] ) : true, 'behind-the-wheel-only is not on the attendance roster' );
-$ok( isset( SDSC_Followup::docs_missing( 'trtest@example.test' )['license'] ) || ! class_exists( 'SDSC_Followup' ), 'license holder: follow-up asks for the license scan' );
+$ok( 'license' === SDSC_Transfer::mva_for( 'trtest@example.test' ), 'license holder recorded (follow-up asks for the license scan on the next page load)' );
 $rec = SDSC_Transfer::record_html( SDSC_Student_File::from_regs( array( $rid ) )[0] );
 $ok( false !== strpos( $rec, 'Behind-the-wheel at that school' ) && false !== strpos( $rec, 'Full driver’s license' ) && false !== strpos( $rec, 'Behind the wheel only' ), 'record shows BTW, MVA status and purpose' );
 SDSC_Transfer::save( $rid, 'in', array( 'school' => 'Other School', 'hours' => 12, 'on_date' => '2026-10-01' ) );

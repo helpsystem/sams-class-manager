@@ -95,6 +95,7 @@ class SDSC_Transfer {
 			'by_user' => get_current_user_id(),
 			'updated' => current_time( 'mysql' ),
 		);
+		self::ins_of_class( 'reset' );
 		$old = self::get( $rid, $dir );
 		if ( $old ) {
 			$wpdb->update( self::table(), $data, array( 'id' => (int) $old['id'] ) );
@@ -138,6 +139,7 @@ class SDSC_Transfer {
 	public static function ins_of_class( $cid ) {
 		global $wpdb;
 		static $cache = array();
+		if ( 'reset' === $cid ) { $cache = array(); return array(); }
 		$cid = (int) $cid;
 		if ( ! isset( $cache[ $cid ] ) ) {
 			$cache[ $cid ] = array();
