@@ -29,6 +29,8 @@ foreach ( array_map( 'str_getcsv', file( $csv, FILE_IGNORE_NEW_LINES | FILE_SKIP
 }
 ksort( $courses );
 $code = function ( $n ) { return 'C-' . str_pad( (string) $n, 2, '0', STR_PAD_LEFT ); };
+$D    = function ( $ymd, $fmt ) { return ( new DateTimeImmutable( $ymd . ' 12:00:00', wp_timezone() ) )->format( $fmt ); };
+$dre  = function ( $ymd ) use ( $D ) { return '/' . implode( '|', array_map( function ( $f ) use ( $D, $ymd ) { return preg_quote( $D( $ymd, $f ), '/' ); }, array( 'm-d-Y', 'm/d/Y', 'n/j/Y', 'M j', 'F j' ) ) ) . '/i'; };
 $rt   = SDSC_Registration::table();
 $cls  = array(); // n => class post id (already on the site)
 foreach ( get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => array( 'publish', 'private', 'draft' ), 'numberposts' => -1 ) ) as $p ) {
@@ -44,7 +46,7 @@ if ( 'classes' === $do || 'report' === $do ) {
 	$made = 0;
 	foreach ( $courses as $n => $c ) {
 		if ( isset( $cls[ $n ] ) ) { continue; }
-		$title = 'Driver’s Education Program (' . ( 'pm' === $c['ap'] ? 'PM' : ( 'am' === $c['ap'] ? 'AM' : 'Past' ) ) . ' Class) — ' . $code( $n ) . ' · ' . wp_date( 'M j', strtotime( $c['start'] ) ) . '–' . wp_date( 'M j, Y', strtotime( $c['end'] ) );
+		$title = 'Driver’s Education Program (' . ( 'pm' === $c['ap'] ? 'PM' : ( 'am' === $c['ap'] ? 'AM' : 'Past' ) ) . ' Class) — ' . $code( $n ) . ' · ' . $D( $c['start'], 'M j' ) . '–' . $D( $c['end'], 'M j, Y' );
 		if ( 'report' === $do ) { if ( $made < 3 ) { echo "  would make: $title (" . $c['count'] . " on the list)\n"; } $made++; continue; }
 		$id = wp_insert_post( array( 'post_type' => 'sdsc_class', 'post_status' => 'private', 'post_title' => $title ), true );
 		if ( is_wp_error( $id ) ) { echo "  ERROR " . $code( $n ) . ': ' . $id->get_error_message() . "\n"; continue; }
@@ -85,7 +87,7 @@ foreach ( $rows as $i => $r ) {
 	$ids = array_values( array_unique( wp_list_pluck( $cands, 'id' ) ) );
 	if ( count( $ids ) > 1 ) {
 		// the same person registered twice on the site: pick the one whose old-form course date (notes) matches, else leave it
-		$pick = array_values( array_filter( $cands, function ( $g ) use ( $r ) { return $g['notes'] && false !== strpos( (string) $g['notes'], 'Course date' ) && preg_match( '/' . preg_quote( wp_date( 'm-d-Y', strtotime( $r['start'] ) ), '/' ) . '|' . preg_quote( wp_date( 'n/j/Y', strtotime( $r['start'] ) ), '/' ) . '|' . preg_quote( wp_date( 'M j', strtotime( $r['start'] ) ), '/' ) . '/i', (string) $g['notes'] ); } ) );
+		$pick = array_values( array_filter( $cands, function ( $g ) use ( $r ) { return $g['notes'] && false !== strpos( (string) $g['notes'], 'Course date' ) && preg_match( $dre( $r['start'] ), (string) $g['notes'] ); } ) );
 		if ( 1 === count( $pick ) ) { $cands = $pick; $ids = array( $pick[0]['id'] ); } else { $amb[] = array( $r, $ids ); continue; }
 	}
 	$g = $cands[0];
@@ -101,8 +103,7 @@ $chk = array( 'agree' => 0, 'differ' => 0, 'no note' => 0 ); $differ = array();
 foreach ( $link as $x ) {
 	$note = (string) $x['reg']['notes'];
 	if ( false === strpos( $note, 'Course date' ) ) { $chk['no note']++; continue; }
-	$st = strtotime( $x['row']['start'] );
-	if ( preg_match( '/' . preg_quote( wp_date( 'm-d-Y', $st ), '/' ) . '|' . preg_quote( wp_date( 'n/j/Y', $st ), '/' ) . '|' . preg_quote( wp_date( 'M j', $st ), '/' ) . '|' . preg_quote( wp_date( 'F j', $st ), '/' ) . '/i', $note ) ) { $chk['agree']++; } else { $chk['differ']++; if ( count( $differ ) < 8 ) { $differ[] = 'reg #' . $x['reg']['id'] . ' course ' . $x['row']['n'] . ' (' . $x['row']['start'] . ') vs note "' . mb_substr( $note, 0, 60 ) . '"'; } }
+	if ( preg_match( $dre( $x['row']['start'] ), $note ) ) { $chk['agree']++; } else { $chk['differ']++; if ( count( $differ ) < 8 ) { $differ[] = 'reg #' . $x['reg']['id'] . ' course ' . $x['row']['n'] . ' (' . $x['row']['start'] . ') vs note "' . mb_substr( $note, 0, 60 ) . '"'; } }
 }
 echo "  cross-check with the old form's chosen course date: agree " . $chk['agree'] . ", differ " . $chk['differ'] . ", no note " . $chk['no note'] . "\n";
 foreach ( $differ as $d ) { echo "    differ: $d\n"; }
@@ -115,8 +116,8 @@ if ( 'link' === $do ) {
 		$g = $x['reg']; $n = $x['row']['n'];
 		if ( (int) $g['class_id'] > 0 || empty( $cls[ $n ] ) ) { $skip++; continue; }
 		// only when the roster course date does not contradict the old form's note
-		$note = (string) $g['notes']; $st = strtotime( $x['row']['start'] );
-		if ( false !== strpos( $note, 'Course date' ) && ! preg_match( '/' . preg_quote( wp_date( 'm-d-Y', $st ), '/' ) . '|' . preg_quote( wp_date( 'n/j/Y', $st ), '/' ) . '|' . preg_quote( wp_date( 'M j', $st ), '/' ) . '|' . preg_quote( wp_date( 'F j', $st ), '/' ) . '/i', $note ) ) { $skip++; continue; }
+		$note = (string) $g['notes'];
+		if ( false !== strpos( $note, 'Course date' ) && ! preg_match( $dre( $x['row']['start'] ), $note ) ) { $skip++; continue; }
 		$wpdb->update( $rt, array( 'class_id' => (int) $cls[ $n ], 'notes' => trim( $note . "\n" . 'Course ' . $code( $n ) . ' from the office course list (' . $x['row']['start'] . ')' ) ), array( 'id' => (int) $g['id'] ) );
 		if ( $g['registrant_id'] && ! get_post_meta( (int) $g['registrant_id'], '_sdsc_class_id', true ) ) { update_post_meta( (int) $g['registrant_id'], '_sdsc_class_id', (int) $cls[ $n ] ); }
 		$set++;
