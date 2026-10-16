@@ -187,9 +187,30 @@ class SDSC_Prices {
 	/** Stripe can make links here: a key is saved, and test mode is only used away from the public site. */
 	public static function auto_ready() {
 		if ( ! class_exists( 'SDSC_Api' ) || '' === SDSC_Api::stripe_key() ) { return false; }
-		if ( 'live' === SDSC_Api::mode() ) { return true; }
-		$host = preg_replace( '/^www\./', '', (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
-		return 'samsdrivingschool.org' !== $host;
+		if ( 'live' !== SDSC_Api::mode() ) {
+			$host = preg_replace( '/^www\./', '', (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+			if ( 'samsdrivingschool.org' === $host ) { return false; }
+		}
+		return 'yes' === self::key_can_make_links();
+	}
+
+	/**
+	 * Does the saved Stripe key have Write access to products, prices and payment links?
+	 * Asked with empty requests that Stripe refuses either for a missing field (allowed) or for permission
+	 * (not allowed) — nothing is created. Remembered for 10 minutes.
+	 */
+	public static function key_can_make_links() {
+		$tk = 'sdsc_stripe_links_ok_' . SDSC_Api::mode() . '_' . substr( md5( SDSC_Api::stripe_key() ), 0, 8 );
+		$v  = get_transient( $tk );
+		if ( false !== $v ) { return $v; }
+		$v = 'yes';
+		foreach ( array( 'products', 'prices', 'payment_links' ) as $ep ) {
+			list( $code, $j ) = self::api( 'POST', $ep, array( 'metadata' => array( 'sdsc_probe' => '1' ) ) );
+			if ( 403 === $code || 'permission_error' === ( $j['error']['type'] ?? '' ) ) { $v = 'no'; break; }
+			if ( 400 !== $code ) { $v = 'unknown'; break; }
+		}
+		set_transient( $tk, $v, 'yes' === $v ? HOUR_IN_SECONDS : 10 * MINUTE_IN_SECONDS );
+		return $v;
 	}
 
 	/** "$1,200" / "$12.50" → cents; 0 for text such as "Call for dates" or "from $120". */
@@ -486,6 +507,8 @@ class SDSC_Prices {
 				<p style="margin:.3em 0"><strong>How a price change works.</strong> Type the new price. It goes on the site straight away when you also paste the new payment link, or tick <em>Checkout already charges this price</em> after changing it in Stripe. Otherwise it waits as <em>pending</em> and the site keeps the current price — so a customer is never shown one price and charged another. Leave a box empty to keep the price as it is.</p>
 				<?php if ( self::auto_ready() ) : ?>
 				<p style="margin:.3em 0;color:#00653a"><strong>Stripe is connected (<?php echo esc_html( SDSC_Api::mode() ); ?> mode).</strong> Just type the new price and save: the site makes the new payment link in Stripe and puts the new price and link on the site together. Leave the link box as it is. Tick <em>Already changed in Stripe</em> only if you changed the price on the existing link yourself.</p>
+				<?php elseif ( class_exists( 'SDSC_Api' ) && '' !== SDSC_Api::stripe_key() && 'no' === self::key_can_make_links() ) : ?>
+				<p style="margin:.3em 0;color:#b32d2e"><strong>Stripe is connected, but its key may not make payment links yet.</strong> In the Stripe dashboard, edit the restricted key used by the site and set <em>Products</em>, <em>Prices</em> and <em>Payment Links</em> to <em>Write</em>. Until then, paste the new link by hand as before. This page checks again every 10 minutes.</p>
 				<?php else : ?>
 				<p style="margin:.3em 0;color:#50575e">Once Stripe is connected in live mode (API connections), new payment links are made automatically and new prices go live at once.</p>
 				<?php endif; ?>
