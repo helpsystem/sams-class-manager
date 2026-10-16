@@ -14,7 +14,7 @@
 	function ver(v) { return String(v || '0').split('.').map(Number); }
 	function atLeast(v, need) { var a = ver(v), b = ver(need); for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) { return (a[i] || 0) > (b[i] || 0); } } return true; }
 	function store(k, v) { try { if (v === undefined) { return localStorage.getItem('sdsc_scan_' + k); } localStorage.setItem('sdsc_scan_' + k, String(v)); } catch (e) { return null; } return null; }
-	function timerSecs() { var v = parseInt(store('timer'), 10); if (isNaN(v) || (v && v < 5)) { v = 5; } return v; }
+	function timerSecs() { var v = parseInt(store('timer'), 10); if (isNaN(v) || (v && v < 5)) { v = 7; } return v; }
 	function beep() { try { var A = window.AudioContext || window.webkitAudioContext, a = new A(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1200; g.gain.value = 0.08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.09); setTimeout(function () { a.close(); }, 300); } catch (e) {} }
 	function toImg(blob) { return new Promise(function (ok, no) { var u = URL.createObjectURL(blob), im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); URL.revokeObjectURL(u); ok(c); }; im.onerror = function () { URL.revokeObjectURL(u); no(new Error('The scanner sent a picture that could not be opened.')); }; im.src = u; }); }
 
@@ -40,7 +40,7 @@
 	function stopCount() { if (CT) { clearInterval(CT); CT = null; } }
 	/**
 	 * A step with a picture of what to do, a big countdown and buttons. o: { art, title, text, go(), cancel(), extra, done:[canvas,label] }
-	 * The countdown never starts by itself: the office presses Start (or Scan now). Its length (5 s by default; 7, 10 or off) is remembered on this computer.
+	 * The countdown never starts by itself: the office presses Start (or Scan now). Its length (7 s by default; 5, 10 or off) is remembered on this computer.
 	 */
 	function step(o) {
 		stopCount();
@@ -69,7 +69,7 @@
 		function run() { stopCount(); if (paused || !n) { paint(); return; } paint(); CT = setInterval(function () { left--; if (left <= 0) { fire(); return; } paint(); }, 1000); }
 		var root = b;
 		root.querySelector('.spop-go').addEventListener('click', fire);
-		root.querySelector('.spop-pause').addEventListener('click', function (e) { paused = !paused; e.currentTarget.textContent = paused ? '▶ Start the timer' : '⏸ Wait'; if (!paused) { left = n || 5; if (!n) { n = 5; } } run(); });
+		root.querySelector('.spop-pause').addEventListener('click', function (e) { paused = !paused; e.currentTarget.textContent = paused ? '▶ Start the timer' : '⏸ Wait'; if (!paused) { left = n || 7; if (!n) { n = 7; } } run(); });
 		root.querySelector('.spop-cancel').addEventListener('click', function () { close(); if (o.cancel) { o.cancel(); } });
 		sel.addEventListener('change', function () { n = parseInt(sel.value, 10) || 0; store('timer', n); left = n; paused = true; root.querySelector('.spop-pause').textContent = '▶ Start the timer'; run(); });
 		if (paused) { root.querySelector('.spop-pause').textContent = '▶ Start the timer'; }

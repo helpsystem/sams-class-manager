@@ -529,7 +529,7 @@
 			});
 		}
 		var SIDE = { front: 'FRONT of the card — the side with the photo', back: 'BACK of the card — the side with the barcode' };
-		/** Office scanner in a pop-up: "put the front face down" → countdown (3 s) → scan → picture → turn over → back. */
+		/** Office scanner in a pop-up: "put the front face down" → Start (7 s countdown, or Scan now) → scan → picture → turn over → back, started by hand again. */
 		function scanSide(side, model) {
 			S.method = 'office'; S.model = model;
 			var SP = window.SDSC_SCANPOP, other = side === 'front' ? 'back' : 'front', have = S[other];
@@ -549,7 +549,10 @@
 			var sk = box && box.querySelector('.spop-skip'); if (sk) { sk.addEventListener('click', function () { SP.close(); finish(); }); }
 			function go() {
 				SP.busy('Scanning the ' + side + '…');
-				var t0 = Date.now(), hint = S.spot || null; // after the first side the card lies in a known spot: scan just there
+				// The card usually lies where the last one did: scan just that spot first (one scanner pass instead of two) and
+				// fall back to a full-glass search when it is not there. The spot is remembered on this computer.
+				var t0 = Date.now(), hint = S.spot || null;
+				if (!hint) { try { var sp = JSON.parse(localStorage.getItem('sdsc_idscan_spot') || 'null'); if (sp && sp.w > 2 && sp.h > 1.5) { hint = sp; } } catch (e) {} }
 				(hint ? sharp(hint, 0.6).then(function (r) { return r.inside ? r : locate().then(function (bx) { return sharp(bx, 0.35); }); })
 					: locate().then(function (bx) { return sharp(bx, 0.35); })
 				).then(function (r) {
@@ -557,6 +560,7 @@
 					return r;
 				}).then(function (r) {
 					S.spot = r.box;
+					try { localStorage.setItem('sdsc_idscan_spot', JSON.stringify(r.box)); } catch (e) {}
 					SP.busy('Straightening and checking the ' + side + '…');
 					return place(r.c, true, side);
 				}).then(function (got) {
