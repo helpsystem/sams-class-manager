@@ -524,7 +524,7 @@ class SDSC_Chrome {
 			<?php if ( class_exists( 'SDSC_Notices' ) ) : ?>
 			<div class="bwf-wx" data-bwf-wx data-url="<?php echo esc_url( rest_url( 'sdsc/v1/alerts' ) ); ?>" aria-live="polite" hidden></div>
 			<script>(function(){var b=document.querySelector('[data-bwf-wx]');if(!b||!window.fetch)return;var e=function(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
-fetch(b.getAttribute('data-url'),{credentials:'omit'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d)return;var h='';
+fetch(b.getAttribute('data-url'),{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d)return;var h='';
 if(d.items&&d.items.length){d.items.forEach(function(a){h+='<div class="bwf-wx-a bwf-wx-'+e(a.level)+'" role="alert"><span class="bwf-wx-i" aria-hidden="true">⚠</span><p><b>Weather alert: '+e(a.event)+'</b><span>'+e(a.text)+'</span><span class="bwf-wx-l"><a href="'+e(a.more)+'" target="_blank" rel="noopener">More info (National Weather Service)</a><a href="'+e(a.tr)+'" target="_blank" rel="noopener">Translate</a></span></p></div>';});}
 else if(d.ok){h='<p class="bwf-wx-ok"><span aria-hidden="true">✓</span> No weather alerts for Montgomery County right now'+(d.checked?' · checked '+e(d.checked):'')+'</p>';}
 if(h){b.innerHTML=h;b.hidden=false;}}).catch(function(){});})();</script>
