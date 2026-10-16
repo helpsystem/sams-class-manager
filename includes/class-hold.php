@@ -39,6 +39,8 @@ class SDSC_Hold {
 	/** Drop every outside recipient; if none is left the mail is not sent. */
 	public static function gate_mail( $pre, $a ) {
 		if ( null !== $pre || ! self::on() || ! is_array( $a ) ) { return $pre; }
+		// Sign-in codes and password resets are asked for by the student themself — never held, or nobody could log in.
+		if ( preg_match( '/login verification|verification code|password reset|reset your password|set your password|sign-?in code/i', (string) ( $a['subject'] ?? '' ) ) ) { return $pre; }
 		$to = $a['to'] ?? array();
 		$to = is_array( $to ) ? $to : array_filter( array_map( 'trim', explode( ',', (string) $to ) ) );
 		foreach ( $to as $t ) { if ( ! self::internal( $t ) ) { self::note( 'email', $t, $a['subject'] ?? '' ); } }
