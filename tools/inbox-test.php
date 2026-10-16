@@ -60,6 +60,18 @@ $lid = SDSC_Inbox::take( 110, $mk( "Bank <bank$stu>", 'Hello', "Click to reset y
 SDSC_Inbox::flush_outbox();
 $t( 'other' === SDSC_Inbox::row( $cid )['status'] && 'other' === SDSC_Inbox::row( $lid )['status'] && ! $sent, 'verification code and password reset not forwarded' );
 $t( ! SDSC_Inbox::secret( "Hi, can I move my lesson to Saturday?" ) && ! SDSC_Inbox::secret( "What is included in the 378 dollars? Is that for the online class" ), 'normal student questions are still forwarded' );
+// 6c. emoji reactions are not forwarded
+$sent = array();
+$eid = SDSC_Inbox::take( 111, $mk( "Test Student <$stu>", 'Re: Question about my lesson', "\xF0\x9F\x91\x8D\n\nTest Student reacted via Gmail\n<https://www.google.com/gmail/about/>\n\nOn Fri, Oct 16, 2026 Sam's Driving School LLC <info@samsdrivingschool.org> wrote:\n> Yes, Saturday works" ), $o );
+SDSC_Inbox::flush_outbox();
+$t( 'done' === SDSC_Inbox::row( $eid )['status'] && ! $sent && ! SDSC_Inbox::row( $eid )['fwd_at'], 'emoji reaction stored, not forwarded: ' . SDSC_Inbox::row( $eid )['note'] );
+$t( '' === SDSC_Inbox::reaction( "ok thanks" ) && '' === SDSC_Inbox::reaction( "Yes 👍 see you Saturday" ), 'short real answers are not treated as reactions' );
+// 6d. forwards show only the new text, line breaks kept
+$sent = array();
+$qid = SDSC_Inbox::take( 112, $mk( "Parent <p$stu>", 'Re: Driver\'s Ed', "Line one\nLine two\n\nOn Thu, Oct 15, 2026 Sam's Driving School LLC <info@samsdrivingschool.org> wrote:\n> Yes\n> For more information send text" ), $o );
+SDSC_Inbox::flush_outbox();
+$fm = end( $sent );
+$t( $fm && false !== strpos( $fm['message'], 'Line one<br' ) && false !== strpos( $fm['message'], 'Earlier messages' ) && false === strpos( substr( $fm['message'], 0, strpos( $fm['message'], 'Earlier messages' ) ), 'For more information' ), 'forward shows the new text first, old quote below' );
 // 7. failed DKIM from staff
 $did = SDSC_Inbox::take( 107, $mk( $su->user_email, 'Re: [SDS #' . SDSC_Inbox::ref( $id ) . '] x', 'fake', "Authentication-Results: mx.hostinger.com; dkim=fail; spf=fail\r\n" ), $o );
 $t( 'new' === SDSC_Inbox::row( $did )['status'] && false !== strpos( SDSC_Inbox::row( $did )['note'], 'confirm' ), 'failed sender check: held for review' );

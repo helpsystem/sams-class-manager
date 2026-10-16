@@ -348,6 +348,7 @@ class SDSC_Inbox {
 		if ( in_array( $from, $own, true ) ) { $status = 'other'; $note = 'Sent by the school itself'; }
 		elseif ( $auto ) { $status = 'other'; $note = 'Automatic / newsletter / spam — not forwarded'; }
 		elseif ( self::secret( $subj . ' ' . mb_substr( (string) $text, 0, 3000 ) ) ) { $status = 'other'; $note = 'Security code / sign-in e-mail — kept in the panel only, never forwarded'; }
+		elseif ( self::reaction( $text ) ) { $status = 'done'; $note = 'Emoji reaction (' . trim( self::reaction( $text ) ) . ') — nothing to answer, not forwarded'; }
 		$old = $o['since'] && $date < (int) $o['since'];
 		$wpdb->insert( self::table(), array(
 			'kind' => 'in', 'uid' => (int) $uid, 'msgid' => mb_substr( $msgid, 0, 250 ), 'from_email' => mb_substr( $from, 0, 190 ), 'from_name' => mb_substr( $name, 0, 190 ),
@@ -371,6 +372,15 @@ class SDSC_Inbox {
 		}
 		if ( 'new' === $status && ! $old && ! in_array( $from, $staff, true ) ) { self::queue_forward( $id ); }
 		return $id;
+	}
+
+	/** A Gmail / Outlook emoji reaction ("👍 Laura reacted via Gmail"): returns the emoji, or '' when it is a real message. */
+	public static function reaction( $t ) {
+		$new = self::strip_quote( (string) $t );
+		$new = preg_replace( array( '/^.*reacted (via|in|to) .*$/mi', '/<?https?:\/\/\S+>?/i' ), '', $new );
+		$new = trim( preg_replace( '/\s+/u', ' ', $new ) );
+		if ( '' === $new || mb_strlen( $new ) > 8 ) { return ( preg_match( '/reacted (via|in) (gmail|outlook)/i', (string) $t ) && '' === $new ) ? '👍' : ''; }
+		return preg_match( '/^[\p{So}\p{Sk}\p{M}\x{200D}\x{FE0F}\s]+$/u', $new ) ? $new : '';
 	}
 
 	/** Verification codes, sign-in links and password resets never leave the school mailbox. */
@@ -421,6 +431,10 @@ class SDSC_Inbox {
 		$atts = json_decode( (string) $r['atts'], true );
 		$atts = is_array( $atts ) ? array_keys( $atts ) : array();
 		$f    = 'font-family:Arial,Helvetica,sans-serif;';
+		$full = str_replace( "\r\n", "\n", (string) $r['body_text'] );
+		$new  = self::strip_quote( $full );
+		$rest = '' !== $new && strlen( $full ) > strlen( $new ) + 20 ? trim( preg_replace( '/^\s*>\s?/m', '', substr( $full, strpos( $full, $new ) + strlen( $new ) ) ) ) : '';
+		if ( '' === $new ) { $new = $full; $rest = ''; }
 		$body = '<p style="' . $f . 'color:#8a939b;font-size:12px;margin:0 0 10px">' . esc_html( self::MARK ) . '</p>'
 			. '<p style="' . $f . 'margin:0 0 6px"><b>New e-mail to ' . esc_html( $r['to_email'] ? $r['to_email'] : 'info@' ) . '</b></p>'
 			. '<table role="presentation" cellpadding="0" cellspacing="0" style="' . $f . 'font-size:14px;margin:0 0 14px">'
@@ -429,8 +443,9 @@ class SDSC_Inbox {
 			. '<tr><td style="color:#5b646d;padding:2px 12px 2px 0">Subject</td><td>' . esc_html( $r['subject'] ) . '</td></tr>'
 			. ( $atts ? '<tr><td style="color:#5b646d;padding:2px 12px 2px 0">Attachments</td><td>' . esc_html( implode( ', ', $atts ) ) . ' (open them in the panel or webmail)</td></tr>' : '' )
 			. '</table>'
-			. '<div style="' . $f . 'border-left:3px solid #00703c;padding:6px 0 6px 14px;white-space:pre-wrap;font-size:14px;line-height:1.55">' . esc_html( mb_substr( (string) $r['body_text'], 0, 20000 ) ) . '</div>'
-			. '<p style="' . $f . 'margin:18px 0 0;font-size:13px;color:#5b646d"><b>To answer:</b> just reply to this e-mail. Your answer is sent to ' . esc_html( $r['from_email'] ) . ' from info@samsdrivingschool.org within about 5 minutes. Or open it in the panel: <a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&id=' . (int) $id ) ) . '">Inbox</a>.</p>';
+			. '<div style="' . $f . 'border-left:3px solid #00703c;padding:6px 0 6px 14px;font-size:14px;line-height:1.55">' . nl2br( esc_html( mb_substr( $new, 0, 20000 ) ) ) . '</div>'
+			. ( $rest ? '<p style="' . $f . 'margin:14px 0 4px;font-size:12px;color:#8a939b">Earlier messages in this conversation</p><div style="' . $f . 'color:#8a939b;font-size:12px;line-height:1.5;border-left:3px solid #e3e7ea;padding:4px 0 4px 14px">' . nl2br( esc_html( mb_substr( $rest, 0, 3000 ) ) ) . '</div>' : '' )
+			. '<p style="' . $f . 'margin:18px 0 0;font-size:13px;color:#5b646d"><b>To answer:</b> just reply to this e-mail. Your answer is sent to ' . esc_html( $r['from_email'] ) . ' from info@samsdrivingschool.org within a minute or two. Or open it in the panel: <a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE . '&id=' . (int) $id ) ) . '">Inbox</a>.</p>';
 		$subj = '[SDS #' . self::ref( $id ) . '] ' . $r['subject'] . ' — ' . ( trim( $r['from_name'] ) ? $r['from_name'] : $r['from_email'] );
 		$ids  = SDSC_Mailer::identities();
 		$ok   = SDSC_Mailer::send( $to, $subj, $body, 'info', array( 'Content-Type: text/html; charset=UTF-8', 'X-SDSC-Inbox: fwd', 'Reply-To: ' . $ids['info'][1] . ' <' . $ids['info'][0] . '>' ) );
@@ -449,8 +464,8 @@ class SDSC_Inbox {
 		if ( '' === $text ) { return array( false, 'Type an answer.' ); }
 		$subj = 'Re: ' . preg_replace( '/^((re|fw|fwd)\s*:\s*)+/i', '', $r['subject'] );
 		$q    = '<p style="color:#8a939b;font-size:12px;margin:22px 0 4px">On ' . esc_html( wp_date( 'M j, Y g:i a', strtotime( $r['sent_at'] ) ) ) . ', ' . esc_html( $r['from_name'] ? $r['from_name'] : $r['from_email'] ) . ' wrote:</p>'
-			. '<blockquote style="margin:0;padding:0 0 0 12px;border-left:3px solid #d9dee2;color:#5b646d;white-space:pre-wrap;font-size:13px">' . esc_html( mb_substr( (string) $r['body_text'], 0, 4000 ) ) . '</blockquote>';
-		$body = '<div style="white-space:pre-wrap">' . esc_html( $text ) . '</div>' . $q;
+			. '<blockquote style="margin:0;padding:0 0 0 12px;border-left:3px solid #d9dee2;color:#5b646d;font-size:13px;line-height:1.5">' . nl2br( esc_html( mb_substr( self::strip_quote( (string) $r['body_text'] ) ?: (string) $r['body_text'], 0, 4000 ) ) ) . '</blockquote>';
+		$body = '<div style="font-size:14px;line-height:1.55">' . nl2br( esc_html( $text ) ) . '</div>' . $q;
 		$hdr  = array( 'Content-Type: text/html; charset=UTF-8', 'X-SDSC-Inbox: reply' );
 		$cc   = array_values( array_filter( array_map( 'sanitize_email', is_array( $cc ) ? $cc : preg_split( '/[\s,;]+/', (string) $cc ) ), 'is_email' ) );
 		if ( $cc ) { $hdr[] = 'Cc: ' . implode( ', ', $cc ); }
