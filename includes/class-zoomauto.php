@@ -509,7 +509,6 @@ class SDSC_ZoomAuto {
 		$forms = get_page_by_path( 'registration-forms-new' ) ?: get_page_by_path( 'registration-forms' ) ?: get_page_by_path( 'register-course' );
 		$furl  = $forms ? get_permalink( $forms ) : home_url( '/register-course/' );
 		$p     = function ( $html, $extra = '' ) use ( $f ) { return '<p style="' . $f . 'margin:0 0 12px;font-size:15px;line-height:1.6;' . $extra . '">' . $html . '</p>'; };
-		$units = '';
 		$units = self::schedule_rows( $cid, $email, $list, $ts, $f );
 		$zoom  = $link ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;border-radius:12px;background:#f7f9fa;width:100%">'
 			. '<tr><td style="' . $f . 'padding:10px 14px;font-size:14px;color:#5b646d;width:120px">Join Zoom</td><td style="' . $f . 'padding:10px 14px;font-size:14px"><a href="' . esc_url( $link ) . '" style="color:#00703c;font-weight:700;word-break:break-all">' . esc_html( $link ) . '</a></td></tr>'
@@ -520,7 +519,7 @@ class SDSC_ZoomAuto {
 			. $p( 'We want to welcome you to Sam’s Driving School!' )
 			. $p( 'This e-mail is a friendly reminder that you are enrolled in the <b>Driver Education Course</b>' . ( $first ? ' with a class beginning <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b> from <b>' . esc_html( $tfrom ) . '</b> to <b>' . esc_html( $tto ) . '</b>' : '' ) . '.' )
 			. $p( '<b>Topic:</b> Driver Education' . ( $first ? '<br><b>Time:</b> From ' . esc_html( wp_date( 'F j, Y g:i A', $first ) ) . ' Eastern Time (US and Canada) to ' . esc_html( wp_date( 'F j, Y', $lastd ) ) . ', ' . count( $list ) . ' meetings' . ( $dl ? ' (' . esc_html( implode( ', ', $dl ) ) . ')' : '' ) : '' ) )
-			. ( $units ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse">' . $units . '</table>' : '' )
+			. $units
 			. $zoom
 			. '<p style="' . $f . 'margin:0 0 6px;font-size:14px;font-weight:800;color:#b32d2e;letter-spacing:.5px">IMPORTANT</p>'
 			. $p( 'Please click the link below and fill out the forms with the correct information. Make sure to select the course you registered for — morning or evening. If you are under the age of 18, a parent or guardian’s signature is required. Please sign and submit the forms before the class starts' . ( $first ? ' on <b>' . esc_html( wp_date( 'F j, Y', $first ) ) . '</b>' : '' ) . '.', 'font-size:14px' )
