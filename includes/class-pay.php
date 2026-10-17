@@ -327,7 +327,7 @@ class SDSC_Pay {
 		if ( $row['receipt_url'] ) { $bt[] = $btn( 'Stripe receipt', $row['receipt_url'], false ); }
 		if ( $bt ) { $h .= '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto 6px"><tr>' . implode( '', $bt ) . '</tr></table>'; }
 
-		if ( class_exists( 'SDSC_Account' ) ) { $h .= SDSC_Account::email_block(); }
+		if ( class_exists( 'SDSC_Account' ) ) { $h .= SDSC_Account::email_block( (int) ( $row['reg_id'] ?? ( $reg['id'] ?? 0 ) ) ); }
 		$h .= '<p style="' . $f . 'margin:18px 0 0;font-size:12px;line-height:1.6;color:#8a929a;text-align:center">Refunds follow our <a href="' . esc_url( home_url( '/policy/' ) ) . '" style="color:#5b646d">school policies</a>. Sam’s Driving School LLC · 751 Rockville Pike, Unit 9B, Rockville, MD 20852 · (301) 726-3030</p>';
 
 		$subj = ( $test ? '[TEST] ' : '' ) . 'Your receipt ' . $no . ' — ' . $title;

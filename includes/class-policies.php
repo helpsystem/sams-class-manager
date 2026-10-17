@@ -98,7 +98,7 @@ class SDSC_Policies {
 			. '<p style="' . $f . 'margin:6px 0 10px;font-size:13px;color:#5b646d">By registering you agreed to these policies. Please keep this e-mail.</p>'
 			. ( $pol ? $pol : '' )
 			. '<p style="' . $f . 'margin:6px 0 10px;font-size:14px"><a href="' . esc_url( $purl ) . '" style="color:#00703c;font-weight:700">Read the policies online</a></p></div>'
-			. ( class_exists( 'SDSC_Account' ) ? SDSC_Account::email_block() : '' )
+			. ( class_exists( 'SDSC_Account' ) ? SDSC_Account::email_block( (int) $reg_id ) : '' )
 			. '<p style="' . $f . 'margin:18px 0 0;font-size:14px;color:#15191d">Questions? Call or text (301) 726-3030.</p>';
 
 		$subj = 'We received your registration' . ( $name ? ' — ' . $name : '' );

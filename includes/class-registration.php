@@ -474,7 +474,7 @@ class SDSC_Registration {
 					<h2 class="sdsc-reg-title">We're confirming your payment</h2>
 					<p>This can take a minute. You will receive an e-mail as soon as it is confirmed. If you were not charged, you can go back and try again.</p>
 				<?php endif; ?>
-				<?php echo SDSC_Account::page_block(); // phpcs:ignore ?>
+				<?php echo SDSC_Account::page_block( $rid ); // phpcs:ignore ?>
 				<p><a class="sdsc-btn" href="tel:+13017263030">Questions? Call (301) 726-3030</a></p>
 			</div>
 		</div>
@@ -551,7 +551,7 @@ class SDSC_Registration {
 					<p>We've received your registration and will contact you shortly with payment and class details.</p>
 					<p><a class="sdsc-btn" href="tel:+13017263030">Call (301) 726-3030</a></p>
 				<?php endif; ?>
-				<?php echo SDSC_Account::page_block(); // phpcs:ignore ?>
+				<?php echo SDSC_Account::page_block( $rid ); // phpcs:ignore ?>
 			</div>
 		</div>
 		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});</script>
