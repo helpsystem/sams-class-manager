@@ -473,7 +473,17 @@ class SDSC_ZoomAuto {
 		$isp   = function ( $x ) use ( $today, $rows, $lab ) { return $x['date'] < $today || isset( $lab[ (string) ( $rows[ $x['date'] ]['actual'] ?? '' ) ] ); }; // over: earlier day, or today's sheet already filled in
 		$next  = ''; foreach ( $list as $x ) { if ( ! $isp( $x ) ) { $next = $x['date']; break; } }
 		$h = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;width:100%">';
-		foreach ( $list as $x ) {
+		$byd    = array(); foreach ( $list as $x ) { $byd[ $x['date'] ] = $x; }
+		$closed = class_exists( 'SDSC_Schedule' ) ? SDSC_Schedule::closed_from( $list[0]['date'] ) : array();
+		$day    = new DateTimeImmutable( $list[0]['date'], wp_timezone() );
+		$lastd2 = end( $list )['date'];
+		for ( $i = 0; $i < 400 && $day->format( 'Y-m-d' ) <= $lastd2; $i++, $day = $day->modify( '+1 day' ) ) {
+			$ymd = $day->format( 'Y-m-d' );
+			if ( ! isset( $byd[ $ymd ] ) ) { // a day between the first and last session with no class
+				$h .= '<tr><td style="' . $f . 'padding:2px 14px 2px 0;font-size:13px;color:#c3c8cd;white-space:nowrap">' . esc_html( $day->format( 'D, F j, Y' ) ) . '</td><td></td><td style="' . $f . 'padding:2px 0;font-size:13px;color:#c3c8cd">No class' . ( isset( $closed[ $ymd ] ) ? ' — school closed' : '' ) . '</td></tr>';
+				continue;
+			}
+			$x    = $byd[ $ymd ];
 			$past = $isp( $x );
 			$a    = (string) ( $rows[ $x['date'] ]['actual'] ?? '' );
 			$note = trim( (string) ( $rows[ $x['date'] ]['staff_note'] ?? '' ) );
