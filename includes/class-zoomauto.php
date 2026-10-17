@@ -491,7 +491,7 @@ class SDSC_ZoomAuto {
 			if ( $past && isset( $lab[ $a ] ) ) { $tag = '<span style="color:' . $lab[ $a ][1] . ';font-weight:700">' . $lab[ $a ][0] . '</span>' . ( $note ? ' <span style="color:#9aa1a8">— ' . esc_html( $note ) . '</span>' : '' ); }
 			elseif ( $past ) { $tag = '<span style="color:#9aa1a8">Not recorded yet</span>'; }
 			else { $tag = $x['date'] === $next ? '<span style="color:#00703c;font-weight:700">Next session</span>' : '<span style="color:#5b646d;font-weight:400">Upcoming</span>'; }
-			$h .= '<tr><td style="' . $sty . 'white-space:nowrap">' . esc_html( wp_date( 'D, F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:4px 14px 4px 0;font-size:13px;' . ( $past ? 'color:#9aa1a8' : 'color:#5b646d' ) . '">Unit ' . (int) $x['n'] . '</td><td style="' . $f . 'padding:4px 0;font-size:13px">' . $tag . '</td></tr>';
+			$h .= '<tr><td style="' . $sty . 'white-space:nowrap">' . esc_html( wp_date( 'D, F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:4px 14px 4px 0;font-size:13px;white-space:nowrap;' . ( $past ? 'color:#9aa1a8' : 'color:#5b646d' ) . '">Unit ' . (int) $x['n'] . '</td><td style="' . $f . 'padding:4px 0;font-size:13px">' . $tag . '</td></tr>';
 		}
 		$h .= '</table>';
 		if ( $email && empty( $GLOBALS['sdsc_zoom_live'] ) ) {
