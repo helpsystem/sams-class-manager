@@ -59,7 +59,7 @@ $m3=SDSC_Helper::questions(2,'es'); $c(count($m3)>0 && !empty($m3[0]['title']),'
 $r=SDSC_Helper::answer_id('latefee',0,'fa'); $c($r['found'] && false!==strpos($r['html'],'$60'),'answer by id (Persian)');
 $r=SDSC_Helper::answer_id('nope',0,'en'); $c(!$r['found'] && false!==strpos($r['html'],'tel:'),'unknown id hands off');
 $oc=get_option(SDSC_Helper::CFG,null); delete_option(SDSC_Helper::CFG);
-$s=SDSC_Helper::suggest('blue banana airplane',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&body=blue%20banana%20airplane'),'unknown question: tap-to-text number carries the question');
+$s=SDSC_Helper::suggest('blue banana airplane',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&amp;body=blue%20banana%20airplane'),'unknown question: tap-to-text number carries the question');
 $r=SDSC_Helper::answer_id('account',0,'en'); $c(false!==strpos($r['html'],'student-registration') && false!==strpos($r['html'],'same e-mail'),'account step points to the Student Registration page');
 $old=get_option(SDSC_Helper::OFF,null); update_option(SDSC_Helper::OFF,array('fees'));
 $m=SDSC_Helper::questions(0,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c(!$has,'switched-off section is not listed for visitors');
