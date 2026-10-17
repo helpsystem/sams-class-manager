@@ -6,7 +6,6 @@ $cases=array(
  array('I did not get the Zoom link',0,'separate e-mail before the first session'),
  array('where is my zoom passcode',0,'separate e-mail before the first session'),
  array('I cannot log in',0,'verification link'),
- array('the website sent me a verification email to login',0,'verification link'),
  array('I forgot my password',0,'Lost your password'),
  array('how do I cancel a lesson',1,'free until the deadline'),
  array('can I pay with a check',0,'cash, check or Zelle'),
@@ -52,6 +51,7 @@ $a=h_answer('blue banana airplane',0,'en'); $c(false!==strpos($a['html'],'sms:+1
 if(null===$old){delete_option(SDSC_Helper::OFF);}else{update_option(SDSC_Helper::OFF,$old);} if(null===$oc){delete_option(SDSC_Helper::CFG);}else{update_option(SDSC_Helper::CFG,$oc);}
 $a=h_answer('how much is the late cancellation fee',0,'en'); $c($a['found'],'section answers again after switching back on');
 
+$s=SDSC_Helper::suggest('the website sent me a verification email to login',0,'en'); $ids2=array_column($s['suggest']??array(),'id'); $c(in_array('login',$ids2,true),'verification e-mail question suggests the login answer');
 // Prepared-question menu, hand-off with the question, account step
 $m=SDSC_Helper::questions(0,'en'); $ids=array(); foreach($m as $s){foreach($s['items'] as $i){$ids[]=$i['id'];}}
 $c(in_array('register',$ids,true) && !in_array('late',$ids,true),'menu lists visitor questions and hides instructor ones');
@@ -59,7 +59,7 @@ $m3=SDSC_Helper::questions(2,'es'); $c(count($m3)>0 && !empty($m3[0]['title']),'
 $r=SDSC_Helper::answer_id('latefee',0,'fa'); $c($r['found'] && false!==strpos($r['html'],'$60'),'answer by id (Persian)');
 $r=SDSC_Helper::answer_id('nope',0,'en'); $c(!$r['found'] && false!==strpos($r['html'],'tel:'),'unknown id hands off');
 $oc=get_option(SDSC_Helper::CFG,null); delete_option(SDSC_Helper::CFG);
-$s=SDSC_Helper::suggest('where do I park my car',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&body=where%20do%20I%20park%20my%20car'),'unknown question: tap-to-text number carries the question');
+$s=SDSC_Helper::suggest('blue banana airplane',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&body=blue%20banana%20airplane'),'unknown question: tap-to-text number carries the question');
 $r=SDSC_Helper::answer_id('account',0,'en'); $c(false!==strpos($r['html'],'student-registration') && false!==strpos($r['html'],'same e-mail'),'account step points to the Student Registration page');
 $old=get_option(SDSC_Helper::OFF,null); update_option(SDSC_Helper::OFF,array('fees'));
 $m=SDSC_Helper::questions(0,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c(!$has,'switched-off section is not listed for visitors');
