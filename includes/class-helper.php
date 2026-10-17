@@ -225,6 +225,11 @@ class SDSC_Helper {
 		return array_values( array_unique( $out ) );
 	}
 
+	protected static function norm( $s ) {
+		$s = mb_strtolower( remove_accents( wp_strip_all_tags( (string) $s ) ) );
+		return trim( preg_replace( '/[^\p{L}\p{N}]+/u', ' ', $s ) );
+	}
+
 	/** [ [score, entry], … ] best first. */
 	public static function search( $q, $level, $lang = 'en' ) {
 		$qt = self::tokens( $q, $lang );
@@ -241,13 +246,18 @@ class SDSC_Helper {
 		$tot = 0;
 		foreach ( $qt as $w ) { if ( isset( $df[ $w ] ) ) { $tot += $idf( $w ); } }
 		$res = array();
+		$nq  = self::norm( $q );
 		foreach ( $es as $i => $e ) {
 			$sc = 0; $kh = 0;
 			foreach ( $qt as $w ) {
 				if ( isset( $kt[ $i ][ $w ] ) ) { $sc += $idf( $w ); $kh++; }
 				elseif ( isset( $bt[ $i ][ $w ] ) ) { $sc += 0.4 * $idf( $w ); }
 			}
-			if ( $kh && $tot > 0 ) { $res[] = array( $sc / $tot, $e ); }
+			if ( $kh && $tot > 0 ) {
+				$score = $sc / $tot;
+				if ( $nq && false !== strpos( ' ' . self::norm( $e['k'] ) . ' ', ' ' . $nq . ' ' ) ) { $score += 0.3; } // the exact words appear in the entry's keywords
+				$res[] = array( $score, $e );
+			}
 		}
 		usort( $res, function ( $a, $b ) { return $b[0] <=> $a[0]; } );
 		return $res;
