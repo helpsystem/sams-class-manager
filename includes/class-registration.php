@@ -469,7 +469,7 @@ class SDSC_Registration {
 					<h2 class="sdsc-reg-title">Payment received — you're in!</h2>
 					<?php if ( $name ) : ?><p class="sdsc-done-course"><?php echo esc_html( $name ); ?></p><?php endif; ?>
 					<p>We received <?php echo esc_html( '$' . number_format( $row['amount'] / 100, 2 ) ); ?>. Your receipt with the class dates is on its way to <?php echo esc_html( $row['email'] ); ?>. The Zoom link and class details come in a separate e-mail before the first session — please check your Spam / Junk folder too.</p>
-					<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_payment_complete',value:<?php echo (float) ( $row['amount'] / 100 ); ?>,currency:'USD'});</script>
+					<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_payment_complete',value:<?php echo (float) ( $row['amount'] / 100 ); ?>,currency:'USD'});window.sdscTrack&&sdscTrack('pay',<?php echo (float) ( $row['amount'] / 100 ); ?>,'<?php echo (int) $rid; ?>');</script>
 				<?php else : ?>
 					<h2 class="sdsc-reg-title">We're confirming your payment</h2>
 					<p>This can take a minute. You will receive an e-mail as soon as it is confirmed. If you were not charged, you can go back and try again.</p>
@@ -554,7 +554,7 @@ class SDSC_Registration {
 				<?php echo SDSC_Account::page_block( $rid ); // phpcs:ignore ?>
 			</div>
 		</div>
-		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});</script>
+		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});window.sdscTrack&&sdscTrack('reg',0,'<?php echo (int) ( isset( $rid ) ? $rid : 0 ); ?>');</script>
 		<?php
 		return ob_get_clean();
 	}
@@ -1117,5 +1117,7 @@ require_once __DIR__ . '/class-account.php';
 SDSC_Account::init();
 require_once __DIR__ . '/class-twofactor.php';
 SDSC_TwoFactor::init();
+require_once __DIR__ . '/class-tracking.php';
+SDSC_Tracking::init();
 require_once __DIR__ . '/class-helper.php';
 SDSC_Helper::init();
