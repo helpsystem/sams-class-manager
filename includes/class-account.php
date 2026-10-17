@@ -167,7 +167,9 @@ class SDSC_Account {
 			$wpdb->update( SDSC_Registration::table(), array( 'email' => $new, 'notes' => $line ), array( 'id' => (int) $reg['id'] ) );
 			if ( ! empty( $reg['registrant_id'] ) ) { update_post_meta( (int) $reg['registrant_id'], '_sdsc_email', $new ); }
 			if ( $ou && ! $nu && $ou->user_login === $old ) {
+				add_filter( 'send_email_change_email', '__return_false', 99 ); // no notice to the student
 				wp_update_user( array( 'ID' => $ou->ID, 'user_email' => $new ) );
+				remove_filter( 'send_email_change_email', '__return_false', 99 );
 				$wpdb->update( $wpdb->users, array( 'user_login' => $new, 'user_nicename' => sanitize_title( $new ) ), array( 'ID' => $ou->ID ) );
 				clean_user_cache( $ou->ID );
 				$target = get_user_by( 'id', $ou->ID );

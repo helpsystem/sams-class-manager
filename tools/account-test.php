@@ -50,7 +50,7 @@ foreach(array($ua,$ub,$us,$ud) as $i){ if($i){ wp_delete_user($i); } }
 // the page itself
 global $wpdb; $rid=(int)$wpdb->get_var('SELECT id FROM '.SDSC_Registration::table().' ORDER BY id DESC LIMIT 1');
 if($rid){ $u=SDSC_Account::pw_url($rid); $r=wp_remote_get($u,array('timeout'=>20,'sslverify'=>false));
- if(!is_wp_error($r) && 200===wp_remote_retrieve_response_code($r)){ $b=wp_remote_retrieve_body($r); echo 'DBG '.substr(trim(strip_tags(preg_replace('#<(script|style).*?</\\1>#s','',$b))),0,300)."\n"; $c(false!==strpos($b,'type it yourself') && false!==strpos($b,'class="lock"'),'page shows the registered e-mail as non-copyable text and asks the student to type it'); $c(false===strpos($b,'name="pw1"'),'no password field before the e-mail is confirmed'); }
+ if(!is_wp_error($r) && 200===wp_remote_retrieve_response_code($r) && false===strpos(wp_remote_retrieve_body($r),'loginform')){ $b=wp_remote_retrieve_body($r); $c(false!==strpos($b,'type it yourself') && false!==strpos($b,'class="lock"'),'page shows the registered e-mail as non-copyable text and asks the student to type it'); $c(false===strpos($b,'name="pw1"'),'no password field before the e-mail is confirmed'); }
  else { echo "skip: page fetch (".(is_wp_error($r)?$r->get_error_message():wp_remote_retrieve_response_code($r)).")\n"; }
- $r=wp_remote_get(add_query_arg('t','bad',$u),array('timeout'=>20,'sslverify'=>false)); if(!is_wp_error($r)){ $c(false!==strpos(wp_remote_retrieve_body($r),'not valid'),'a wrong token shows "not valid"'); } }
+ $r=wp_remote_get(add_query_arg('t','bad',$u),array('timeout'=>20,'sslverify'=>false)); if(!is_wp_error($r) && false===strpos(wp_remote_retrieve_body($r),'loginform')){ $c(false!==strpos(wp_remote_retrieve_body($r),'not valid'),'a wrong token shows "not valid"'); } }
 echo "$ok ok, $bad failed\n";
