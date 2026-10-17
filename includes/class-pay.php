@@ -111,9 +111,10 @@ class SDSC_Pay {
 	public static function mark_refunded( $payment_intent, $refunded_cents ) {
 		global $wpdb;
 		if ( '' === (string) $payment_intent ) { return; }
-		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT id, amount FROM ' . self::table() . " WHERE payment_intent = %s AND status = 'paid' ORDER BY id DESC LIMIT 1", $payment_intent ), ARRAY_A ); // phpcs:ignore
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT id, amount, reg_id, class_id FROM ' . self::table() . " WHERE payment_intent = %s AND status = 'paid' ORDER BY id DESC LIMIT 1", $payment_intent ), ARRAY_A ); // phpcs:ignore
 		if ( $row && (int) $refunded_cents >= (int) $row['amount'] ) {
 			$wpdb->update( self::table(), array( 'status' => 'refunded' ), array( 'id' => (int) $row['id'] ) );
+			do_action( 'sdsc_refunded', (int) $row['reg_id'], (int) $row['class_id'] );
 		}
 	}
 

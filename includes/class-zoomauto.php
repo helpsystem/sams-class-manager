@@ -33,6 +33,7 @@ class SDSC_ZoomAuto {
 		add_action( 'admin_post_sdsc_zoom_one', array( __CLASS__, 'h_one' ) );
 		add_action( 'admin_post_sdsc_zoom_text', array( __CLASS__, 'h_text' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'front' ), 0 );
+		add_action( 'sdsc_refunded', array( __CLASS__, 'on_refund' ), 10, 2 ); // a fully refunded student loses the personal Zoom link
 	}
 
 	/* ------------------------------------------------------------ who got the Zoom details (per address) */
@@ -98,7 +99,7 @@ class SDSC_ZoomAuto {
 		if ( ! $return ) { nocache_headers(); header( 'X-Robots-Tag: noindex, nofollow' ); }
 		$ok   = $cid && 'sdsc_class' === get_post_type( $cid ) && isset( self::recipients( $cid )[ $email ] );
 		$name = $ok ? self::recipients( $cid )[ $email ] : '';
-		$body = $ok ? self::welcome_html( $cid, $name ) : '<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px">This link is not valid any more. Please use the link from your latest text or e-mail, or call (301) 726-3030.</p>';
+		$body = $ok ? self::welcome_html( $cid, $name, $email ) : '<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px">This link is not valid any more. Please use the link from your latest text or e-mail, or call (301) 726-3030.</p>';
 		$html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . esc_html( $ok ? 'Your class details — Sam’s Driving School' : 'Link not valid' ) . '</title>'
 			. '<style>body{margin:0;padding:20px 14px;background:#f6f4ee;color:#15191d}.c{max-width:640px;margin:0 auto;background:#fff;border-radius:16px;padding:22px 20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}.c img{max-width:100%}.c table{max-width:100%}h2{font-family:Arial,Helvetica,sans-serif;font-size:17px;margin:0 0 14px;color:#00703c}</style></head><body><div class="c"><h2>Sam’s Driving School — your class details</h2>' . $body . '</div></body></html>';
 		if ( $return ) { return $html; }
@@ -157,7 +158,7 @@ class SDSC_ZoomAuto {
 		$to    = self::recipients( $cid );
 		if ( ! get_post_meta( $cid, '_sdsc_zoom_link', true ) ) { return new WP_Error( 'zoom', 'This class has no Zoom link yet.' ); }
 		if ( ! isset( $to[ $email ] ) ) { return new WP_Error( 'zoom', 'That address is not on a registration of this class.' ); }
-		$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $to[ $email ] ), 'info' );
+		$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $to[ $email ], $email ), 'info' );
 		self::log_mail( $cid, $email, $ok, 'manual' );
 		return $ok ? true : new WP_Error( 'zoom', 'The mail server did not accept the message. See Sam’s School → Email → log.' );
 	}
@@ -284,7 +285,10 @@ class SDSC_ZoomAuto {
 				'join_before_host'  => false,
 				'waiting_room'      => true,
 				'mute_upon_entry'   => true,
-				'approval_type'     => 2,
+				'approval_type'     => 0,            // registration required, approved automatically
+				'registration_type' => 1,            // register once, attend every session
+				'registrants_email_notification'   => false, // Zoom itself never e-mails students (the school's own e-mail does)
+				'registrants_confirmation_email'   => false,
 				'meeting_authentication' => false,
 				'auto_recording'    => 'none',
 			),
@@ -302,6 +306,7 @@ class SDSC_ZoomAuto {
 		update_post_meta( $cid, '_sdsc_zoom_link', esc_url_raw( $j['join_url'] ) );
 		update_post_meta( $cid, '_sdsc_zoom_meeting_id', (string) $j['id'] );
 		update_post_meta( $cid, '_sdsc_zoom_passcode', (string) ( $j['password'] ?? '' ) );
+		update_post_meta( $cid, '_sdsc_zoom_reg', 1 ); // every student gets a personal join link (see personal_link)
 		update_post_meta( $cid, '_sdsc_zoom_acct_n', $n );
 		if ( ! get_post_meta( $cid, '_sdsc_zoom_account', true ) ) { update_post_meta( $cid, '_sdsc_zoom_account', 'account_' . $n ); }
 		update_post_meta( $cid, '_sdsc_zoom_made', array( 'at' => current_time( 'mysql' ), 'by' => is_user_logged_in() ? wp_get_current_user()->display_name : 'automatic' ) );
@@ -330,6 +335,92 @@ class SDSC_ZoomAuto {
 		}
 	}
 
+	/* ------------------------------------------------------------ personal join links (Zoom registrants) */
+
+	const REGMAP = '_sdsc_zoom_regmap'; // class meta: email => [ registrant_id, join_url ]
+
+	/** True when the class meeting asks for registration, so each student can have a link of their own. */
+	public static function personal( $cid ) { return (bool) get_post_meta( $cid, '_sdsc_zoom_reg', true ) && get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ); }
+
+	protected static function reg_name( $email ) {
+		global $wpdb;
+		$r = $wpdb->get_row( $wpdb->prepare( 'SELECT first_name, last_name FROM ' . SDSC_Registration::table() . " WHERE (email = %s OR parent_email = %s) AND source <> 'demo' ORDER BY id DESC LIMIT 1", $email, $email ), ARRAY_A ); // phpcs:ignore
+		return array( trim( (string) ( $r['first_name'] ?? '' ) ) ?: 'Student', trim( (string) ( $r['last_name'] ?? '' ) ) ?: '.' );
+	}
+
+	/** The student's own Zoom join link (made on first use, then remembered). Empty string when it cannot be made — callers fall back to the class link. */
+	public static function personal_link( $cid, $email ) {
+		$email = strtolower( trim( (string) $email ) );
+		if ( ! $email || ! self::personal( $cid ) ) { return ''; }
+		$map = get_post_meta( $cid, self::REGMAP, true ); $map = is_array( $map ) ? $map : array();
+		if ( ! empty( $map[ $email ]['url'] ) ) { return (string) $map[ $email ]['url']; }
+		$n = (int) get_post_meta( $cid, '_sdsc_zoom_acct_n', true );
+		if ( ! $n ) { return ''; }
+		$tok = self::token( $n );
+		if ( is_wp_error( $tok ) ) { return ''; }
+		list( $fn, $ln ) = self::reg_name( $email );
+		$r = wp_remote_post( 'https://api.zoom.us/v2/meetings/' . rawurlencode( (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ) ) . '/registrants', array(
+			'timeout' => 20,
+			'headers' => array( 'Authorization' => 'Bearer ' . $tok, 'Content-Type' => 'application/json' ),
+			'body'    => wp_json_encode( array( 'email' => $email, 'first_name' => $fn, 'last_name' => $ln ) ),
+		) );
+		if ( is_wp_error( $r ) ) { return ''; }
+		$j = json_decode( wp_remote_retrieve_body( $r ), true );
+		if ( empty( $j['join_url'] ) ) { return ''; }
+		$map[ $email ] = array( 'id' => (string) ( $j['registrant_id'] ?? '' ), 'url' => esc_url_raw( $j['join_url'] ) );
+		update_post_meta( $cid, self::REGMAP, $map );
+		return $map[ $email ]['url'];
+	}
+
+	/** Take a student out of the class meeting (cancelled registration, refund). Their personal link stops working. */
+	public static function unregister( $cid, $email ) {
+		$email = strtolower( trim( (string) $email ) );
+		$map = get_post_meta( $cid, self::REGMAP, true );
+		if ( ! is_array( $map ) || empty( $map[ $email ]['id'] ) ) { return false; }
+		$n = (int) get_post_meta( $cid, '_sdsc_zoom_acct_n', true );
+		$tok = $n ? self::token( $n ) : '';
+		if ( ! $tok || is_wp_error( $tok ) ) { return false; }
+		$r = wp_remote_request( 'https://api.zoom.us/v2/meetings/' . rawurlencode( (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true ) ) . '/registrants/status', array(
+			'method'  => 'PUT',
+			'timeout' => 20,
+			'headers' => array( 'Authorization' => 'Bearer ' . $tok, 'Content-Type' => 'application/json' ),
+			'body'    => wp_json_encode( array( 'action' => 'cancel', 'registrants' => array( array( 'id' => $map[ $email ]['id'], 'email' => $email ) ) ) ),
+		) );
+		if ( is_wp_error( $r ) || 204 !== (int) wp_remote_retrieve_response_code( $r ) ) { return false; }
+		unset( $map[ $email ] );
+		update_post_meta( $cid, self::REGMAP, $map );
+		return true;
+	}
+
+	public static function on_refund( $reg_id, $cid ) {
+		global $wpdb;
+		$r = $wpdb->get_row( $wpdb->prepare( 'SELECT email, parent_email FROM ' . SDSC_Registration::table() . ' WHERE id = %d', (int) $reg_id ), ARRAY_A ); // phpcs:ignore
+		if ( ! $r || ! $cid ) { return; }
+		foreach ( array( $r['email'], $r['parent_email'] ) as $e ) { if ( $e ) { self::unregister( (int) $cid, $e ); } }
+	}
+
+	/** Who really joined, from Zoom's own report: [ lower-case e-mail => minutes in the meeting ] across all sessions of the class meeting. */
+	public static function joined( $cid ) {
+		$n = (int) get_post_meta( $cid, '_sdsc_zoom_acct_n', true );
+		$id = (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true );
+		$tok = $n ? self::token( $n ) : '';
+		if ( ! $id || ! $tok || is_wp_error( $tok ) ) { return array(); }
+		$h = array( 'timeout' => 20, 'headers' => array( 'Authorization' => 'Bearer ' . $tok ) );
+		$ins = json_decode( wp_remote_retrieve_body( wp_remote_get( 'https://api.zoom.us/v2/past_meetings/' . rawurlencode( $id ) . '/instances', $h ) ), true );
+		$out = array();
+		foreach ( (array) ( $ins['meetings'] ?? array() ) as $m ) {
+			$u = (string) ( $m['uuid'] ?? '' );
+			if ( ! $u ) { continue; }
+			$u = ( 0 === strpos( $u, '/' ) || false !== strpos( $u, '//' ) ) ? rawurlencode( rawurlencode( $u ) ) : rawurlencode( $u );
+			$p = json_decode( wp_remote_retrieve_body( wp_remote_get( 'https://api.zoom.us/v2/past_meetings/' . $u . '/participants?page_size=300', $h ) ), true );
+			foreach ( (array) ( $p['participants'] ?? array() ) as $x ) {
+				$e = strtolower( trim( (string) ( $x['user_email'] ?? '' ) ) );
+				if ( $e ) { $out[ $e ] = ( $out[ $e ] ?? 0 ) + (int) round( (int) ( $x['duration'] ?? 0 ) / 60 ); }
+			}
+		}
+		return $out;
+	}
+
 	/* ------------------------------------------------------------ e-mail to students */
 
 	public static function recipients( $cid ) {
@@ -355,8 +446,10 @@ class SDSC_ZoomAuto {
 	}
 
 	/** The welcome / reminder e-mail (HTML) for one student of a class: every unit, Zoom details, the forms reminder. */
-	public static function welcome_html( $cid, $firstn = '' ) {
+	public static function welcome_html( $cid, $firstn = '', $email = '' ) {
 		$link  = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
+		$mine  = $email ? self::personal_link( $cid, $email ) : '';
+		if ( $mine ) { $link = $mine; } // this student's own link
 		$id    = (string) get_post_meta( $cid, '_sdsc_zoom_meeting_id', true );
 		$pass  = (string) get_post_meta( $cid, '_sdsc_zoom_passcode', true );
 		$list  = SDSC_Schedule::sessions( $cid );
@@ -405,8 +498,9 @@ class SDSC_ZoomAuto {
 		$cid = (int) get_posts( array( 'post_type' => 'sdsc_class', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sdsc_course_code', 'meta_value' => trim( $m[1] ) ) )[0] ?? 0;
 		if ( ! $cid ) { return $a; }
 		$first = preg_match( '/^Hi ([^,\n]*),/', (string) $a['message'], $n ) ? trim( preg_replace( '/\s.*$/', '', trim( $n[1] ) ) ) : '';
+		$to_list = (array) $a['to'];
 		$a['subject'] = self::subject( $cid );
-		$a['message'] = self::welcome_html( $cid, $first );
+		$a['message'] = self::welcome_html( $cid, $first, (string) reset( $to_list ) );
 		$GLOBALS['sdsc_zoom_mail_cid'] = $cid;
 		foreach ( (array) $a['to'] as $to ) { self::log_mail( $cid, $to, true, 'auto' ); }
 		$h = is_array( $a['headers'] ?? null ) ? $a['headers'] : array_filter( explode( "\n", (string) ( $a['headers'] ?? '' ) ) );
@@ -423,7 +517,7 @@ class SDSC_ZoomAuto {
 		if ( ! $to ) { return new WP_Error( 'zoom', 'No students are registered in this class yet.' ); }
 		$sent = 0;
 		foreach ( $to as $email => $firstn ) {
-			$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $firstn ), 'info' );
+			$ok = SDSC_Mailer::send( $email, self::subject( $cid ), self::welcome_html( $cid, $firstn, $email ), 'info' );
 			self::log_mail( $cid, $email, $ok, 'manual' );
 			if ( $ok ) { $sent++; }
 		}
