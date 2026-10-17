@@ -25,7 +25,19 @@ class SDSC_TwoFactor {
 			'on'    => 1,
 			'roles' => array( 'tutor_instructor', 'driveflow_instructor', 'sdsc_instructor' ),
 			'skip'  => array(),
+			'days'  => 7,   // a device that entered a code is remembered this many days (0 = always ask)
 		) );
+	}
+
+	/** Remembered-device token: tied to the person, the expiry, their password and the office's "forget all devices" counter. */
+	public static function trust_token( $user, $exp ) {
+		return (int) $user->ID . '|' . (int) $exp . '|' . wp_hash( (int) $user->ID . '|' . (int) $exp . '|' . $user->user_pass . '|' . (int) get_option( 'sdsc_2fa_epoch', 0 ), 'auth' );
+	}
+
+	public static function is_trusted( $user, $token ) {
+		$p = explode( '|', (string) $token );
+		if ( 3 !== count( $p ) || (int) $p[0] !== (int) $user->ID || (int) $p[1] < time() ) { return false; }
+		return hash_equals( self::trust_token( $user, (int) $p[1] ), (string) $token );
 	}
 
 	public static function covered( $user ) {
@@ -114,6 +126,7 @@ class SDSC_TwoFactor {
 	/** Password was right — for covered people, stop here and ask for the code. */
 	public static function gate( $user, $login = '', $pw = '' ) {
 		if ( ! self::covered( $user ) ) { return $user; }
+		if ( isset( $_COOKIE['sdsc2fa_t'] ) && self::is_trusted( $user, wp_unslash( $_COOKIE['sdsc2fa_t'] ) ) ) { return $user; } // remembered device
 		if ( ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) || wp_doing_ajax() ) {
 			return new WP_Error( 'sdsc_2fa', 'For your security, please sign in on the main login page: ' . wp_login_url() );
 		}
@@ -155,6 +168,11 @@ class SDSC_TwoFactor {
 					$u = get_userdata( $r['uid'] );
 					wp_set_auth_cookie( $u->ID, $r['remember'] );
 					wp_set_current_user( $u->ID );
+					$days = (int) self::settings()['days'];
+					if ( $days > 0 && ! empty( $_POST['trust'] ) ) { // phpcs:ignore
+						$exp = time() + $days * DAY_IN_SECONDS;
+						setcookie( 'sdsc2fa_t', self::trust_token( $u, $exp ), $exp, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true );
+					}
 					setcookie( 'sdsc2fa_k', '', time() - HOUR_IN_SECONDS, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true );
 					do_action( 'wp_login', $u->user_login, $u );
 					wp_safe_redirect( $r['redirect'] ? $r['redirect'] : admin_url() );
@@ -168,6 +186,9 @@ class SDSC_TwoFactor {
 		<form method="post" action="<?php echo esc_url( add_query_arg( array( 'action' => 'sdsc2fa', 'k' => $key ), wp_login_url() ) ); ?>" autocomplete="off">
 			<p><label for="sdsc-code">Sign-in code</label>
 			<input type="text" id="sdsc-code" name="code" class="input" inputmode="numeric" pattern="[0-9 ]*" maxlength="9" autocomplete="one-time-code" autofocus required style="font-size:26px;letter-spacing:6px;text-align:center"></p>
+			<?php $days = (int) self::settings()['days']; if ( $days > 0 ) : ?>
+			<p><label><input type="checkbox" name="trust" value="1" checked> Remember this device for <?php echo (int) $days; ?> days</label><br><small>You will not be asked for a code on this device for <?php echo (int) $days; ?> days. <b>Untick this on a shared or public computer.</b> Changing your password ends it.</small></p>
+			<?php endif; ?>
 			<p class="submit"><input type="submit" class="button button-primary button-large" value="Verify and sign in"></p>
 		</form>
 		<form method="post" action="<?php echo esc_url( add_query_arg( array( 'action' => 'sdsc2fa', 'k' => $key ), wp_login_url() ) ); ?>" style="margin-top:10px">
@@ -190,7 +211,8 @@ class SDSC_TwoFactor {
 		check_admin_referer( 'sdsc_2fa' );
 		$p     = wp_unslash( $_POST ); // phpcs:ignore
 		$roles = array_values( array_intersect( array_map( 'sanitize_key', (array) ( $p['roles'] ?? array() ) ), array_keys( wp_roles()->roles ) ) );
-		update_option( self::OPT, array( 'on' => empty( $p['on'] ) ? 0 : 1, 'roles' => $roles, 'skip' => array_values( array_map( 'intval', (array) ( $p['skip'] ?? array() ) ) ) ), false );
+		if ( ! empty( $p['forget'] ) ) { update_option( 'sdsc_2fa_epoch', time(), false ); }
+		update_option( self::OPT, array( 'days' => min( 30, max( 0, (int) ( $p['days'] ?? 7 ) ) ), 'on' => empty( $p['on'] ) ? 0 : 1, 'roles' => $roles, 'skip' => array_values( array_map( 'intval', (array) ( $p['skip'] ?? array() ) ) ) ), false );
 		wp_safe_redirect( add_query_arg( 'saved', 1, admin_url( 'admin.php?page=sdsc-2fa' ) ) );
 		exit;
 	}
@@ -206,7 +228,7 @@ class SDSC_TwoFactor {
 		wp_nonce_field( 'sdsc_2fa' );
 		echo '<p><label><input type="checkbox" name="on" value="1"' . checked( $s['on'], 1, false ) . '> <b>Require a sign-in code</b></label></p><p><b>Who must use a code (by role):</b><br>';
 		foreach ( wp_roles()->roles as $k => $r ) { echo '<label style="margin-right:14px"><input type="checkbox" name="roles[]" value="' . esc_attr( $k ) . '"' . checked( in_array( $k, (array) $s['roles'], true ), true, false ) . '> ' . esc_html( translate_user_role( $r['name'] ) ) . '</label>'; }
-		echo '</p><h2>People covered</h2>';
+		echo '</p><p><label><b>Remember a device after a correct code for</b> <input type="number" name="days" min="0" max="30" value="' . (int) $s['days'] . '" style="width:70px"> days</label> (0 = ask every time) &nbsp; <label><input type="checkbox" name="forget" value="1"> Forget all remembered devices now</label></p><h2>People covered</h2>';
 		if ( ! $people ) { echo '<p>Nobody has these roles yet.</p>'; } else {
 			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>Name</th><th>Sign-in e-mail (masked)</th><th>Skip the code for this person</th></tr></thead><tbody>';
 			foreach ( $people as $u ) { echo '<tr><td>' . esc_html( $u->display_name ) . '</td><td>' . esc_html( self::mask( $u->user_email ) ) . '</td><td><input type="checkbox" name="skip[]" value="' . (int) $u->ID . '"' . checked( in_array( (int) $u->ID, array_map( 'intval', (array) $s['skip'] ), true ), true, false ) . '></td></tr>'; }

@@ -33,6 +33,17 @@ $o['on']=1; update_option(SDSC_TwoFactor::OPT,$o); $c(SDSC_TwoFactor::covered($i
 // ajax / app logins cannot slip past
 add_filter('wp_doing_ajax','__return_true'); $r=SDSC_TwoFactor::gate($ins,'x','y'); remove_filter('wp_doing_ajax','__return_true');
 $c(is_wp_error($r),'a login through an AJAX form is refused with a pointer to the main login page');
+// remembered device (7 days)
+$c(7===(int)SDSC_TwoFactor::settings()['days'],'a device is remembered 7 days by default');
+$exp=time()+7*DAY_IN_SECONDS; $tok=SDSC_TwoFactor::trust_token($ins2=$mk('tutor_instructor'),$exp);
+$c(SDSC_TwoFactor::is_trusted($ins2,$tok),'a fresh remembered-device token is accepted');
+$c(!SDSC_TwoFactor::is_trusted($ins2,SDSC_TwoFactor::trust_token($ins2,time()-10)),'an expired token is refused');
+$c(!SDSC_TwoFactor::is_trusted($ins2,$tok.'x'),'a tampered token is refused');
+$other=$mk('tutor_instructor'); $c(!SDSC_TwoFactor::is_trusted($other,$tok),'a token does not work for another person');
+$_COOKIE['sdsc2fa_t']=$tok; $n0=count($sent); $r=SDSC_TwoFactor::gate($ins2,'x','y'); $c($r===$ins2 && count($sent)===$n0,'a remembered device signs in without a new code or e-mail'); unset($_COOKIE['sdsc2fa_t']);
+wp_set_password('a-brand-new-password-1',$ins2->ID); $ins2=get_userdata($ins2->ID); $c(!SDSC_TwoFactor::is_trusted($ins2,$tok),'changing the password ends the remembered device');
+$tok=SDSC_TwoFactor::trust_token($ins2,$exp); $ep=get_option('sdsc_2fa_epoch',null); update_option('sdsc_2fa_epoch',time()+5,false); $c(!SDSC_TwoFactor::is_trusted($ins2,$tok),'"forget all devices" ends every remembered device'); if(null===$ep){delete_option('sdsc_2fa_epoch');}else{update_option('sdsc_2fa_epoch',$ep,false);}
+wp_delete_user($ins2->ID); wp_delete_user($other->ID);
 foreach(array($ins,$stu,$adm) as $u){ wp_delete_user($u->ID); }
 if(null===$old){delete_option(SDSC_TwoFactor::OPT);}else{update_option(SDSC_TwoFactor::OPT,$old);} if(null===$hold){delete_option(SDSC_Hold::OPT);}else{update_option(SDSC_Hold::OPT,$hold);}
 echo "$ok ok, $bad failed\n";
