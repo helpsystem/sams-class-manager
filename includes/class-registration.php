@@ -1115,5 +1115,7 @@ require_once __DIR__ . '/class-hold.php';
 SDSC_Hold::init();
 require_once __DIR__ . '/class-account.php';
 SDSC_Account::init();
+require_once __DIR__ . '/class-twofactor.php';
+SDSC_TwoFactor::init();
 require_once __DIR__ . '/class-helper.php';
 SDSC_Helper::init();
