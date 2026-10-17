@@ -91,6 +91,70 @@ class SDSC_Helper {
 
 	protected static function off() { return array_flip( (array) get_option( self::OFF, array() ) ); }
 
+	/** Pages of the student dashboard: key => [ title en/es/fa, one line en/es/fa ]. */
+	protected static function pages_def() {
+		return array(
+			'index'           => array( array( 'Dashboard', 'Panel', 'داشبورد' ), array( 'Your home page after you log in.', 'Su página de inicio al entrar.', 'صفحهٔ اصلی شما بعد از ورود.' ) ),
+			'enrolled-courses' => array( array( 'My online course', 'Mi curso en línea', 'دورهٔ آنلاین من' ), array( 'Your online course and quizzes.', 'Su curso en línea y los exámenes.', 'دورهٔ آنلاین و کوییزهای شما.' ) ),
+			'sdsc-lessons'    => array( array( 'My driving lessons', 'Mis clases prácticas', 'درس‌های رانندگی من' ), array( 'Your lessons, scorecards and calendar.', 'Sus lecciones, tarjetas de calificaciones y calendario.', 'درس‌ها، کارنامه‌ها و تقویم شما.' ) ),
+			'sdsc-messages'   => array( array( 'Messages', 'Mensajes', 'پیام‌ها' ), array( 'Messages with the school.', 'Mensajes con la escuela.', 'پیام‌ها با مدرسه.' ) ),
+			'sdsc-documents'  => array( array( 'My documents', 'Mis documentos', 'مدارک من' ), array( 'Your permit and other documents.', 'Su permiso y otros documentos.', 'پرمیت و مدارک دیگر شما.' ) ),
+			'sdsc-payments'   => array( array( 'My payments', 'Mis pagos', 'پرداخت‌های من' ), array( 'Your payments and receipts.', 'Sus pagos y recibos.', 'پرداخت‌ها و رسیدهای شما.' ) ),
+		);
+	}
+
+	/** Which page an answer sends the asker to (student dashboard tabs; login / sign-up for visitors). */
+	protected static function links_map() {
+		return array(
+			'login' => 'login', 'locked' => 'login', 'whichemail' => 'login', 'oldstudent' => 'login', 'account' => 'login', 'reset' => 'lost',
+			'register' => 'register',
+			'quiz' => 'enrolled-courses', 'calendar' => 'sdsc-lessons', 'scorecard' => 'sdsc-lessons', 'cancel' => 'sdsc-lessons', 'book' => 'sdsc-lessons', 'absence' => 'sdsc-lessons',
+			'receipt' => 'sdsc-payments', 'latefee' => 'sdsc-payments',
+		);
+	}
+
+	protected static function page_url( $key ) {
+		switch ( $key ) {
+			case 'login':    return wp_login_url();
+			case 'lost':     return wp_lostpassword_url();
+			case 'register': return home_url( '/student-registration/' );
+			case 'index':    return function_exists( 'tutor_utils' ) ? tutor_utils()->tutor_dashboard_url() : home_url( '/dashboard/' );
+		}
+		return function_exists( 'tutor_utils' ) ? tutor_utils()->tutor_dashboard_url( $key ) : home_url( '/dashboard/' . $key . '/' );
+	}
+
+	/** [ url, text ] for the button at the end of an answer, or null. Only visitors and students get one. */
+	protected static function link_for( $id, $level, $lang ) {
+		$map = self::links_map();
+		if ( $level > 1 || ! isset( $map[ $id ] ) ) { return null; }
+		$li  = self::langidx( $lang );
+		$key = $map[ $id ];
+		$open = array( 'Open', 'Abrir', 'باز کردن' );
+		$fix  = array( 'login' => array( 'Log in', 'Iniciar sesión', 'ورود به سایت' ), 'lost' => array( 'Lost your password?', '¿Olvidó su contraseña?', 'فراموشی رمز' ), 'register' => array( 'See class dates and register', 'Ver fechas y registrarse', 'دیدن تاریخ کلاس‌ها و ثبت‌نام' ) );
+		if ( isset( $fix[ $key ] ) ) { return array( self::page_url( $key ), $fix[ $key ][ $li ] ); }
+		$def = self::pages_def();
+		if ( ! isset( $def[ $key ] ) ) { return null; }
+		if ( ! is_user_logged_in() ) { return array( self::page_url( 'login' ), $fix['login'][ $li ] ); }
+		return array( self::page_url( $key ), $open[ $li ] . ': ' . $def[ $key ][0][ $li ] );
+	}
+
+	/** The signed-in student's own dashboard sections (what their dashboard really lists). */
+	public static function my_pages( $lang = 'en' ) {
+		if ( 1 !== self::level() ) { return array(); }
+		$li  = self::langidx( $lang );
+		$def = self::pages_def();
+		$base = ( function_exists( 'tutor_utils' ) && method_exists( tutor_utils(), 'default_menus' ) ) ? (array) tutor_utils()->default_menus() : array();
+		$items = (array) apply_filters( 'tutor_dashboard/nav_items', $base );
+		$out = array();
+		foreach ( $def as $key => $d ) {
+			if ( 'index' !== $key && 'enrolled-courses' !== $key && ! isset( $items[ $key ] ) ) { continue; }
+			$cap = is_array( $items[ $key ] ?? null ) ? ( $items[ $key ]['auth_cap'] ?? '' ) : '';
+			if ( $cap && ! current_user_can( $cap ) ) { continue; }
+			$out[] = array( 'u' => self::page_url( $key ), 't' => $d[0][ $li ], 'd' => $d[1][ $li ] );
+		}
+		return $out;
+	}
+
 	protected static function fill( $t ) {
 		$c = self::cfg();
 		return str_replace( array( '{P}', '{M}', '{S}' ), array( $c['call'], self::MAIL, '<a href="' . esc_url( home_url( '/student-registration/' ) ) . '">' . esc_html( home_url( '/student-registration/' ) ) . '</a>' ), $t );
@@ -112,6 +176,7 @@ class SDSC_Helper {
 			$a = self::fill( $a );
 			$q = ! empty( $edit[ $id ][ $lang ]['q'] ) ? $edit[ $id ][ $lang ]['q'] : ( self::data()['labels'][ $id ][ $li ] ?? self::first_words( $k ) );
 			$out[] = array( 'id' => $id, 'sec' => $e[0], 'off' => isset( $off[ $e[0] ] ), 'k' => $k, 't' => $q, 'q' => $q, 'a' => $a, 'body' => wp_strip_all_tags( $a ), 'link' => '' );
+			if ( $lk = self::link_for( $id, $level, $lang ) ) { $out[ count( $out ) - 1 ]['link'] = $lk[0]; $out[ count( $out ) - 1 ]['linkt'] = $lk[1]; }
 		}
 		foreach ( (array) get_option( self::CUSTOM, array() ) as $c ) {
 			if ( (int) ( $c['aud'] ?? 0 ) > $level || empty( $c['k'][ $lang ] ) || empty( $c['a'][ $lang ] ) ) { continue; }
@@ -285,7 +350,7 @@ class SDSC_Helper {
 			if ( (string) $e['id'] !== (string) $id ) { continue; }
 			if ( $e['off'] && $level < 2 ) { break; }
 			$html = $e['a'];
-			if ( ! empty( $e['link'] ) ) { $html .= '<p><a href="' . esc_url( $e['link'] ) . '">' . esc_html( $e['linkt'] ) . ' →</a></p>'; }
+			if ( ! empty( $e['link'] ) ) { $html .= '<p><a href="' . esc_url( $e['link'] ) . '" style="display:inline-block;background:#0b5d2e;color:#fff;padding:6px 12px;border-radius:8px;text-decoration:none;font-weight:700">' . esc_html( $e['linkt'] ) . ' →</a></p>'; }
 			return array( 'found' => true, 'html' => $html, 'q' => $e['q'] );
 		}
 		return array( 'found' => false, 'html' => self::handoff( $lang ) );
@@ -335,7 +400,7 @@ class SDSC_Helper {
 
 	public static function rest_menu( WP_REST_Request $r ) {
 		$lang = self::lang_of( $r );
-		return array( 'menu' => self::questions( self::level(), $lang ), 'lang' => $lang );
+		return array( 'menu' => self::questions( self::level(), $lang ), 'pages' => self::my_pages( $lang ), 'lang' => $lang );
 	}
 
 	public static function rest_answer( WP_REST_Request $r ) {
@@ -372,9 +437,9 @@ class SDSC_Helper {
 		if ( is_customize_preview() ) { return; }
 		$base = rest_url( 'sdsc/v1/helper' );
 		$t = array(
-			'en' => array( 'btn' => 'Need help?', 'title' => 'Sam’s Driving School help', 'intro' => 'Choose a question below. I answer only from the school’s own information and never see your record or payments. Not in the list? Contact the office.', 'ph' => 'Search the questions…', 'ask' => 'Search', 'c1' => 'I want to register', 'c2' => 'I registered but can’t log in', 'none' => 'My question isn’t here', 'back' => '← All questions', 'did' => 'Did you mean:', 'err' => 'Something went wrong. Please call' ),
-			'es' => array( 'btn' => '¿Necesita ayuda?', 'title' => 'Ayuda de Sam’s Driving School', 'intro' => 'Elija una pregunta de la lista. Respondo solo con la información de la escuela y nunca veo su registro ni sus pagos. ¿No está en la lista? Contacte a la oficina.', 'ph' => 'Buscar en las preguntas…', 'ask' => 'Buscar', 'c1' => 'Quiero registrarme', 'c2' => 'Me registré pero no puedo entrar', 'none' => 'Mi pregunta no está aquí', 'back' => '← Todas las preguntas', 'did' => '¿Quiso decir?', 'err' => 'Algo salió mal. Por favor llame al' ),
-			'fa' => array( 'btn' => 'کمک می‌خواهید؟', 'title' => 'راهنمای Sam’s Driving School', 'intro' => 'یکی از سؤال‌های زیر را انتخاب کنید. من فقط از اطلاعات خود مدرسه جواب می‌دهم و هرگز پرونده یا پرداخت‌های شما را نمی‌بینم. سؤالتان در فهرست نیست؟ با دفتر تماس بگیرید.', 'ph' => 'جستجو در سؤال‌ها…', 'ask' => 'جستجو', 'c1' => 'می‌خواهم ثبت‌نام کنم', 'c2' => 'ثبت‌نام کردم ولی نمی‌توانم وارد شوم', 'none' => 'سؤال من اینجا نیست', 'back' => '← همهٔ سؤال‌ها', 'did' => 'منظورتان این بود:', 'err' => 'مشکلی پیش آمد. لطفاً تماس بگیرید' ),
+			'en' => array( 'btn' => 'Need help?', 'title' => 'Sam’s Driving School help', 'intro' => 'Choose a question below. I answer only from the school’s own information and never see your record or payments. Not in the list? Contact the office.', 'ph' => 'Search the questions…', 'ask' => 'Search', 'c1' => 'I want to register', 'c2' => 'I registered but can’t log in', 'none' => 'My question isn’t here', 'back' => '← All questions', 'did' => 'Did you mean:', 'err' => 'Something went wrong. Please call', 'mine' => 'My pages' ),
+			'es' => array( 'btn' => '¿Necesita ayuda?', 'title' => 'Ayuda de Sam’s Driving School', 'intro' => 'Elija una pregunta de la lista. Respondo solo con la información de la escuela y nunca veo su registro ni sus pagos. ¿No está en la lista? Contacte a la oficina.', 'ph' => 'Buscar en las preguntas…', 'ask' => 'Buscar', 'c1' => 'Quiero registrarme', 'c2' => 'Me registré pero no puedo entrar', 'none' => 'Mi pregunta no está aquí', 'back' => '← Todas las preguntas', 'did' => '¿Quiso decir?', 'err' => 'Algo salió mal. Por favor llame al', 'mine' => 'Mis páginas' ),
+			'fa' => array( 'btn' => 'کمک می‌خواهید؟', 'title' => 'راهنمای Sam’s Driving School', 'intro' => 'یکی از سؤال‌های زیر را انتخاب کنید. من فقط از اطلاعات خود مدرسه جواب می‌دهم و هرگز پرونده یا پرداخت‌های شما را نمی‌بینم. سؤالتان در فهرست نیست؟ با دفتر تماس بگیرید.', 'ph' => 'جستجو در سؤال‌ها…', 'ask' => 'جستجو', 'c1' => 'می‌خواهم ثبت‌نام کنم', 'c2' => 'ثبت‌نام کردم ولی نمی‌توانم وارد شوم', 'none' => 'سؤال من اینجا نیست', 'back' => '← همهٔ سؤال‌ها', 'did' => 'منظورتان این بود:', 'err' => 'مشکلی پیش آمد. لطفاً تماس بگیرید', 'mine' => 'صفحه‌های من' ),
 		);
 		$call = self::cfg()['call'];
 		$chip = 'border:1px solid #0b5d2e;background:#fff;color:#0b5d2e;border-radius:14px;padding:5px 10px;cursor:pointer;font-size:13px;text-align:start';
@@ -392,7 +457,7 @@ class SDSC_Helper {
 			var T=<?php echo wp_json_encode( $t ); ?>,CALL=<?php echo wp_json_encode( $call ); ?>,BASE=<?php echo wp_json_encode( $base ); ?>,IN=<?php echo is_user_logged_in() ? 'true' : 'false'; ?>,CHIP=<?php echo wp_json_encode( $chip ); ?>;
 			var b=document.getElementById('sdsc-help-btn'),x=document.getElementById('sdsc-help-box'),f=document.getElementById('sdsc-help-form'),q=document.getElementById('sdsc-help-q'),l=document.getElementById('sdsc-help-log');
 			if(!b){return;}
-			var lang='en',menu={};try{lang=localStorage.getItem('sdsc_help_lang')||'';}catch(e){}
+			var lang='en',menu={},pages={};try{lang=localStorage.getItem('sdsc_help_lang')||'';}catch(e){}
 			if(!T[lang]){var n=(navigator.language||'en').slice(0,2);lang=T[n]?n:'en';}
 			function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 			function post(p,d){d.lang=lang;return fetch(BASE+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d),credentials:'same-origin'}).then(function(r){return r.json();});}
@@ -403,7 +468,8 @@ class SDSC_Helper {
 			function contact(qt){var w=add('…');post('',{contact:1,q:qt||''}).then(function(r){w.innerHTML=r.html;l.scrollTop=l.scrollHeight;});}
 			function show(){var s=T[lang];x.dir=(lang==='fa')?'rtl':'ltr';l.innerHTML='';add(esc(s.intro));
 				if(!IN){var cw=document.createElement('div');cw.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:6px 0';cw.appendChild(btn(s.c1,function(){ask('register',s.c1);}));cw.appendChild(btn(s.c2,function(){ask('locked',s.c2);}));l.appendChild(cw);}
-				var m=menu[lang];if(!m){post('/menu',{}).then(function(r){menu[lang]=r.menu||[];show();});return;}
+				var m=menu[lang];if(!m){post('/menu',{}).then(function(r){menu[lang]=r.menu||[];pages[lang]=r.pages||[];show();});return;}
+					var pg=pages[lang]||[];if(IN&&pg.length){var pd=document.createElement('div');pd.style.cssText='margin:6px 0;border:1px solid #cfe3d6;background:#f3faf5;border-radius:8px;padding:6px 8px';var ph=document.createElement('b');ph.textContent=s.mine;pd.appendChild(ph);pg.forEach(function(p){var a=document.createElement('a');a.href=p.u;a.title=p.d;a.style.cssText='display:block;margin:4px 0;color:#0b5d2e;text-decoration:underline';a.textContent=p.t+' — '+p.d;pd.appendChild(a);});l.appendChild(pd);}
 				m.forEach(function(sec){var d=document.createElement('details');d.style.cssText='margin:6px 0;border:1px solid #e3e7ea;border-radius:8px;padding:4px 8px';var sm=document.createElement('summary');sm.style.cssText='cursor:pointer;font-weight:700';sm.textContent=sec.title;d.appendChild(sm);
 					sec.items.forEach(function(it){var p=document.createElement('div');p.style.margin='4px 0';p.appendChild(btn(it.q,function(){ask(it.id,it.q);},'border:0;background:none;color:#0b5d2e;text-decoration:underline;cursor:pointer;padding:2px 0;text-align:start;font-size:14px'));d.appendChild(p);});l.appendChild(d);});
 				var nw=document.createElement('div');nw.style.margin='8px 0 0';nw.appendChild(btn(s.none,function(){contact('');}));l.appendChild(nw);}

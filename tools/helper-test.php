@@ -49,6 +49,19 @@ $a=h_answer('how much is the late cancellation fee',1,'fa'); $c(!$a['found'] || 
 $a=h_answer('I am running late and sick',2,'en'); $c($a['found'],'instructor section still answers');
 update_option(SDSC_Helper::CFG,array('call'=>'(301) 726-3030','text'=>'','msg'=>array()));
 $a=h_answer('blue banana airplane',0,'en'); $c(false!==strpos($a['html'],'sms:+13017263030'),'empty text number falls back to the office phone');
+// links at the end of answers and "My pages"
+$r=SDSC_Helper::answer_id('locked',0,'en'); $c(false!==strpos($r['html'],'wp-login'),'visitor answer ends with a link to the login page');
+$r=SDSC_Helper::answer_id('register',0,'fa'); $c(false!==strpos($r['html'],'student-registration'),'registration answer links to the registration page (Persian)');
+$tu=wp_insert_user(array('user_login'=>'sdsc-bot-test'.wp_rand(1000,9999),'user_pass'=>wp_generate_password(20),'user_email'=>'sdsc-bot-test'.wp_rand(1000,9999).'@example.com','role'=>'subscriber'));
+wp_set_current_user($tu);
+$r=SDSC_Helper::answer_id('scorecard',1,'en'); $c(false!==strpos($r['html'],'sdsc-lessons') && false!==strpos($r['html'],'My driving lessons'),'student answer ends with a button to the lessons page');
+$r=SDSC_Helper::answer_id('scorecard',1,'es'); $c(false!==strpos($r['html'],'Abrir: Mis clases'),'button text follows the language (Spanish)');
+$pg=SDSC_Helper::my_pages('en'); $us=''; foreach($pg as $x){$us.=$x['u'].' ';}
+$c(count($pg)>=3 && false!==strpos($us,'sdsc-lessons') && false!==strpos($us,'enrolled-courses'),'a logged-in student sees their dashboard sections: '.count($pg));
+$c(false===strpos($us,'sdsc-reports') && false===strpos($us,'sdsc-work') && false===strpos($us,'zoom-attendance'),'staff pages are not offered to students');
+$r=SDSC_Helper::rest_menu(new WP_REST_Request('POST','/sdsc/v1/helper/menu')); $c(!empty($r['pages']),'menu returns the pages for the logged-in student');
+wp_set_current_user(0); wp_delete_user($tu);
+$c(array()===SDSC_Helper::my_pages('en'),'visitors get no "My pages"');
 if(null===$old){delete_option(SDSC_Helper::OFF);}else{update_option(SDSC_Helper::OFF,$old);} if(null===$oc){delete_option(SDSC_Helper::CFG);}else{update_option(SDSC_Helper::CFG,$oc);}
 $a=h_answer('how much is the late cancellation fee',0,'en'); $c($a['found'],'section answers again after switching back on');
 
