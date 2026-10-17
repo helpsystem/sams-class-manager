@@ -15,6 +15,7 @@ $cases=array(
  array('How do I register?',0,'See class dates'),
  array('I registered but cannot log in',0,'same e-mail you registered with'),
  array('I think I used the wrong email',0,'correct e-mail exactly'),
+ array('I am an old student, I registered before',0,'most likely already have a login'),
  array('how much is the late cancellation fee',0,'$60'),
  array('how long do I have to use my extra practice',0,'6 months'),
  array('can I get a refund on the car rental for my road test',0,'full refund'),
