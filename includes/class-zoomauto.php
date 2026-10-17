@@ -470,10 +470,11 @@ class SDSC_ZoomAuto {
 		$rows  = ( $email && class_exists( 'SDSC_ZoomRoll' ) ) ? ( SDSC_ZoomRoll::rows( $cid )[ self::att_email( $email ) ] ?? array() ) : array();
 		$today = current_time( 'Y-m-d' );
 		$lab   = array( 'present' => array( 'Present', '#00703c' ), 'late' => array( 'Late', '#996800' ), 'left' => array( 'Left early', '#996800' ), 'absent' => array( 'Absent', '#b32d2e' ) );
-		$next  = ''; foreach ( $list as $x ) { if ( $x['date'] >= $today ) { $next = $x['date']; break; } }
+		$isp   = function ( $x ) use ( $today, $rows, $lab ) { return $x['date'] < $today || isset( $lab[ (string) ( $rows[ $x['date'] ]['actual'] ?? '' ) ] ); }; // over: earlier day, or today's sheet already filled in
+		$next  = ''; foreach ( $list as $x ) { if ( ! $isp( $x ) ) { $next = $x['date']; break; } }
 		$h = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;width:100%">';
 		foreach ( $list as $x ) {
-			$past = $x['date'] < $today;
+			$past = $isp( $x );
 			$a    = (string) ( $rows[ $x['date'] ]['actual'] ?? '' );
 			$note = trim( (string) ( $rows[ $x['date'] ]['staff_note'] ?? '' ) );
 			$sty  = $f . 'padding:4px 14px 4px 0;font-size:14px;' . ( $past ? 'color:#9aa1a8;' : 'color:#15191d;font-weight:700;' );
