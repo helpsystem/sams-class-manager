@@ -26,6 +26,8 @@ class SDSC_Tracking {
 
 	/** Staff and admins are never counted. */
 	protected static function skip() {
+		$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+		if ( ! preg_match( '/^(www\.)?samsdrivingschool\.org$/i', $host ) ) { return true; } // never count staging / test sites
 		return is_user_logged_in() && current_user_can( 'edit_posts' );
 	}
 
