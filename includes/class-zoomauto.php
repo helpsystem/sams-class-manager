@@ -97,6 +97,7 @@ class SDSC_ZoomAuto {
 			if ( preg_match( '/^(\d+)\|(.+)$/', $raw, $mm ) && hash_equals( self::sig( 'zoom|' . (int) $mm[1] . '|' . strtolower( $mm[2] ) ), $m[2] ) ) { $cid = (int) $mm[1]; $email = strtolower( $mm[2] ); }
 		}
 		if ( ! $return ) { nocache_headers(); header( 'X-Robots-Tag: noindex, nofollow' ); }
+		$GLOBALS['sdsc_zoom_live'] = 1; // the page itself: no "open live page" line
 		$ok   = $cid && 'sdsc_class' === get_post_type( $cid ) && isset( self::recipients( $cid )[ $email ] );
 		$name = $ok ? self::recipients( $cid )[ $email ] : '';
 		$body = $ok ? self::welcome_html( $cid, $name, $email ) : '<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px">This link is not valid any more. Please use the link from your latest text or e-mail, or call (301) 726-3030.</p>';
@@ -450,6 +451,44 @@ class SDSC_ZoomAuto {
 		return trim( chunk_split( $d, 4, ' ' ) );
 	}
 
+	/** The e-mail address attendance is recorded under: the student's own, even when the mail goes to a parent. */
+	protected static function att_email( $email ) {
+		global $wpdb;
+		$email = strtolower( trim( (string) $email ) );
+		if ( ! $email ) { return ''; }
+		$r = $wpdb->get_var( $wpdb->prepare( 'SELECT email FROM ' . SDSC_Registration::table() . " WHERE (email = %s OR parent_email = %s) AND source <> 'demo' ORDER BY id DESC LIMIT 1", $email, $email ) ); // phpcs:ignore
+		return $r ? strtolower( trim( (string) $r ) ) : $email;
+	}
+
+	/**
+	 * The session table of the e-mail / details page. Upcoming sessions are bold, past ones are faded with what the
+	 * instructor recorded (Present / Late / Left early / Absent) and the instructor's short note. The details page
+	 * builds this at every visit, so it is always current; the e-mail shows the state at the moment it was sent.
+	 */
+	protected static function schedule_rows( $cid, $email, $list, $ts, $f ) {
+		if ( ! $list ) { return ''; }
+		$rows  = ( $email && class_exists( 'SDSC_ZoomRoll' ) ) ? ( SDSC_ZoomRoll::rows( $cid )[ self::att_email( $email ) ] ?? array() ) : array();
+		$today = current_time( 'Y-m-d' );
+		$lab   = array( 'present' => array( 'Present', '#00703c' ), 'late' => array( 'Late', '#996800' ), 'left' => array( 'Left early', '#996800' ), 'absent' => array( 'Absent', '#b32d2e' ) );
+		$next  = ''; foreach ( $list as $x ) { if ( $x['date'] >= $today ) { $next = $x['date']; break; } }
+		$h = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;width:100%">';
+		foreach ( $list as $x ) {
+			$past = $x['date'] < $today;
+			$a    = (string) ( $rows[ $x['date'] ]['actual'] ?? '' );
+			$note = trim( (string) ( $rows[ $x['date'] ]['staff_note'] ?? '' ) );
+			$sty  = $f . 'padding:4px 14px 4px 0;font-size:14px;' . ( $past ? 'color:#9aa1a8;' : 'color:#15191d;font-weight:700;' );
+			if ( $past && isset( $lab[ $a ] ) ) { $tag = '<span style="color:' . $lab[ $a ][1] . ';font-weight:700">' . $lab[ $a ][0] . '</span>' . ( $note ? ' <span style="color:#9aa1a8">— ' . esc_html( $note ) . '</span>' : '' ); }
+			elseif ( $past ) { $tag = '<span style="color:#9aa1a8">Not recorded yet</span>'; }
+			else { $tag = $x['date'] === $next ? '<span style="color:#00703c;font-weight:700">Next session</span>' : '<span style="color:#5b646d;font-weight:400">Upcoming</span>'; }
+			$h .= '<tr><td style="' . $sty . 'white-space:nowrap">' . esc_html( wp_date( 'D, F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:4px 14px 4px 0;font-size:13px;' . ( $past ? 'color:#9aa1a8' : 'color:#5b646d' ) . '">Unit ' . (int) $x['n'] . '</td><td style="' . $f . 'padding:4px 0;font-size:13px">' . $tag . '</td></tr>';
+		}
+		$h .= '</table>';
+		if ( $email && empty( $GLOBALS['sdsc_zoom_live'] ) ) {
+			$h .= '<p style="' . $f . 'margin:0 0 14px;font-size:13px;color:#5b646d">This list is as of today. <a href="' . esc_url( self::page_url( $cid, $email ) ) . '" style="color:#00703c;font-weight:700">Open your live schedule and attendance</a> any time for the latest.</p>';
+		}
+		return $h;
+	}
+
 	/** The welcome / reminder e-mail (HTML) for one student of a class: every unit, Zoom details, the forms reminder. */
 	public static function welcome_html( $cid, $firstn = '', $email = '' ) {
 		$link  = (string) get_post_meta( $cid, '_sdsc_zoom_link', true );
@@ -471,7 +510,7 @@ class SDSC_ZoomAuto {
 		$furl  = $forms ? get_permalink( $forms ) : home_url( '/register-course/' );
 		$p     = function ( $html, $extra = '' ) use ( $f ) { return '<p style="' . $f . 'margin:0 0 12px;font-size:15px;line-height:1.6;' . $extra . '">' . $html . '</p>'; };
 		$units = '';
-		foreach ( $list as $x ) { $units .= '<tr><td style="' . $f . 'padding:3px 14px 3px 0;font-size:14px;white-space:nowrap">' . esc_html( wp_date( 'F j, Y g:i A', $ts( $x['start'] ) ) ) . '</td><td style="' . $f . 'padding:3px 0;font-size:14px;color:#5b646d">(unit ' . (int) $x['n'] . ')</td></tr>'; }
+		$units = self::schedule_rows( $cid, $email, $list, $ts, $f );
 		$zoom  = $link ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;border-radius:12px;background:#f7f9fa;width:100%">'
 			. '<tr><td style="' . $f . 'padding:10px 14px;font-size:14px;color:#5b646d;width:120px">Join Zoom</td><td style="' . $f . 'padding:10px 14px;font-size:14px"><a href="' . esc_url( $link ) . '" style="color:#00703c;font-weight:700;word-break:break-all">' . esc_html( $link ) . '</a></td></tr>'
 			. ( $id ? '<tr><td style="' . $f . 'padding:6px 14px;font-size:14px;color:#5b646d">Meeting ID</td><td style="' . $f . 'padding:6px 14px;font-size:14px"><b>' . esc_html( self::fmt_id( $id ) ) . '</b></td></tr>' : '' )
