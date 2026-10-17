@@ -62,6 +62,13 @@ $c(false===strpos($us,'sdsc-reports') && false===strpos($us,'sdsc-work') && fals
 $r=SDSC_Helper::rest_menu(new WP_REST_Request('POST','/sdsc/v1/helper/menu')); $c(!empty($r['pages']),'menu returns the pages for the logged-in student');
 wp_set_current_user(0); wp_delete_user($tu);
 $c(array()===SDSC_Helper::my_pages('en'),'visitors get no "My pages"');
+// "My driving lessons" stays "being updated" for students until switched on
+$ls=get_option(SDSC_Lessons::SET,null); $tu2=wp_insert_user(array('user_login'=>'sdsc-ls-test'.wp_rand(1000,9999),'user_pass'=>wp_generate_password(20),'user_email'=>'sdsc-ls-test'.wp_rand(1000,9999).'@example.com','role'=>'subscriber'));
+$o=(array)$ls; $o['student_live']=0; update_option(SDSC_Lessons::SET,$o); wp_set_current_user($tu2);
+$c(false!==strpos(SDSC_Lessons::shortcode(),'This section is being updated'),'student sees "being updated" while the lessons page is off');
+$o['student_live']=1; update_option(SDSC_Lessons::SET,$o); $c(false===strpos(SDSC_Lessons::shortcode(),'This section is being updated'),'student sees the lessons once switched on');
+$o['student_live']=0; update_option(SDSC_Lessons::SET,$o); wp_set_current_user(1); $c(false===strpos(SDSC_Lessons::shortcode(),'This section is being updated'),'office always sees the lessons page');
+wp_set_current_user(0); wp_delete_user($tu2); if(null===$ls){delete_option(SDSC_Lessons::SET);}else{update_option(SDSC_Lessons::SET,$ls);}
 if(null===$old){delete_option(SDSC_Helper::OFF);}else{update_option(SDSC_Helper::OFF,$old);} if(null===$oc){delete_option(SDSC_Helper::CFG);}else{update_option(SDSC_Helper::CFG,$oc);}
 $a=h_answer('how much is the late cancellation fee',0,'en'); $c($a['found'],'section answers again after switching back on');
 

@@ -128,6 +128,7 @@ class SDSC_Lessons {
 			'pay'         => 'woo',      // woo | link | office
 			'link'        => '',
 			'remind'      => 1,
+			'student_live' => 0,     // students see "My driving lessons" only after the office switches it on
 			'instructors' => '',
 			'directions'  => 'Located behind the building — enter from Mt. Vernon Place',
 		) );
@@ -1151,6 +1152,7 @@ class SDSC_Lessons {
 			<label class="sdo-radio"><input type="radio" name="pay" value="office"<?php checked( $s['pay'], 'office' ); ?>> At the office only</label>
 			<label class="sdo-f sdo-f--wide"><span>Payment link</span><input type="url" name="link" value="<?php echo esc_attr( $s['link'] ); ?>" placeholder="https://buy.stripe.com/…"></label>
 			<h2>Reminder</h2>
+			<label class="sdo-check"><input type="checkbox" name="student_live" value="1"<?php checked( $s['student_live'] ); ?>> <b>Show “My driving lessons” to students</b> (leave off until you announce it — until then students see “This section is being updated”; the office always sees it)</label>
 			<label class="sdo-check"><input type="checkbox" name="remind" value="1"<?php checked( $s['remind'] ); ?>> E-mail a reminder one day before the free-cancellation deadline</label>
 			<p><button class="sdo-btn">Save</button></p>
 		</form>
@@ -1426,6 +1428,7 @@ class SDSC_Lessons {
 			'pay'         => in_array( $p['pay'] ?? '', array( 'woo', 'link', 'office' ), true ) ? $p['pay'] : 'woo',
 			'link'        => esc_url_raw( $p['link'] ?? '' ),
 			'remind'      => empty( $p['remind'] ) ? 0 : 1,
+			'student_live' => empty( $p['student_live'] ) ? 0 : 1,
 			'instructors' => sanitize_textarea_field( $p['instructors'] ?? '' ),
 			'directions'  => sanitize_text_field( $p['directions'] ?? '' ),
 		), false );
@@ -1475,6 +1478,10 @@ class SDSC_Lessons {
 		wp_enqueue_style( 'sdsc-lessons-front' );
 		$u    = wp_get_current_user();
 		$lang = 'en';
+		$set0 = self::settings();
+		if ( empty( $set0['student_live'] ) && ! current_user_can( 'edit_posts' ) && ! current_user_can( 'manage_options' ) ) {
+			return '<div class="sdl-front"><h3>My driving lessons</h3><p><b>This section is being updated.</b> Please check back soon. Questions? Call or text the office at ' . esc_html( class_exists( 'SDSC_Account' ) ? SDSC_Account::PHONE : '(301) 726-3030' ) . '.</p></div>';
+		}
 		if ( class_exists( 'SDSC_Outreach' ) ) {
 			foreach ( SDSC_Outreach::contacts() as $c ) { if ( $c['email'] === strtolower( $u->user_email ) ) { $lang = $c['lang']; break; } }
 		}
