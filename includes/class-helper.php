@@ -33,7 +33,7 @@ class SDSC_Helper {
 	public static function cfg() {
 		$d = array(
 			'call' => '(301) 726-3030',
-			'text' => '',
+			'text' => '(202) 600-0889',
 			'msg'  => array(
 				'en' => 'I can’t help with that here. Please call the office at {call} or send a text message to {text}.',
 				'es' => 'No puedo ayudarle con eso aquí. Por favor llame a la oficina al {call} o envíe un mensaje de texto al {text}.',
@@ -42,18 +42,19 @@ class SDSC_Helper {
 		);
 		$c = (array) get_option( self::CFG, array() );
 		foreach ( array( 'call', 'text' ) as $k ) { if ( isset( $c[ $k ] ) && '' !== trim( (string) $c[ $k ] ) ) { $d[ $k ] = trim( (string) $c[ $k ] ); } }
-		if ( isset( $c['text'] ) ) { $d['text'] = trim( (string) $c['text'] ); }
+		if ( isset( $c['text'] ) && 'cleared' !== $c['text'] ) { $d['text'] = trim( (string) $c['text'] ); }
 		foreach ( array_keys( self::LANGS ) as $l ) { if ( ! empty( $c['msg'][ $l ] ) ) { $d['msg'][ $l ] = (string) $c['msg'][ $l ]; } }
 		return $d;
 	}
 
 	protected static function digits( $n ) { $d = preg_replace( '/\D+/', '', (string) $n ); return strlen( $d ) === 10 ? '1' . $d : $d; }
 
-	protected static function handoff( $lang ) {
+	protected static function handoff( $lang, $q = '' ) {
 		$c    = self::cfg();
 		$text = '' !== $c['text'] ? $c['text'] : $c['call'];
 		$call = '<a href="tel:+' . esc_attr( self::digits( $c['call'] ) ) . '" dir="ltr">' . esc_html( $c['call'] ) . '</a>';
-		$sms  = '<a href="sms:+' . esc_attr( self::digits( $text ) ) . '" dir="ltr">' . esc_html( $text ) . '</a>';
+		$body = '' !== $q ? '?&body=' . rawurlencode( mb_substr( $q, 0, 300 ) ) : '';
+		$sms  = '<a href="sms:+' . esc_attr( self::digits( $text ) ) . esc_attr( $body ) . '" dir="ltr">' . esc_html( $text ) . '</a>';
 		$m    = isset( $c['msg'][ $lang ] ) ? $c['msg'][ $lang ] : $c['msg']['en'];
 		return str_replace( array( '{call}', '{text}' ), array( $call, $sms ), wp_kses_post( $m ) );
 	}
@@ -92,7 +93,7 @@ class SDSC_Helper {
 
 	protected static function fill( $t ) {
 		$c = self::cfg();
-		return str_replace( array( '{P}', '{M}' ), array( $c['call'], self::MAIL ), $t );
+		return str_replace( array( '{P}', '{M}', '{S}' ), array( $c['call'], self::MAIL, '<a href="' . esc_url( home_url( '/student-registration/' ) ) . '">' . esc_html( home_url( '/student-registration/' ) ) . '</a>' ), $t );
 	}
 
 	protected static function langidx( $lang ) { return array( 'en' => 0, 'es' => 1, 'fa' => 2 )[ $lang ] ?? 0; }
@@ -109,16 +110,17 @@ class SDSC_Helper {
 			if ( ! empty( $edit[ $id ][ $lang ]['k'] ) ) { $k = $edit[ $id ][ $lang ]['k']; }
 			if ( ! empty( $edit[ $id ][ $lang ]['a'] ) ) { $a = $edit[ $id ][ $lang ]['a']; }
 			$a = self::fill( $a );
-			$out[] = array( 'id' => $id, 'sec' => $e[0], 'off' => isset( $off[ $e[0] ] ), 'k' => $k, 't' => self::first_words( $k ), 'a' => $a, 'body' => wp_strip_all_tags( $a ), 'link' => '' );
+			$q = ! empty( $edit[ $id ][ $lang ]['q'] ) ? $edit[ $id ][ $lang ]['q'] : ( self::data()['labels'][ $id ][ $li ] ?? self::first_words( $k ) );
+			$out[] = array( 'id' => $id, 'sec' => $e[0], 'off' => isset( $off[ $e[0] ] ), 'k' => $k, 't' => $q, 'q' => $q, 'a' => $a, 'body' => wp_strip_all_tags( $a ), 'link' => '' );
 		}
 		foreach ( (array) get_option( self::CUSTOM, array() ) as $c ) {
 			if ( (int) ( $c['aud'] ?? 0 ) > $level || empty( $c['k'][ $lang ] ) || empty( $c['a'][ $lang ] ) ) { continue; }
 			$sec = $c['sec'] ?? 'custom';
-			$out[] = array( 'id' => 'c' . $c['id'], 'sec' => $sec, 'off' => isset( $off[ $sec ] ), 'k' => $c['k'][ $lang ], 't' => self::first_words( $c['k'][ $lang ] ), 'a' => wp_kses_post( $c['a'][ $lang ] ), 'body' => wp_strip_all_tags( $c['a'][ $lang ] ), 'link' => '' );
+			$out[] = array( 'id' => 'c' . $c['id'], 'sec' => $sec, 'off' => isset( $off[ $sec ] ), 'k' => $c['k'][ $lang ], 't' => $q = ( $c['q'][ $lang ] ?? self::first_words( $c['k'][ $lang ] ) ), 'q' => $q, 'a' => wp_kses_post( $c['a'][ $lang ] ), 'body' => wp_strip_all_tags( $c['a'][ $lang ] ), 'link' => '' );
 		}
 		if ( 'en' !== $lang ) { return $out; }
 		foreach ( self::policy_sections() as $i => $ps ) {
-			$out[] = array( 'id' => 'p' . $i, 'sec' => 'policy', 'off' => isset( $off['policy'] ), 'k' => $ps['t'] . ' policy', 't' => $ps['t'], 'a' => $ps['a'], 'body' => wp_strip_all_tags( $ps['a'] ), 'link' => $ps['link'], 'linkt' => 'Read the full policy' );
+			$out[] = array( 'id' => 'p' . $i, 'sec' => 'policy', 'off' => isset( $off['policy'] ), 'k' => $ps['t'] . ' policy', 't' => $ps['t'], 'q' => $ps['t'], 'a' => $ps['a'], 'body' => wp_strip_all_tags( $ps['a'] ), 'link' => $ps['link'], 'linkt' => 'Read the full policy' );
 		}
 		if ( class_exists( 'SDSC_Tours' ) ) {
 			if ( $level >= 1 ) {
@@ -129,7 +131,7 @@ class SDSC_Helper {
 					foreach ( (array) $t[2] as $n => $st ) {
 						$txt = wp_strip_all_tags( $st['content'] );
 						if ( strlen( $txt ) < 40 ) { continue; }
-						$out[] = array( 'id' => 'ft' . $key . $n, 'sec' => $sec, 'off' => isset( $off[ $sec ] ), 'k' => $t[0] . ' ' . $st['title'], 't' => $st['title'], 'a' => $st['content'], 'body' => $txt, 'link' => '' );
+						$out[] = array( 'id' => 'ft' . $key . $n, 'sec' => $sec, 'off' => isset( $off[ $sec ] ), 'k' => $t[0] . ' ' . $st['title'], 't' => $st['title'], 'q' => $st['title'], 'a' => $st['content'], 'body' => $txt, 'link' => '' );
 					}
 				}
 			}
@@ -139,7 +141,7 @@ class SDSC_Helper {
 					foreach ( (array) $t[5] as $n => $st ) {
 						$txt = wp_strip_all_tags( $st['content'] );
 						if ( strlen( $txt ) < 40 ) { continue; }
-						$out[] = array( 'id' => 'st' . $key . $n, 'sec' => 'tours_staff', 'off' => false, 'k' => $t[1] . ' ' . $st['title'], 't' => $st['title'], 'a' => $st['content'], 'body' => $txt, 'link' => $url, 'linkt' => 'Open: ' . $t[1] );
+						$out[] = array( 'id' => 'st' . $key . $n, 'sec' => 'tours_staff', 'off' => false, 'k' => $t[1] . ' ' . $st['title'], 't' => $st['title'], 'q' => $st['title'], 'a' => $st['content'], 'body' => $txt, 'link' => $url, 'linkt' => 'Open: ' . $t[1] );
 					}
 				}
 			}
@@ -263,38 +265,93 @@ class SDSC_Helper {
 		return $res;
 	}
 
-	public static function answer( $q, $level, $lang = 'en' ) {
+	/** Questions to offer for a typed question: only from the prepared list, never a made-up answer. */
+	public static function suggest( $q, $level, $lang = 'en' ) {
 		$lang = isset( self::LANGS[ $lang ] ) ? $lang : 'en';
-		$r    = self::search( $q, $level, $lang );
-		$min  = 0.5;
-		if ( ! $r || $r[0][0] < $min ) { return array( 'found' => false, 'html' => self::handoff( $lang ) ); }
-		$e = $r[0][1];
-		// A section the office switched off is not answered for visitors and students.
-		if ( $e['off'] && $level < 2 ) { return array( 'found' => false, 'held' => true, 'html' => self::handoff( $lang ) ); }
-		$html = $e['a'];
-		if ( ! empty( $e['link'] ) ) { $html .= '<p><a href="' . esc_url( $e['link'] ) . '">' . esc_html( $e['linkt'] ) . ' →</a></p>'; }
-		$more = array();
-		foreach ( array_slice( $r, 1, 3 ) as $x ) { if ( $x[0] >= $min * 0.8 && $x[1]['id'] !== $e['id'] && ! ( $x[1]['off'] && $level < 2 ) ) { $more[] = $x[1]['t']; } }
-		return array( 'found' => true, 'html' => $html, 'related' => array_values( array_unique( $more ) ), 'id' => $e['id'] );
+		$out  = array();
+		foreach ( self::search( $q, $level, $lang ) as $r ) {
+			if ( $r[0] < 0.35 || count( $out ) >= 4 ) { break; }
+			if ( $r[1]['off'] && $level < 2 ) { if ( ! $out ) { return array( 'found' => false, 'held' => true, 'html' => self::handoff( $lang, $q ) ); } continue; }
+			$out[] = array( 'id' => $r[1]['id'], 'q' => $r[1]['q'] );
+		}
+		if ( ! $out ) { return array( 'found' => false, 'html' => self::handoff( $lang, $q ) ); }
+		return array( 'found' => true, 'suggest' => $out );
+	}
+
+	/** The fixed answer of one prepared question. */
+	public static function answer_id( $id, $level, $lang = 'en' ) {
+		$lang = isset( self::LANGS[ $lang ] ) ? $lang : 'en';
+		foreach ( self::entries( $level, $lang ) as $e ) {
+			if ( (string) $e['id'] !== (string) $id ) { continue; }
+			if ( $e['off'] && $level < 2 ) { break; }
+			$html = $e['a'];
+			if ( ! empty( $e['link'] ) ) { $html .= '<p><a href="' . esc_url( $e['link'] ) . '">' . esc_html( $e['linkt'] ) . ' →</a></p>'; }
+			return array( 'found' => true, 'html' => $html, 'q' => $e['q'] );
+		}
+		return array( 'found' => false, 'html' => self::handoff( $lang ) );
+	}
+
+	/** The list of prepared questions, by section (switched-off sections are not shown to visitors and students). */
+	public static function questions( $level, $lang = 'en' ) {
+		$lang = isset( self::LANGS[ $lang ] ) ? $lang : 'en';
+		$secs = self::sections();
+		$sn   = self::data()['section_names'];
+		$li   = self::langidx( $lang );
+		$by   = array();
+		foreach ( self::entries( $level, $lang ) as $e ) {
+			if ( 0 === strpos( $e['sec'], 'tours_' ) || ( $e['off'] && $level < 2 ) ) { continue; }
+			$by[ $e['sec'] ][] = array( 'id' => $e['id'], 'q' => $e['q'] );
+		}
+		$out = array();
+		foreach ( $secs as $k => $name ) {
+			if ( empty( $by[ $k ] ) ) { continue; }
+			$out[] = array( 'title' => isset( $sn[ $k ] ) ? $sn[ $k ][ $li ] : $name, 'items' => $by[ $k ] );
+		}
+		return $out;
 	}
 
 	/* ------------------------------------------------------------ REST */
 
 	public static function rest() {
-		register_rest_route( 'sdsc/v1', '/helper', array( 'methods' => 'POST', 'permission_callback' => '__return_true', 'callback' => array( __CLASS__, 'rest_ask' ) ) );
+		foreach ( array( '' => 'rest_ask', '/menu' => 'rest_menu', '/answer' => 'rest_answer' ) as $path => $cb ) {
+			register_rest_route( 'sdsc/v1', '/helper' . $path, array( 'methods' => 'POST', 'permission_callback' => '__return_true', 'callback' => array( __CLASS__, $cb ) ) );
+		}
+	}
+
+	protected static function rl( $lang ) {
+		$k = 'sdsc_help_' . md5( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) ); // phpcs:ignore
+		$n = (int) get_transient( $k );
+		if ( $n >= 60 ) { return new WP_REST_Response( array( 'found' => false, 'html' => self::handoff( $lang ) ), 429 ); }
+		set_transient( $k, $n + 1, 60 );
+		return null;
+	}
+
+	protected static function lang_of( WP_REST_Request $r, $q = '' ) {
+		$lang = (string) $r->get_param( 'lang' );
+		$lang = isset( self::LANGS[ $lang ] ) ? $lang : 'en';
+		if ( 'en' === $lang && preg_match( '/[\x{0600}-\x{06FF}]/u', $q ) ) { $lang = 'fa'; }
+		return $lang;
+	}
+
+	public static function rest_menu( WP_REST_Request $r ) {
+		$lang = self::lang_of( $r );
+		return array( 'menu' => self::questions( self::level(), $lang ), 'lang' => $lang );
+	}
+
+	public static function rest_answer( WP_REST_Request $r ) {
+		$lang = self::lang_of( $r );
+		if ( $x = self::rl( $lang ) ) { return $x; }
+		$a = self::answer_id( sanitize_text_field( (string) $r->get_param( 'id' ) ), self::level(), $lang );
+		$a['lang'] = $lang;
+		return $a;
 	}
 
 	public static function rest_ask( WP_REST_Request $r ) {
 		$q    = trim( mb_substr( wp_strip_all_tags( (string) $r->get_param( 'q' ) ), 0, 300 ) );
-		$lang = (string) $r->get_param( 'lang' );
-		$lang = isset( self::LANGS[ $lang ] ) ? $lang : 'en';
-		if ( 'en' === $lang && preg_match( '/[\x{0600}-\x{06FF}]/u', $q ) ) { $lang = 'fa'; }
-		$k = 'sdsc_help_' . md5( (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) ); // phpcs:ignore
-		$n = (int) get_transient( $k );
-		if ( $n >= 30 ) { return new WP_REST_Response( array( 'found' => false, 'html' => self::handoff( $lang ) ), 429 ); }
-		set_transient( $k, $n + 1, 60 );
-		if ( mb_strlen( $q ) < 3 ) { return array( 'found' => false, 'html' => '…' ); }
-		$a = self::answer( $q, self::level(), $lang );
+		$lang = self::lang_of( $r, $q );
+		if ( $x = self::rl( $lang ) ) { return $x; }
+		if ( $r->get_param( 'contact' ) || mb_strlen( $q ) < 3 ) { return array( 'found' => false, 'html' => self::handoff( $lang, $q ), 'lang' => $lang ); }
+		$a = self::suggest( $q, self::level(), $lang );
 		if ( ! $a['found'] ) { self::miss( $q, $lang, ! empty( $a['held'] ) ); }
 		$a['lang'] = $lang;
 		return $a;
@@ -313,45 +370,50 @@ class SDSC_Helper {
 	public static function widget() {
 		if ( is_admin() && ! self::level() ) { return; }
 		if ( is_customize_preview() ) { return; }
-		$url = rest_url( 'sdsc/v1/helper' );
+		$base = rest_url( 'sdsc/v1/helper' );
 		$t = array(
-			'en' => array( 'btn' => 'Need help?', 'title' => 'Sam’s Driving School help', 'intro' => 'Ask a question about classes, lessons, Zoom, e-mails or logging in. I answer from the school’s own information and never see your record or payments.', 'ph' => 'Type your question…', 'ask' => 'Ask', 'c1' => 'I want to register', 'q1' => 'How do I register?', 'c2' => 'I registered but can’t log in', 'q2' => 'I registered but cannot log in', 'rel' => 'Related', 'err' => 'Something went wrong. Please call' ),
-			'es' => array( 'btn' => '¿Necesita ayuda?', 'title' => 'Ayuda de Sam’s Driving School', 'intro' => 'Pregunte sobre clases, lecciones, Zoom, correos o cómo iniciar sesión. Respondo con la información de la escuela y nunca veo su registro ni sus pagos.', 'ph' => 'Escriba su pregunta…', 'ask' => 'Enviar', 'c1' => 'Quiero registrarme', 'q1' => '¿Cómo me registro?', 'c2' => 'Me registré pero no puedo entrar', 'q2' => 'Me registré pero no puedo entrar', 'rel' => 'Relacionado', 'err' => 'Algo salió mal. Por favor llame al' ),
-			'fa' => array( 'btn' => 'کمک می‌خواهید؟', 'title' => 'راهنمای Sam’s Driving School', 'intro' => 'دربارهٔ کلاس‌ها، درس‌ها، Zoom، ایمیل‌ها یا ورود به حساب بپرسید. من از اطلاعات خود مدرسه جواب می‌دهم و هرگز پرونده یا پرداخت‌های شما را نمی‌بینم.', 'ph' => 'سؤالتان را بنویسید…', 'ask' => 'بپرس', 'c1' => 'می‌خواهم ثبت‌نام کنم', 'q1' => 'چطور ثبت‌نام کنم؟', 'c2' => 'ثبت‌نام کردم ولی نمی‌توانم وارد شوم', 'q2' => 'ثبت‌نام کردم ولی نمی‌توانم وارد شوم', 'rel' => 'مرتبط', 'err' => 'مشکلی پیش آمد. لطفاً تماس بگیرید' ),
+			'en' => array( 'btn' => 'Need help?', 'title' => 'Sam’s Driving School help', 'intro' => 'Choose a question below. I answer only from the school’s own information and never see your record or payments. Not in the list? Contact the office.', 'ph' => 'Search the questions…', 'ask' => 'Search', 'c1' => 'I want to register', 'c2' => 'I registered but can’t log in', 'none' => 'My question isn’t here', 'back' => '← All questions', 'did' => 'Did you mean:', 'err' => 'Something went wrong. Please call' ),
+			'es' => array( 'btn' => '¿Necesita ayuda?', 'title' => 'Ayuda de Sam’s Driving School', 'intro' => 'Elija una pregunta de la lista. Respondo solo con la información de la escuela y nunca veo su registro ni sus pagos. ¿No está en la lista? Contacte a la oficina.', 'ph' => 'Buscar en las preguntas…', 'ask' => 'Buscar', 'c1' => 'Quiero registrarme', 'c2' => 'Me registré pero no puedo entrar', 'none' => 'Mi pregunta no está aquí', 'back' => '← Todas las preguntas', 'did' => '¿Quiso decir?', 'err' => 'Algo salió mal. Por favor llame al' ),
+			'fa' => array( 'btn' => 'کمک می‌خواهید؟', 'title' => 'راهنمای Sam’s Driving School', 'intro' => 'یکی از سؤال‌های زیر را انتخاب کنید. من فقط از اطلاعات خود مدرسه جواب می‌دهم و هرگز پرونده یا پرداخت‌های شما را نمی‌بینم. سؤالتان در فهرست نیست؟ با دفتر تماس بگیرید.', 'ph' => 'جستجو در سؤال‌ها…', 'ask' => 'جستجو', 'c1' => 'می‌خواهم ثبت‌نام کنم', 'c2' => 'ثبت‌نام کردم ولی نمی‌توانم وارد شوم', 'none' => 'سؤال من اینجا نیست', 'back' => '← همهٔ سؤال‌ها', 'did' => 'منظورتان این بود:', 'err' => 'مشکلی پیش آمد. لطفاً تماس بگیرید' ),
 		);
 		$call = self::cfg()['call'];
-		$chip = 'border:1px solid #0b5d2e;background:#fff;color:#0b5d2e;border-radius:14px;padding:4px 10px;cursor:pointer;font-size:13px';
+		$chip = 'border:1px solid #0b5d2e;background:#fff;color:#0b5d2e;border-radius:14px;padding:5px 10px;cursor:pointer;font-size:13px;text-align:start';
 		?>
 		<div id="sdsc-help" style="position:fixed;left:16px;bottom:16px;z-index:99990;font:14px/1.45 system-ui,-apple-system,Segoe UI,Tahoma,sans-serif">
 			<button type="button" id="sdsc-help-btn" aria-expanded="false" style="border:0;border-radius:24px;background:#0b5d2e;color:#fff;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)">Need help?</button>
-			<div id="sdsc-help-box" hidden style="position:absolute;left:0;bottom:48px;width:min(340px,calc(100vw - 32px));background:#fff;color:#15191d;border:1px solid #d5dbe0;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.25);overflow:hidden">
+			<div id="sdsc-help-box" hidden style="position:absolute;left:0;bottom:48px;width:min(350px,calc(100vw - 32px));background:#fff;color:#15191d;border:1px solid #d5dbe0;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.25);overflow:hidden">
 				<div style="background:#0b5d2e;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px"><b id="sdsc-help-title">Sam’s Driving School help</b><span id="sdsc-help-langs"><?php foreach ( self::LANGS as $k => $n ) { echo '<button type="button" data-l="' . esc_attr( $k ) . '" style="border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;border-radius:10px;padding:1px 7px;margin-left:3px;cursor:pointer;font-size:12px">' . esc_html( strtoupper( $k ) ) . '</button>'; } ?></span></div>
-				<div id="sdsc-help-log" style="max-height:300px;overflow:auto;padding:10px 12px"></div>
-				<?php if ( ! is_user_logged_in() ) : ?><div id="sdsc-help-chips" style="padding:0 12px 8px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="sdsc-chip" data-k="1" style="<?php echo esc_attr( $chip ); ?>"></button><button type="button" class="sdsc-chip" data-k="2" style="<?php echo esc_attr( $chip ); ?>"></button></div><?php endif; ?>
-				<form id="sdsc-help-form" style="display:flex;gap:6px;padding:8px;border-top:1px solid #e3e7ea"><input id="sdsc-help-q" type="text" maxlength="300" aria-label="Question" style="flex:1;border:1px solid #cfd6db;border-radius:8px;padding:8px"><button id="sdsc-help-go" style="border:0;border-radius:8px;background:#0b5d2e;color:#fff;padding:8px 12px;font-weight:700;cursor:pointer"></button></form>
+				<div id="sdsc-help-log" style="max-height:340px;overflow:auto;padding:10px 12px"></div>
+				<form id="sdsc-help-form" style="display:flex;gap:6px;padding:8px;border-top:1px solid #e3e7ea"><input id="sdsc-help-q" type="text" maxlength="300" aria-label="Search" style="flex:1;border:1px solid #cfd6db;border-radius:8px;padding:8px"><button id="sdsc-help-go" style="border:0;border-radius:8px;background:#0b5d2e;color:#fff;padding:8px 12px;font-weight:700;cursor:pointer"></button></form>
 			</div>
 		</div>
 		<script>
 		(function(){
-			var T=<?php echo wp_json_encode( $t ); ?>,CALL=<?php echo wp_json_encode( $call ); ?>;
+			var T=<?php echo wp_json_encode( $t ); ?>,CALL=<?php echo wp_json_encode( $call ); ?>,BASE=<?php echo wp_json_encode( $base ); ?>,IN=<?php echo is_user_logged_in() ? 'true' : 'false'; ?>,CHIP=<?php echo wp_json_encode( $chip ); ?>;
 			var b=document.getElementById('sdsc-help-btn'),x=document.getElementById('sdsc-help-box'),f=document.getElementById('sdsc-help-form'),q=document.getElementById('sdsc-help-q'),l=document.getElementById('sdsc-help-log');
 			if(!b){return;}
-			var lang='en';try{lang=localStorage.getItem('sdsc_help_lang')||'';}catch(e){}
+			var lang='en',menu={};try{lang=localStorage.getItem('sdsc_help_lang')||'';}catch(e){}
 			if(!T[lang]){var n=(navigator.language||'en').slice(0,2);lang=T[n]?n:'en';}
-			function esc(s){return s.replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+			function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+			function post(p,d){d.lang=lang;return fetch(BASE+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d),credentials:'same-origin'}).then(function(r){return r.json();});}
 			function add(h,me){var d=document.createElement('div');d.style.cssText='margin:6px 0;padding:8px 10px;border-radius:10px;'+(me?'background:#eef5f0;':'background:#f6f7f8');d.innerHTML=h;l.appendChild(d);l.scrollTop=l.scrollHeight;return d;}
-			function paint(){var s=T[lang];x.dir=(lang==='fa')?'rtl':'ltr';b.textContent=s.btn;document.getElementById('sdsc-help-title').textContent=s.title;q.placeholder=s.ph;document.getElementById('sdsc-help-go').textContent=s.ask;l.innerHTML='';add(esc(s.intro));
-				Array.prototype.forEach.call(document.querySelectorAll('.sdsc-chip'),function(c){c.textContent=s['c'+c.getAttribute('data-k')];});
-				Array.prototype.forEach.call(document.querySelectorAll('#sdsc-help-langs button'),function(c){c.style.background=c.getAttribute('data-l')===lang?'rgba(255,255,255,.3)':'transparent';});}
+			function btn(txt,fn,st){var c=document.createElement('button');c.type='button';c.style.cssText=st||CHIP;c.textContent=txt;c.addEventListener('click',fn);return c;}
+			function ask(id,qt){add(esc(qt),true);var w=add('…');post('/answer',{id:id}).then(function(r){w.innerHTML=r.html||'';w.appendChild(back());l.scrollTop=l.scrollHeight;}).catch(function(){w.textContent=T[lang].err+' '+CALL;});}
+			function back(){var p=document.createElement('p');p.style.margin='8px 0 0';p.appendChild(btn(T[lang].back,show));return p;}
+			function contact(qt){var w=add('…');post('',{contact:1,q:qt||''}).then(function(r){w.innerHTML=r.html;l.scrollTop=l.scrollHeight;});}
+			function show(){var s=T[lang];x.dir=(lang==='fa')?'rtl':'ltr';l.innerHTML='';add(esc(s.intro));
+				if(!IN){var cw=document.createElement('div');cw.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:6px 0';cw.appendChild(btn(s.c1,function(){ask('register',s.c1);}));cw.appendChild(btn(s.c2,function(){ask('locked',s.c2);}));l.appendChild(cw);}
+				var m=menu[lang];if(!m){post('/menu',{}).then(function(r){menu[lang]=r.menu||[];show();});return;}
+				m.forEach(function(sec){var d=document.createElement('details');d.style.cssText='margin:6px 0;border:1px solid #e3e7ea;border-radius:8px;padding:4px 8px';var sm=document.createElement('summary');sm.style.cssText='cursor:pointer;font-weight:700';sm.textContent=sec.title;d.appendChild(sm);
+					sec.items.forEach(function(it){var p=document.createElement('div');p.style.margin='4px 0';p.appendChild(btn(it.q,function(){ask(it.id,it.q);},'border:0;background:none;color:#0b5d2e;text-decoration:underline;cursor:pointer;padding:2px 0;text-align:start;font-size:14px'));d.appendChild(p);});l.appendChild(d);});
+				var nw=document.createElement('div');nw.style.margin='8px 0 0';nw.appendChild(btn(s.none,function(){contact('');}));l.appendChild(nw);}
+			function paint(){var s=T[lang];x.dir=(lang==='fa')?'rtl':'ltr';b.textContent=s.btn;document.getElementById('sdsc-help-title').textContent=s.title;q.placeholder=s.ph;document.getElementById('sdsc-help-go').textContent=s.ask;
+				Array.prototype.forEach.call(document.querySelectorAll('#sdsc-help-langs button'),function(c){c.style.background=c.getAttribute('data-l')===lang?'rgba(255,255,255,.3)':'transparent';});show();}
 			paint();
 			Array.prototype.forEach.call(document.querySelectorAll('#sdsc-help-langs button'),function(c){c.addEventListener('click',function(){lang=c.getAttribute('data-l');try{localStorage.setItem('sdsc_help_lang',lang);}catch(e){}paint();});});
-			function ask(t){add(esc(t),true);var w=add('…');
-				fetch(<?php echo wp_json_encode( $url ); ?>,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:t,lang:lang}),credentials:'same-origin'}).then(function(r){return r.json();}).then(function(r){
-					var s=T[r.lang||lang],h=r.html||'';if(r.related&&r.related.length){h+='<p style="margin:8px 0 0;font-size:12px;color:#5b646d">'+s.rel+': '+r.related.map(esc).join(' · ')+'</p>';}w.innerHTML=h;w.dir=((r.lang||lang)==='fa')?'rtl':'ltr';l.scrollTop=l.scrollHeight;
-				}).catch(function(){w.textContent=T[lang].err+' '+CALL;});}
-			Array.prototype.forEach.call(document.querySelectorAll('.sdsc-chip'),function(c){c.addEventListener('click',function(){ask(T[lang]['q'+c.getAttribute('data-k')]);});});
 			b.addEventListener('click',function(){x.hidden=!x.hidden;b.setAttribute('aria-expanded',String(!x.hidden));if(!x.hidden){q.focus();}});
-			f.addEventListener('submit',function(e){e.preventDefault();var t=q.value.trim();if(t.length<3){return;}q.value='';ask(t);});
+			f.addEventListener('submit',function(e){e.preventDefault();var t=q.value.trim();if(t.length<2){return;}q.value='';add(esc(t),true);var w=add('…');
+				post('',{q:t}).then(function(r){var s=T[r.lang||lang];if(r.found&&r.suggest){w.innerHTML=esc(s.did);var d=document.createElement('div');r.suggest.forEach(function(it){var p=document.createElement('div');p.style.margin='4px 0';p.appendChild(btn(it.q,function(){ask(it.id,it.q);}));d.appendChild(p);});w.appendChild(d);w.appendChild(back());}else{w.innerHTML=r.html||'';w.appendChild(back());}l.scrollTop=l.scrollHeight;}).catch(function(){w.textContent=T[lang].err+' '+CALL;});});
 		})();
 		</script>
 		<?php
@@ -384,18 +446,20 @@ class SDSC_Helper {
 				if ( ! isset( self::data()['entries'][ $id ] ) ) { continue; }
 				foreach ( array_keys( self::LANGS ) as $l ) {
 					$li = self::langidx( $l ); $d = self::data()['entries'][ $id ];
-					$a  = wp_kses_post( (string) ( $ls[ $l ]['a'] ?? '' ) ); $k = sanitize_text_field( (string) ( $ls[ $l ]['k'] ?? '' ) );
+					$a  = wp_kses_post( (string) ( $ls[ $l ]['a'] ?? '' ) ); $k = sanitize_text_field( (string) ( $ls[ $l ]['k'] ?? '' ) ); $ql = sanitize_text_field( (string) ( $ls[ $l ]['q'] ?? '' ) );
+					if ( '' !== $ql && $ql !== ( self::data()['labels'][ $id ][ $li ] ?? '' ) ) { $edit[ $id ][ $l ]['q'] = $ql; }
 					if ( '' !== $a && trim( $a ) !== trim( $d[3][ $li ] ) ) { $edit[ $id ][ $l ]['a'] = $a; }
 					if ( '' !== $k && trim( $k ) !== trim( $d[2][ $li ] ) ) { $edit[ $id ][ $l ]['k'] = $k; }
 				}
 			}
 			update_option( self::EDIT, $edit, false );
 			$cust = array_values( array_filter( (array) get_option( self::CUSTOM, array() ), function ( $c ) use ( $P ) { return ! in_array( (string) $c['id'], array_map( 'strval', (array) ( $P['del'] ?? array() ) ), true ); } ) );
-			$new  = array( 'id' => time() . wp_rand( 10, 99 ), 'aud' => min( 3, absint( $P['n_aud'] ?? 0 ) ), 'sec' => isset( self::sections()[ $P['n_sec'] ?? '' ] ) ? $P['n_sec'] : 'custom', 'k' => array(), 'a' => array() );
+			$new  = array( 'id' => time() . wp_rand( 10, 99 ), 'aud' => min( 3, absint( $P['n_aud'] ?? 0 ) ), 'sec' => isset( self::sections()[ $P['n_sec'] ?? '' ] ) ? $P['n_sec'] : 'custom', 'k' => array(), 'a' => array(), 'q' => array() );
 			$any = false;
 			foreach ( array_keys( self::LANGS ) as $l ) {
 				$k = sanitize_text_field( (string) ( $P['n_k'][ $l ] ?? '' ) ); $a = wp_kses_post( (string) ( $P['n_a'][ $l ] ?? '' ) );
-				if ( '' !== $k && '' !== $a ) { $new['k'][ $l ] = $k; $new['a'][ $l ] = $a; $any = true; }
+				$nq = sanitize_text_field( (string) ( $P['n_q'][ $l ] ?? '' ) );
+				if ( '' !== $a && ( '' !== $k || '' !== $nq ) ) { $new['k'][ $l ] = '' !== $k ? $k : $nq; $new['a'][ $l ] = $a; $new['q'][ $l ] = '' !== $nq ? $nq : $k; $any = true; }
 			}
 			if ( $any ) { $cust[] = $new; }
 			update_option( self::CUSTOM, $cust, false );
@@ -435,7 +499,8 @@ class SDSC_Helper {
 				foreach ( self::LANGS as $l => $n ) {
 					$li = self::langidx( $l );
 					$k  = $edit[ $id ][ $l ]['k'] ?? $e[2][ $li ]; $a = $edit[ $id ][ $l ]['a'] ?? $e[3][ $li ];
-					echo '<div><b>' . esc_html( $n ) . '</b> <small>(' . esc_html( $aud[ $e[1] ] ) . ')</small><textarea name="edit[' . esc_attr( $id ) . '][' . esc_attr( $l ) . '][a]" style="width:100%;min-height:110px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '>' . esc_textarea( $a ) . '</textarea><details><summary>Words people use</summary><textarea name="edit[' . esc_attr( $id ) . '][' . esc_attr( $l ) . '][k]" style="width:100%;min-height:50px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '>' . esc_textarea( $k ) . '</textarea></details></div>';
+					$q = $edit[ $id ][ $l ]['q'] ?? ( self::data()['labels'][ $id ][ $li ] ?? '' );
+					echo '<div><b>' . esc_html( $n ) . '</b> <small>(' . esc_html( $aud[ $e[1] ] ) . ')</small><input name="edit[' . esc_attr( $id ) . '][' . esc_attr( $l ) . '][q]" value="' . esc_attr( $q ) . '" placeholder="The question as people see it" style="width:100%;font-weight:700"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '><textarea name="edit[' . esc_attr( $id ) . '][' . esc_attr( $l ) . '][a]" style="width:100%;min-height:110px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '>' . esc_textarea( $a ) . '</textarea><details><summary>Words people use</summary><textarea name="edit[' . esc_attr( $id ) . '][' . esc_attr( $l ) . '][k]" style="width:100%;min-height:50px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '>' . esc_textarea( $k ) . '</textarea></details></div>';
 				}
 				echo '</div></div>';
 			}
@@ -452,7 +517,7 @@ class SDSC_Helper {
 		echo '</select></label> &nbsp; <label>Who can see it <select name="n_aud">';
 		foreach ( $aud as $i => $lab ) { echo '<option value="' . (int) $i . '">' . esc_html( $lab ) . '</option>'; }
 		echo '</select></label> <span class="description">Fill at least one language (words people use + answer).</span></p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">';
-		foreach ( self::LANGS as $l => $n ) { echo '<div><b>' . esc_html( $n ) . '</b><input name="n_k[' . esc_attr( $l ) . ']" placeholder="Words people use, e.g. office parking" style="width:100%"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '><textarea name="n_a[' . esc_attr( $l ) . ']" placeholder="Answer" style="width:100%;min-height:80px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '></textarea></div>'; }
+		foreach ( self::LANGS as $l => $n ) { echo '<div><b>' . esc_html( $n ) . '</b><input name="n_q[' . esc_attr( $l ) . ']" placeholder="The question, e.g. Where do I park?" style="width:100%;font-weight:700"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '><input name="n_k[' . esc_attr( $l ) . ']" placeholder="Words people use, e.g. office parking" style="width:100%"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '><textarea name="n_a[' . esc_attr( $l ) . ']" placeholder="Answer" style="width:100%;min-height:80px"' . ( 'fa' === $l ? ' dir="rtl"' : '' ) . '></textarea></div>'; }
 		echo '</div></div><p><button class="button button-primary button-hero">Save everything</button></p></form>';
 		echo '<h2>Not answered yet (' . count( $miss ) . ')</h2>';
 		if ( $miss ) {

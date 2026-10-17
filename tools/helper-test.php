@@ -1,6 +1,7 @@
 <?php
+function h_answer($q,$lv,$lang='en'){ $s=SDSC_Helper::suggest($q,$lv,$lang); if(empty($s['found'])){ return array('found'=>false,'held'=>!empty($s['held']),'html'=>$s['html']); } $r=SDSC_Helper::answer_id($s['suggest'][0]['id'],$lv,$lang); return array('found'=>true,'held'=>false,'html'=>$r['html']); }
 $ok=0;$bad=0;$c=function($b,$m)use(&$ok,&$bad){echo ($b?'ok ':'FAIL ').$m."\n";$b?$ok++:$bad++;};
-$ask=function($q,$lv=0){ $a=SDSC_Helper::answer($q,$lv); return $a; };
+$ask=function($q,$lv=0){ $a=h_answer($q,$lv); return $a; };
 $cases=array(
  array('I did not get the Zoom link',0,'separate e-mail before the first session'),
  array('where is my zoom passcode',0,'separate e-mail before the first session'),
@@ -23,7 +24,7 @@ $cases=array(
 foreach($cases as $x){ $a=$ask($x[0],$x[1]); $c($a['found'] && false!==strpos($a['html'],$x[2]),'"'.$x[0].'" -> '.($a['found']?substr(strip_tags($a['html']),0,40):'NOT FOUND')); }
 foreach(array('what is the meaning of life','blue banana airplane','best pizza in town') as $q){ $a=$ask($q,0); $c(!$a['found'],'no guess: '.$q); }
 $a=$ask('how do I cancel a lesson',0); $c(!$a['found']||false===strpos($a['html'],'free until the deadline'),'student-level answer not shown to the public');
-$a=SDSC_Helper::answer('what does the workspace menu do',3); echo 'staff tour: '.($a['found']?'found':'none')."\n";
+$a=h_answer('what does the workspace menu do',3); echo 'staff tour: '.($a['found']?'found':'none')."\n";
 
 // Spanish and Persian
 $tr=array(
@@ -35,19 +36,34 @@ $tr=array(
  array('fa','ثبت نام کردم ولی نمی‌توانم وارد شوم',0,'همان ایمیلی'),
  array('fa','جریمه لغو دیرهنگام چقدر است',0,'$60'),
 );
-foreach($tr as $x){ $a=SDSC_Helper::answer($x[1],$x[2],$x[0]); $c($a['found'] && false!==strpos($a['html'],$x[3]),$x[0].': '.$x[1]); }
-$a=SDSC_Helper::answer('blue banana airplane',0,'es'); $c(!$a['found'] && false!==strpos($a['html'],'tel:'),'es: no guess gives the hand-off message with a call link');
+foreach($tr as $x){ $a=h_answer($x[1],$x[2],$x[0]); $c($a['found'] && false!==strpos($a['html'],$x[3]),$x[0].': '.$x[1]); }
+$a=h_answer('blue banana airplane',0,'es'); $c(!$a['found'] && false!==strpos($a['html'],'tel:'),'es: no guess gives the hand-off message with a call link');
 // Switching a section off
 $old=get_option(SDSC_Helper::OFF,null); $oc=get_option(SDSC_Helper::CFG,null);
 update_option(SDSC_Helper::CFG,array('call'=>'(301) 726-3030','text'=>'(202) 555-0100','msg'=>array()));
 update_option(SDSC_Helper::OFF,array('fees'));
-$a=SDSC_Helper::answer('how much is the late cancellation fee',0,'en');
+$a=h_answer('how much is the late cancellation fee',0,'en');
 $c(!$a['found'] && !empty($a['held']) && false===strpos($a['html'],'$60'),'switched-off section is not answered for visitors');
 $c(false!==strpos($a['html'],'tel:+13017263030') && false!==strpos($a['html'],'sms:+12025550100'),'hand-off has a call link to the office and a text link to the other number');
-$a=SDSC_Helper::answer('how much is the late cancellation fee',1,'fa'); $c(!$a['found'] || false===strpos($a['html'],'$60x'),'persian still answers or hands off');
-$a=SDSC_Helper::answer('I am running late and sick',2,'en'); $c($a['found'],'instructor section still answers');
+$a=h_answer('how much is the late cancellation fee',1,'fa'); $c(!$a['found'] || false===strpos($a['html'],'$60x'),'persian still answers or hands off');
+$a=h_answer('I am running late and sick',2,'en'); $c($a['found'],'instructor section still answers');
 update_option(SDSC_Helper::CFG,array('call'=>'(301) 726-3030','text'=>'','msg'=>array()));
-$a=SDSC_Helper::answer('blue banana airplane',0,'en'); $c(false!==strpos($a['html'],'sms:+13017263030'),'empty text number falls back to the office phone');
+$a=h_answer('blue banana airplane',0,'en'); $c(false!==strpos($a['html'],'sms:+13017263030'),'empty text number falls back to the office phone');
 if(null===$old){delete_option(SDSC_Helper::OFF);}else{update_option(SDSC_Helper::OFF,$old);} if(null===$oc){delete_option(SDSC_Helper::CFG);}else{update_option(SDSC_Helper::CFG,$oc);}
-$a=SDSC_Helper::answer('how much is the late cancellation fee',0,'en'); $c($a['found'],'section answers again after switching back on');
+$a=h_answer('how much is the late cancellation fee',0,'en'); $c($a['found'],'section answers again after switching back on');
+
+// Prepared-question menu, hand-off with the question, account step
+$m=SDSC_Helper::questions(0,'en'); $ids=array(); foreach($m as $s){foreach($s['items'] as $i){$ids[]=$i['id'];}}
+$c(in_array('register',$ids,true) && !in_array('late',$ids,true),'menu lists visitor questions and hides instructor ones');
+$m3=SDSC_Helper::questions(2,'es'); $c(count($m3)>0 && !empty($m3[0]['title']),'menu works in Spanish for instructors');
+$r=SDSC_Helper::answer_id('latefee',0,'fa'); $c($r['found'] && false!==strpos($r['html'],'$60'),'answer by id (Persian)');
+$r=SDSC_Helper::answer_id('nope',0,'en'); $c(!$r['found'] && false!==strpos($r['html'],'tel:'),'unknown id hands off');
+$oc=get_option(SDSC_Helper::CFG,null); delete_option(SDSC_Helper::CFG);
+$s=SDSC_Helper::suggest('where do I park my car',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&body=where%20do%20I%20park%20my%20car'),'unknown question: tap-to-text number carries the question');
+$r=SDSC_Helper::answer_id('account',0,'en'); $c(false!==strpos($r['html'],'student-registration') && false!==strpos($r['html'],'same e-mail'),'account step points to the Student Registration page');
+$old=get_option(SDSC_Helper::OFF,null); update_option(SDSC_Helper::OFF,array('fees'));
+$m=SDSC_Helper::questions(0,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c(!$has,'switched-off section is not listed for visitors');
+$m=SDSC_Helper::questions(3,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c($has,'switched-off section is still listed for staff');
+$r=SDSC_Helper::answer_id('latefee',0,'en'); $c(!$r['found'],'switched-off answer is refused by id');
+if(null===$old){delete_option(SDSC_Helper::OFF);}else{update_option(SDSC_Helper::OFF,$old);} if(null!==$oc){update_option(SDSC_Helper::CFG,$oc);}
 echo "$ok ok, $bad failed\n";
