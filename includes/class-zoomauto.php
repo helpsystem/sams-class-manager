@@ -271,11 +271,16 @@ class SDSC_ZoomAuto {
 		if ( is_wp_error( $tok ) ) { return $tok; }
 		$first = $list[0];
 		$mins  = max( 30, (int) round( ( strtotime( $first['end'] ) - strtotime( $first['start'] ) ) / 60 ) );
+		$wd = array();
+		foreach ( $list as $x ) { $wd[ 1 + (int) gmdate( 'w', strtotime( $x['start'] . ' UTC' ) ) ] = 1; } // Zoom: 1 = Sunday … 7 = Saturday
+		$wd = array_keys( $wd ); sort( $wd );
 		$code  = (string) get_post_meta( $cid, '_sdsc_course_code', true );
 		$name  = html_entity_decode( (string) get_the_title( $cid ), ENT_QUOTES, 'UTF-8' );
 		$body  = array(
 			'topic'      => mb_substr( "Sam's Driving School — " . $name . ( $code && false === strpos( $name, $code ) ? ' (' . $code . ')' : '' ), 0, 190 ),
-			'type'       => 3,              // recurring, no fixed time: one link for every session
+			'type'       => 8,              // recurring with a fixed time: Zoom only allows personal (registrant) links on this kind, one link for every session
+			'start_time' => gmdate( 'Y-m-d\TH:i:s', strtotime( $first['start'] . ' UTC' ) ), // wall-clock time of the first session, read in 'timezone'
+			'recurrence' => array( 'type' => 2, 'repeat_interval' => 1, 'weekly_days' => implode( ',', $wd ), 'end_times' => min( 50, max( 1, count( $list ) ) ) ),
 			'duration'   => $mins,
 			'timezone'   => wp_timezone_string(),
 			'agenda'     => 'Driver education class. ' . count( $list ) . ' sessions from ' . wp_date( 'M j', strtotime( $first['start'] ) ) . '. Camera and microphone on for the whole class.',
