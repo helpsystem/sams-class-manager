@@ -378,6 +378,7 @@ class SDSC_Registration {
 							<label class="sdsc-field sdsc-select"><select name="gender"><option value="">Prefer not to say</option><option>Male</option><option>Female</option></select><span>Gender</span></label>
 							<?php
 							echo self::field( 'email', 'Email', 'email', true, 'maxlength="190" autocomplete="email"' );
+							echo '<p class="sdsc-hint" style="grid-column:1/-1;margin:-4px 0 6px;font-size:13px;color:#5b646d">Please type your e-mail carefully — your login and receipt go there. A mistake means you will not receive them.</p>';
 							echo self::field( 'phone', 'Phone', 'tel', true, 'maxlength="40" autocomplete="tel"' );
 							?>
 						</div>
@@ -473,6 +474,7 @@ class SDSC_Registration {
 					<h2 class="sdsc-reg-title">We're confirming your payment</h2>
 					<p>This can take a minute. You will receive an e-mail as soon as it is confirmed. If you were not charged, you can go back and try again.</p>
 				<?php endif; ?>
+				<?php echo SDSC_Account::page_block(); // phpcs:ignore ?>
 				<p><a class="sdsc-btn" href="tel:+13017263030">Questions? Call (301) 726-3030</a></p>
 			</div>
 		</div>
@@ -549,6 +551,7 @@ class SDSC_Registration {
 					<p>We've received your registration and will contact you shortly with payment and class details.</p>
 					<p><a class="sdsc-btn" href="tel:+13017263030">Call (301) 726-3030</a></p>
 				<?php endif; ?>
+				<?php echo SDSC_Account::page_block(); // phpcs:ignore ?>
 			</div>
 		</div>
 		<script>window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'sdsc_registration_complete'});</script>
@@ -571,7 +574,7 @@ class SDSC_Registration {
 		$url = SDSC_Pay::url( $rid, $cid );
 		if ( ! $url ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'bad', $back ) . '#sdsc' ); exit; }
 		$email = sanitize_email( wp_unslash( $_POST['parent_email'] ?? '' ) );
-		if ( ! is_email( $email ) ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'bad', $back ) . '#sdsc' ); exit; }
+		if ( ! is_email( $email ) || ( class_exists( 'SDSC_Account' ) && '' !== SDSC_Account::problem( $email, 'the parent / guardian' ) ) ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'bad', $back ) . '#sdsc' ); exit; }
 		$key = 'sdsc_payparent_' . $rid;
 		$n   = (int) get_transient( $key );
 		if ( $n >= 3 ) { wp_safe_redirect( add_query_arg( 'sdsc_sent', 'limit', $back ) . '#sdsc' ); exit; }
@@ -712,6 +715,11 @@ class SDSC_Registration {
 		if ( null === $age || $age < 14 || $age > 100 ) { self::fail( $return, 'Please enter a valid date of birth.' ); }
 		if ( $d['parent_email'] && ! is_email( $d['parent_email'] ) ) { self::fail( $return, 'Please enter a valid parent / guardian email, or leave it empty.' ); }
 		if ( ! is_email( $d['email'] ) ) { self::fail( $return, 'Please enter a valid email address.' ); }
+		if ( class_exists( 'SDSC_Account' ) ) {
+			$pm = SDSC_Account::problem( $d['email'], 'your' );
+			if ( '' === $pm && $d['parent_email'] ) { $pm = SDSC_Account::problem( $d['parent_email'], 'the parent / guardian' ); }
+			if ( '' !== $pm ) { self::fail( $return, $pm ); }
+		}
 		if ( strlen( preg_replace( '/\D/', '', $d['phone'] ) ) < 10 ) { self::fail( $return, 'Please enter a valid phone number.' ); }
 		if ( ! $d['street'] || ! $d['city'] || ! $d['zip'] ) { self::fail( $return, 'Please complete the address.' ); }
 		if ( empty( $_POST['consent'] ) ) { self::fail( $return, 'Please accept the terms to continue.' ); }
@@ -1105,5 +1113,7 @@ require_once __DIR__ . '/class-transfer.php';
 SDSC_Transfer::init();
 require_once __DIR__ . '/class-hold.php';
 SDSC_Hold::init();
+require_once __DIR__ . '/class-account.php';
+SDSC_Account::init();
 require_once __DIR__ . '/class-helper.php';
 SDSC_Helper::init();

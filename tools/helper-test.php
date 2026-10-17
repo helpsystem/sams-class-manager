@@ -14,7 +14,7 @@ $cases=array(
  array('I am sick and cannot drive today',2,'Call the office'),
  array('How do I register?',0,'See class dates'),
  array('I registered but cannot log in',0,'same e-mail you registered with'),
- array('I think I used the wrong email',0,'check and fix'),
+ array('I think I used the wrong email',0,'correct e-mail exactly'),
  array('how much is the late cancellation fee',0,'$60'),
  array('how long do I have to use my extra practice',0,'6 months'),
  array('can I get a refund on the car rental for my road test',0,'full refund'),
@@ -60,7 +60,7 @@ $r=SDSC_Helper::answer_id('latefee',0,'fa'); $c($r['found'] && false!==strpos($r
 $r=SDSC_Helper::answer_id('nope',0,'en'); $c(!$r['found'] && false!==strpos($r['html'],'tel:'),'unknown id hands off');
 $oc=get_option(SDSC_Helper::CFG,null); delete_option(SDSC_Helper::CFG);
 $s=SDSC_Helper::suggest('blue banana airplane',0,'en'); $c(!$s['found'] && false!==strpos($s['html'],'sms:+12026000889?&amp;body=blue%20banana%20airplane'),'unknown question: tap-to-text number carries the question');
-$r=SDSC_Helper::answer_id('account',0,'en'); $c(false!==strpos($r['html'],'student-registration') && false!==strpos($r['html'],'same e-mail'),'account step points to the Student Registration page');
+$r=SDSC_Helper::answer_id('account',0,'en'); $c(false!==strpos($r['html'],'Lost your password') && false!==strpos($r['html'],'created for you'),'account step: login is created automatically, student only sets a password');
 $old=get_option(SDSC_Helper::OFF,null); update_option(SDSC_Helper::OFF,array('fees'));
 $m=SDSC_Helper::questions(0,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c(!$has,'switched-off section is not listed for visitors');
 $m=SDSC_Helper::questions(3,'en'); $has=false; foreach($m as $s){foreach($s['items'] as $i){if('latefee'===$i['id']){$has=true;}}} $c($has,'switched-off section is still listed for staff');
